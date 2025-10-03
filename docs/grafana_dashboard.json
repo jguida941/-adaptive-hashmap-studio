@@ -1,0 +1,207 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PROMETHEUS_DS"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "hashmap_load_factor",
+          "legendFormat": "Load Factor",
+          "refId": "A"
+        }
+      ],
+      "title": "Load Factor",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PROMETHEUS_DS"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "hashmap_avg_probe_estimate",
+          "legendFormat": "Avg Probe Distance",
+          "refId": "A"
+        }
+      ],
+      "title": "Probe Distance",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PROMETHEUS_DS"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "hashmap_tombstone_ratio",
+          "legendFormat": "Tombstone Ratio",
+          "refId": "A"
+        }
+      ],
+      "title": "Tombstone Ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PROMETHEUS_DS"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(hashmap_ops_total[1m])",
+          "legendFormat": "Ops/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(hashmap_puts_total[1m])",
+          "legendFormat": "Puts/s",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(hashmap_gets_total[1m])",
+          "legendFormat": "Gets/s",
+          "refId": "C"
+        },
+        {
+          "expr": "rate(hashmap_dels_total[1m])",
+          "legendFormat": "Dels/s",
+          "refId": "D"
+        }
+      ],
+      "title": "Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PROMETHEUS_DS"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 5,
+      "options": {
+        "content": "Guardrail alerts are surfaced via `hashmap_watchdog_alert_active`. Combine with Alertmanager for paging.",
+        "mode": "markdown"
+      },
+      "title": "Alerts",
+      "type": "text"
+    }
+  ],
+  "schemaVersion": 37,
+  "style": "dark",
+  "tags": ["adaptive-hashmap"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Adaptive Hash Map Overview",
+  "version": 1
+}

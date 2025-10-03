@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/adhash/metrics.v1.schema.json",
+  "title": "Adaptive Hash Map Metrics v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "t",
+    "backend",
+    "ops",
+    "load_factor",
+    "latency_ms"
+  ],
+  "properties": {
+    "schema": {
+      "const": "metrics.v1"
+    },
+    "t": {
+      "type": "number",
+      "minimum": 0
+    },
+    "backend": {
+      "type": "string"
+    },
+    "ops": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ops_by_type": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "puts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "gets": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dels": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "migrations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "compactions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "load_factor": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "max_group_len": {
+      "type": "number",
+      "minimum": 0
+    },
+    "avg_probe_estimate": {
+      "type": "number",
+      "minimum": 0
+    },
+    "tombstone_ratio": {
+      "type": "number",
+      "minimum": 0
+    },
+    "probe_hist": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "integer",
+            "minimum": 0
+          },
+          {
+            "type": "integer",
+            "minimum": 0
+          }
+        ],
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "latency_ms": {
+      "type": "object",
+      "required": [
+        "overall"
+      ],
+      "properties": {
+        "overall": {
+          "$ref": "#/definitions/latencyPacket"
+        },
+        "put": {
+          "$ref": "#/definitions/latencyPacket"
+        },
+        "get": {
+          "$ref": "#/definitions/latencyPacket"
+        },
+        "del": {
+          "$ref": "#/definitions/latencyPacket"
+        }
+      },
+      "additionalProperties": true
+    },
+    "latency_ns": {
+      "$ref": "#/definitions/latencyPacket"
+    },
+    "latency_hist_ms": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "le",
+            "count"
+          ],
+          "properties": {
+            "le": {
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "t"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "backend": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "t": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "alerts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "metric",
+          "value",
+          "threshold",
+          "severity"
+        ],
+        "properties": {
+          "metric": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number"
+          },
+          "threshold": {
+            "type": "number"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "backend": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "definitions": {
+    "latencyPacket": {
+      "type": "object",
+      "required": [
+        "p50",
+        "p90",
+        "p99"
+      ],
+      "properties": {
+        "p50": {
+          "type": "number",
+          "minimum": 0
+        },
+        "p90": {
+          "type": "number",
+          "minimum": 0
+        },
+        "p99": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

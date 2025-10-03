@@ -143,6 +143,42 @@
   python hashmap_cli.py verify-snapshot --in snapshots/demo.pkl.gz --repair --out snapshots/demo_fixed.pkl.gz --verbose
   ```
 
+## Phase Command Index *(last verified 2025-10-02)*
+
+Use this rollup to map roadmap phases to the concrete commands we executed. Every entry below links back to the checklist above or supporting automation in the repo.
+
+### Phase 0 – Strategy & Baseline Hardening
+- [x] `make lint` – runs `ruff check .` (quality gate; 2025-10-02)
+- [x] `make type` – runs `mypy .` (type safety; 2025-10-02)
+- [x] `make test` – runs `pytest -q` (unit + CLI contract tests; 2025-10-02)
+- [x] `make smoke` – generates `runs/smoke.csv`, replays it, and validates `runs/metrics.ndjson` (automation sanity; 2025-10-02)
+- [x] `python scripts/validate_metrics_ndjson.py runs/metrics.ndjson` – schema check (invoked by `make smoke`; 2025-10-02)
+
+### Phase 1 – Reliability, Observability & Safety
+- [x] `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --json-summary-out results/json/perf_uniform.json --latency-sample-k 2000 --latency-sample-every 64` (Step 4)
+- [x] `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_skew_adv.csv --compact-interval 2.0 --json-summary-out results/json/perf_skew_adv.json --latency-sample-k 3000 --latency-sample-every 32` (Step 5)
+- [x] `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform_rest.csv --snapshot-in snapshots/state.pkl.gz --json-summary-out results/json/perf_rest.json` (Step 6)
+- [x] `python hashmap_cli.py --mode fast-lookup run-csv --csv data/workloads/w_skew_adv.csv --snapshot-out snapshots/rh_before.pkl.gz --compress` then `compact-snapshot` + `verify-snapshot` (Step 7)
+- [x] `python hashmap_cli.py verify-snapshot --in snapshots/rh_before.pkl.gz --repair --out snapshots/rh_fixed.pkl.gz --verbose` (Step 8)
+- [x] `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_heavy_adv.csv --metrics-port 9100 --json-summary-out results/json/perf_heavy_adv.json --latency-sample-k 4000 --latency-sample-every 16` (Step 10)
+- [x] `python hashmap_cli.py --mode fast-insert run-csv --csv data/workloads/w_uniform.csv --snapshot-out snapshots/chain.pkl.gz --compress` + `verify-snapshot` (Step 12)
+
+### Phase 2 – User Interfaces & Workflow Enhancements
+- [x] `python hashmap_cli.py profile --csv data/workloads/w_uniform.csv` (Step 2)
+- [x] `python hashmap_cli.py profile --csv data/workloads/w_uniform.csv --then get A` (Step 2 follow-up)
+- [x] `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --metrics-port 9090` (Step 3)
+- [x] `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --json-summary-out results/json/perf_uniform.json --latency-sample-k 2000 --latency-sample-every 64` (Step 4, interface verified alongside JSON summary)
+- [ ] `python -m adhash.tui --metrics-endpoint http://127.0.0.1:9090/api/metrics` (interactive TUI with live history panel — run alongside a metrics server; automated coverage: `tests/test_tui_smoke.py`)
+- [ ] `python hashmap_cli.py serve --port 9090 --source runs/metrics.ndjson --follow` (sticky dashboard server fed by NDJSON ticks; sandbox blocks socket bind — see PermissionError noted 2025-10-02)
+- [x] `python -m adhash.batch --spec docs/examples/batch_baseline.toml` (batch runner → Markdown/HTML report + JSON artifacts; ran 2025-10-02, outputs under `reports/` and `results/json/batch_uniform.json`)
+- [ ] `python hashmap_cli.py mission-control` (requires `pip install .[gui]`; launches PyQt6 Mission Control shell)
+- [ ] `curl http://127.0.0.1:9090/api/metrics/histogram/latency | jq '.operations.overall'` (requires serving metrics; schema covered by `tests/test_metrics_endpoints.py`)
+- [ ] `curl http://127.0.0.1:9090/api/metrics/histogram/probe | jq '.buckets'` (requires serving metrics; schema covered by `tests/test_metrics_endpoints.py`)
+- [ ] `curl http://127.0.0.1:9090/api/metrics/heatmap | jq '.rows, .cols, .total'` (requires serving metrics; schema covered by `tests/test_metrics_endpoints.py`)
+- [ ] `ADAPTIVE_MAX_LF_CHAINING=0.55 ADAPTIVE_MAX_GROUP_LEN=2 python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_skew_adv.csv --latency-buckets micro --metrics-port 9090` (verifies sub-ms latency buckets + probe histogram; skip if ports unavailable)
+- [x] `python hashmap_cli.py --mode adaptive items` / `put` / `get` single-shot commands (Step 11)
+- [x] Demo flow (`python hashmap_cli.py generate-csv --outfile data/workloads/demo.csv --ops 80000 --read-ratio 0.7 --key-skew 1.1 --key-space 15000 --seed 1 --adversarial-ratio 0.15 --adversarial-lowbits 7` → `profile` → adaptive `run-csv` on port 9091) (One-shot demo)
+
 ---
 
 *Notes*

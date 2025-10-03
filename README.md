@@ -18,22 +18,81 @@ The toolset covers workload generation, profiling, CSV replays with live metrics
 - `results/json/` – JSON summaries produced by all recorded runs (perf benchmarks, stress tests, dashboard demos).
 - `snapshots/` – serialized map states referenced in the audit (Robin Hood compaction, adaptive resume, etc.).
 - `docs/data_inventory.md` – file tree with per-artifact explanations and which test produced each file.
+- `docs/config.md` – TOML configuration schema and usage instructions.
 
-## Requirements
+## Requirements & Support Policy
 
-- Python 3.9+ (tested with CPython 3.10).
-- POSIX-like shell (macOS/Linux). PowerShell users should replace `\` line continuations with backticks or single-line commands.
-- Local port access when using the built-in metrics dashboard (default ports 9090/9091/9100). If your sandbox restricts binding ports, run the commands with elevated permissions.
+- **Python:** 3.11 or 3.12 (our CI matrix mirrors this; earlier versions are unsupported).
+- **Shell:** POSIX-like (macOS/Linux). PowerShell users should replace `\` line continuations with backticks or run commands on a single line.
+- **Ports:** Local access when using the built-in metrics dashboard (default ports 9090/9091/9100). If your sandbox blocks port binding, run with elevated permissions.
+
+### Release Cadence & Targets
+
+- **Cadence:** Monthly tagged release (or ad hoc for major feature drops) with refreshed `audit.md` artifacts.
+- **Performance guardrail:** Smoke workload (`make smoke`, 2k ops) should stay within ±15% of the recorded baseline (~20k ops/s on Apple M2 Pro, captured 2025-10-01). Regressions must include updated benchmarks.
+- **Non-goals:** Distributed deployment, multi-tenant workload serving, and production-grade dashboard auth. Keep the dashboard bound to localhost or front it with your own proxy if exposure is required.
 
 ## Quick Start
+
+To customise adaptive behaviour, provide a TOML config via `--config` (see [`docs/config.md`](docs/config.md)). Environment variables such as `ADAPTIVE_START_BACKEND` are still honoured but the TOML file is now the canonical format.
+
+```bash
+python hashmap_cli.py config-wizard --outfile config.toml  # interactive generator for config TOML
+python hashmap_cli.py --config config.toml run-csv --csv workload.csv
+```
 
 ```bash
 python hashmap_cli.py -h                       # explore available subcommands
 python hashmap_cli.py --mode adaptive put K V  # single operation using adaptive backend
 python hashmap_cli.py generate-csv --outfile workload.csv --ops 50000 --read-ratio 0.8
 python hashmap_cli.py profile --csv workload.csv
-python hashmap_cli.py --mode adaptive run-csv --csv workload.csv --json-summary-out perf.json
+python hashmap_cli.py --mode adaptive run-csv --csv workload.csv --json-summary-out perf.json --metrics-max-ticks 500
 ```
+
+Need machine-readable output for automation? Add `--json` to emit success envelopes:
+
+```bash
+python hashmap_cli.py --json run-csv --csv workload.csv --dry-run
+```
+
+Need to sanity-check a workload before running it?
+
+```bash
+python hashmap_cli.py run-csv --csv workload.csv --dry-run
+```
+
+## Phase 0–2 Command Index
+
+The upgrade roadmap lives in [`upgrade.md`](upgrade.md). This index summarises the commands verified while completing Phases 0–2; see [`audit.md`](audit.md) and [`oct1_audit.md`](oct1_audit.md) for the full transcripts and artifacts.
+
+### Phase 0 – Strategy & Baseline Hardening
+- `make setup` – bootstrap the dev environment (`pip install -e .[dev]`, run once per clone; requires network access).
+- `make lint` – run `ruff check .` (lint gate).
+- `make type` – run `mypy .` (type gate).
+- `make test` – run `pytest -q` (unit, property, CLI contract, and snapshot tests).
+- `make smoke` – generate `runs/smoke.csv`, replay it with `--metrics-out-dir runs`, and validate `runs/metrics.ndjson`.
+- `python scripts/validate_metrics_ndjson.py runs/metrics.ndjson` – standalone schema validator (also invoked by `make smoke`).
+
+### Phase 1 – Reliability, Observability & Safety
+- `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --json-summary-out results/json/perf_uniform.json --latency-sample-k 2000 --latency-sample-every 64` – baseline JSON summary with latency sampling (Audit Step 4).
+- `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_skew_adv.csv --compact-interval 2.0 --json-summary-out results/json/perf_skew_adv.json --latency-sample-k 3000 --latency-sample-every 32` – proactive compaction tick (Audit Step 5).
+- `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform_rest.csv --snapshot-in snapshots/state.pkl.gz --json-summary-out results/json/perf_rest.json` – resume from adaptive snapshot (Audit Step 6).
+- `python hashmap_cli.py --mode fast-lookup run-csv --csv data/workloads/w_skew_adv.csv --snapshot-out snapshots/rh_before.pkl.gz --compress` → `python hashmap_cli.py compact-snapshot --in snapshots/rh_before.pkl.gz --out snapshots/rh_after.pkl.gz --compress` → `python hashmap_cli.py verify-snapshot --in snapshots/rh_after.pkl.gz --verbose` – Robin Hood offline compaction (Audit Step 7).
+- `python hashmap_cli.py verify-snapshot --in snapshots/rh_before.pkl.gz --repair --out snapshots/rh_fixed.pkl.gz --verbose` – safe repair path (Audit Step 8).
+- `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_heavy_adv.csv --metrics-port 9100 --json-summary-out results/json/perf_heavy_adv.json --latency-sample-k 4000 --latency-sample-every 16` – adversarial stress with live metrics (Audit Step 10).
+- `python hashmap_cli.py --mode fast-insert run-csv --csv data/workloads/w_uniform.csv --snapshot-out snapshots/chain.pkl.gz --compress` → `python hashmap_cli.py verify-snapshot --in snapshots/chain.pkl.gz --verbose` – failure-path coverage (Audit Step 12).
+
+### Phase 2 – User Interfaces & Workflow Enhancements
+- `python hashmap_cli.py profile --csv data/workloads/w_uniform.csv` – quick backend recommendation (Audit Step 2).
+- `python hashmap_cli.py profile --csv data/workloads/w_uniform.csv --then get A` – profile and immediately exercise a lookup (Audit Step 2 follow-up).
+- `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --metrics-port 9090` – Plotly dashboard + Prometheus endpoint (Audit Step 3).
+- `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --json-summary-out results/json/perf_uniform.json --latency-sample-k 2000 --latency-sample-every 64` – JSON summary while the dashboard is live (Audit Step 4).
+- `python hashmap_cli.py --mode adaptive put foo bar` / `get foo` / `items` – one-shot CLI smoke (Audit Step 11).
+- `python -m adhash.tui --metrics-endpoint http://127.0.0.1:9090/api/metrics` – interactive Textual TUI (install with `pip install .[ui]`).
+- `python hashmap_cli.py serve --port 9090 --source runs/metrics.ndjson --follow` – sticky dashboard server fed by NDJSON metrics.
+- `python -m adhash.batch --spec docs/examples/batch_baseline.toml` – batch benchmark runner generating Markdown reports.
+- `python hashmap_cli.py mission-control` – launches the PyQt6 Mission Control shell (install with `pip install .[gui]`).
+- Demo flow: `python hashmap_cli.py generate-csv --outfile data/workloads/demo.csv --ops 80000 --read-ratio 0.7 --key-skew 1.1 --key-space 15000 --seed 1 --adversarial-ratio 0.15 --adversarial-lowbits 7` → `python hashmap_cli.py profile --csv data/workloads/demo.csv` → `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/demo.csv --metrics-port 9091 --json-summary-out results/json/demo_perf.json --latency-sample-k 1500 --latency-sample-every 40 --snapshot-out snapshots/demo.pkl.gz --compress` (Audit One-shot Demo).
 
 ### Metrics Dashboard & Prometheus Endpoint
 
@@ -41,10 +100,58 @@ python hashmap_cli.py --mode adaptive run-csv --csv workload.csv --json-summary-
 python hashmap_cli.py --mode adaptive run-csv --csv workload.csv --metrics-port 9090
 ```
 
-- Dashboard: `http://localhost:9090/`
+- Dashboard: `http://localhost:9090/` (Plotly charts with zoom/pan, histograms/heatmaps, and live alert banners)
 - Metrics: `http://localhost:9090/metrics`
+- Metrics JSON: `http://localhost:9090/api/metrics` (latest tick, powers dashboard/API consumers)
+- Metrics history: `http://localhost:9090/api/metrics/history?limit=100` (recent ticks when retention enabled)
+- Latency histogram (JSON): `http://localhost:9090/api/metrics/histogram/latency`
+- Probe histogram (JSON): `http://localhost:9090/api/metrics/histogram/probe`
+- Key distribution heatmap (JSON): `http://localhost:9090/api/metrics/heatmap`
+- Ultra-fast runs? Add `--latency-buckets micro` to `run-csv` for sub-ms latency bins (pairs well with Textual/Plotly views).
 
-Counters include total ops/puts/gets/dels, migrations, compactions, and gauges for load factor, max chaining group length, average Robin Hood probe distance, plus an identifying backend label.
+Counters include total ops/puts/gets/dels, migrations, compactions, and gauges for load factor, max chaining group length, average Robin Hood probe distance, plus an identifying backend label. The updated dashboard surfaces those metrics alongside throughput, guardrail alerts, latency histograms, probe-length bar charts, and a key-distribution heatmap powered by the new JSON endpoints.
+
+Note: the tombstone ratio plot only populates when the RobinHood backend is active and tombstones exist. Workloads that stay on chaining (or never issue deletes) will keep that series near zero. To exercise the chart, try a workload that forces the adaptive map onto RobinHood (e.g. `runs/audit_w_skew_adv.csv` or any heavy-delete CSV) or run `run-csv` in `--mode fast-lookup` with deletes enabled.
+
+For Prometheus/Grafana setup, import dashboards, and example alert rules, see [`docs/prometheus_grafana.md`](docs/prometheus_grafana.md).
+
+### Terminal TUI (Textual)
+
+Prefer the terminal? Install the optional UI extras and launch the Textual dashboard:
+
+```bash
+pip install .[ui]
+python -m adhash.tui --metrics-endpoint http://127.0.0.1:9090/api/metrics
+```
+
+The TUI polls the JSON endpoint exposed by `hashmap_cli.py --metrics-port …`, summarises backend state, operation counts, guardrail alerts, and latency percentiles, and refreshes every few seconds. Press `r` to force a refresh or `q` to exit.
+Version ≥Phase‑2 adds a rolling history panel that reports recent load-factor samples, throughput (ops/s), and cumulative migrations.
+Recent migration/compaction events are now surfaced as a live list (also available via `http://HOST:PORT/api/events`).
+
+### Batch Benchmark Runner (TOML)
+
+Define suites of workloads in a TOML spec and run them with a single command:
+
+```bash
+python -m adhash.batch --spec docs/examples/batch_baseline.toml
+```
+
+This executes each job sequentially, writes any requested JSON summaries, and produces Markdown (and optional HTML) reports (see [`docs/batch_runner.md`](docs/batch_runner.md)). Specs support `profile` and `run-csv` jobs, latency sampling controls, metrics output directories, and arbitrary extra CLI arguments. Use the generated report to diff throughput/backends across workloads without manually replaying each command.
+
+### Sticky Serve Mode
+
+Keep the dashboard alive independently of a workload run and optionally replay NDJSON metrics:
+
+```bash
+python hashmap_cli.py serve --port 9090 --source runs/metrics.ndjson --follow
+
+# In another shell generate metrics ticks
+python hashmap_cli.py --mode adaptive run-csv \
+  --csv data/workloads/w_uniform.csv \
+  --metrics-out-dir runs
+```
+
+`serve` starts the HTTP dashboard/metrics API and, when `--source` is provided, preloads the NDJSON ticks (schema `metrics.v1`). With `--follow` it tails the file so the dashboard updates while `run-csv` appends new metrics. Skip `--source` to launch an empty dashboard for ad-hoc monitoring; press `Ctrl+C` to stop.
 
 ## Validation Checklist
 
@@ -89,15 +196,23 @@ Snapshots now store a callback-free state. On load (including direct pickle usag
 
 ## Reproducing the Audit
 
-1. Ensure Python 3.9+ is installed and you are in the repository root.
+1. Ensure Python 3.11+ is installed and you are in the repository root.
 2. Run through [`audit.md`](#auditmd), checking each item. The file already lists the commands with proper line continuations.
 3. For steps that bind HTTP ports, run with appropriate privileges if your environment blocks low-numbered or privileged ports.
 4. Verify that CSV/JSON/snapshot outputs match expectations (names are hard-coded in the checklist so results overwrite existing artifacts).
 
+## Testing & Automation
+
+- `pytest -q` – full unit/property/contract suite (includes snapshot and CLI error-envelope coverage).
+- `pytest tests/test_perf_smoke.py -q` – lightweight regression that replays 200 ops and checks throughput plus `metrics.v1` ticks.
+- `make smoke` – generate a small workload, replay it with metrics, and validate the emitted NDJSON via `scripts/validate_metrics_ndjson.py`.
+
+All commands assume you have installed dev dependencies via `make setup` (see [`CONTRIBUTING.md`](CONTRIBUTING.md)).
+
 ## Additional Notes
 
 - Per-op latency reservoirs are on by default whenever `--json-summary-out` is provided; to reduce overhead you can raise `--latency-sample-every` or set `--latency-sample-k 0` to disable sampling.
-- The dashboards rely on `Chart.js` via CDN; require outbound network access if you open them in a browser.
+- The dashboards rely on Plotly via CDN; require outbound network access if you open them in a browser.
 - `compact-snapshot` intentionally refuses non-RobinHood snapshots (as seen in the demo flow) to avoid corrupting incompatible formats.
 
 ### Forcing an Adaptive Migration (to light up the APE chart)
@@ -142,6 +257,17 @@ ADAPTIVE_MAX_LF_CHAINING=0.55 ADAPTIVE_MAX_GROUP_LEN=2 \
 ```
 
 With these overrides the workload triggers migrations immediately. The latest audit captured `results/json/run_stress_big_tuned.json` (600k ops, three migrations, sustained throughput ~43k ops/s). Keep the CLI running while you open `http://localhost:8000/`; you’ll see the backend label toggle and the `ape` chart populate in real time.
+
+Alerts use the same configuration surface. The watchdog emits warnings (log + dashboard banner) when metrics cross guardrails; adjust or disable it via:
+
+```bash
+WATCHDOG_ENABLED=false \
+WATCHDOG_LOAD_FACTOR_WARN=0.95 \
+WATCHDOG_TOMBSTONE_WARN=0.40 \
+  python hashmap_cli.py run-csv --csv workloads/hot.csv --metrics-port 8000
+```
+
+Setting a threshold to `"none"` in a TOML config disables that specific guardrail while keeping the others active.
 
 ## Status & Next Steps
 

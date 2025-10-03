@@ -1,0 +1,143 @@
+# mypy: ignore-errors
+"""Controller glue between widgets and metrics client."""
+
+from __future__ import annotations
+
+from typing import Callable, Optional
+
+from .metrics_client import HttpPoller, MetricsSnapshot
+from .process_manager import ProcessManager
+from .widgets import ConnectionPane, MetricsPane, RunControlPane
+
+try:  # pragma: no cover - only available when PyQt6 is installed
+    from PyQt6.QtCore import QObject, pyqtSignal  # type: ignore[import-not-found]
+except Exception:  # pragma: no cover - headless environments
+    QObject = None  # type: ignore[assignment]
+    pyqtSignal = None  # type: ignore[assignment]
+
+
+if QObject is not None:  # pragma: no cover - requires PyQt6
+    class _UiBridge(QObject):  # type: ignore[misc]
+        call = pyqtSignal(object)
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.call.connect(self._dispatch)  # type: ignore[attr-defined]
+
+        def submit(self, func: Callable[..., None], *args, **kwargs) -> None:
+            self.call.emit((func, args, kwargs))  # type: ignore[attr-defined]
+
+        def _dispatch(self, payload: object) -> None:
+            if not isinstance(payload, tuple):
+                return
+            func, args, kwargs = payload
+            if callable(func):
+                func(*args, **kwargs)
+else:  # pragma: no cover - PyQt6 missing
+    class _UiBridge:
+        def submit(self, func: Callable[..., None], *args, **kwargs) -> None:
+            func(*args, **kwargs)
+
+
+class MissionControlController:
+    def __init__(
+        self,
+        connection: ConnectionPane,
+        metrics: MetricsPane,
+        run_control: RunControlPane,
+        poll_interval: float = 2.0,
+    ) -> None:
+        self._connection = connection
+        self._metrics = metrics
+        self._run_control = run_control
+        self._poll_interval = poll_interval
+        self._poller: Optional[HttpPoller] = None
+        self._process = ProcessManager(self._handle_process_output, self._handle_process_exit)
+        self._ui = _UiBridge()
+
+        self._connection.connect_button.clicked.connect(self._on_connect_clicked)  # type: ignore[attr-defined]
+        self._run_control.start_button.clicked.connect(self._on_run_start)  # type: ignore[attr-defined]
+        self._run_control.stop_button.clicked.connect(self._on_run_stop)  # type: ignore[attr-defined]
+
+    def shutdown(self) -> None:
+        if self._poller:
+            self._poller.stop()
+            self._poller = None
+        self._process.stop()
+
+    def _on_connect_clicked(self) -> None:
+        if self._poller:
+            self._poller.stop()
+            self._poller = None
+            self._connection.status_label.setText("Disconnected")  # type: ignore[attr-defined]
+            self._connection.connect_button.setText("Connect")  # type: ignore[attr-defined]
+            return
+
+        host = self._connection.host_edit.text()  # type: ignore[attr-defined]
+        port_raw = self._connection.port_edit.text()  # type: ignore[attr-defined]
+        try:
+            port = int(port_raw)
+        except ValueError:
+            self._connection.status_label.setText("Invalid port")  # type: ignore[attr-defined]
+            return
+
+        poller = HttpPoller(host, port, interval=self._poll_interval)
+        poller.on_snapshot = self._handle_snapshot
+        poller.on_error = self._handle_error
+        poller.start()
+        self._poller = poller
+        self._connection.status_label.setText("Connected")  # type: ignore[attr-defined]
+        self._connection.connect_button.setText("Disconnect")  # type: ignore[attr-defined]
+
+    def _handle_snapshot(self, snapshot: MetricsSnapshot) -> None:
+        self._ui.submit(self._metrics.update_snapshot, snapshot)
+
+    def _handle_error(self, exc: Exception) -> None:
+        self._ui.submit(self._connection.status_label.setText, f"Error: {exc}")  # type: ignore[attr-defined]
+        self._ui.submit(self._connection.connect_button.setText, "Connect")  # type: ignore[attr-defined]
+        if self._poller:
+            self._poller.stop()
+            self._poller = None
+
+    def _on_run_start(self) -> None:
+        if self._process.is_running():
+            self._run_control.append_log("Process already running")
+            return
+        command_text = self._run_control.command_edit.text()  # type: ignore[attr-defined]
+        command = command_text.strip()
+        if not command:
+            self._run_control.append_log("Enter a command to run.")
+            return
+        try:
+            args = ProcessManager.parse_command(command)
+        except ValueError as exc:
+            self._run_control.append_log(f"Command parse error: {exc}")
+            return
+        if not args:
+            self._run_control.append_log("Command is empty.")
+            return
+        try:
+            self._process.start(args)
+            self._run_control.set_running(True)
+            self._run_control.append_log(f"Started: {' '.join(args)}")
+        except Exception as exc:  # noqa: BLE001
+            self._run_control.append_log(f"Failed to start: {exc}")
+
+    def _on_run_stop(self) -> None:
+        if not self._process.is_running():
+            return
+        self._run_control.append_log("Stopping process…")
+        self._run_control.indicate_stopping()
+        self._process.stop()
+        self._run_control.set_running(False)
+
+    def _handle_process_output(self, line: str) -> None:
+        self._ui.submit(self._run_control.append_log, line)
+
+    def _handle_process_exit(self, code: int) -> None:
+        def _update() -> None:
+            self._run_control.append_log(f"Process exited with code {code}")
+            self._run_control.set_running(False)
+            self._run_control.mark_exit(code)
+
+        self._ui.submit(_update)
