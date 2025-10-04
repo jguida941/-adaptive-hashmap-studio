@@ -12,7 +12,7 @@ lint:
 	ruff check .
 
 type:
-	mypy .
+	mypy src tests
 
 test:
 	pytest -q

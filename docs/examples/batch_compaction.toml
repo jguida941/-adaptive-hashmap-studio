@@ -1,0 +1,18 @@
+[batch]
+hashmap_cli = "../../hashmap_cli.py"
+report = "../../reports/batch_compaction.md"
+html_report = "../../reports/batch_compaction.html"
+
+[[batch.jobs]]
+name = "profile-skew"
+command = "profile"
+csv = "../../data/workloads/w_skew_adv.csv"
+
+[[batch.jobs]]
+name = "run-skew-compaction"
+command = "run-csv"
+csv = "../../data/workloads/w_skew_adv.csv"
+json_summary = "../../results/json/batch_compaction.json"
+latency_sample_k = 3000
+latency_sample_every = 32
+extra_args = ["--compact-interval", "2.0"]

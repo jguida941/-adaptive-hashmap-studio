@@ -1,27 +1,18 @@
 from __future__ import annotations
 
 from collections import deque
-from importlib import util
 from typing import Deque, Dict
-import sys
 
-from pathlib import Path
-
-CLI_PATH = Path(__file__).resolve().parents[1] / "hashmap_cli.py"
-spec = util.spec_from_file_location("hashmap_cli", CLI_PATH)
-assert spec and spec.loader
-cli = util.module_from_spec(spec)
-sys.modules["hashmap_cli"] = cli
-spec.loader.exec_module(cli)  # type: ignore[call-arg]
+from adhash.metrics import Metrics, TICK_SCHEMA, apply_tick_to_metrics
 
 
 def test_apply_tick_to_metrics_updates_counters() -> None:
-    metrics = cli.Metrics()
+    metrics = Metrics()
     history: Deque[Dict[str, object]] = deque(maxlen=3)
     metrics.history_buffer = history
 
     tick = {
-        "schema": "metrics.v1",
+        "schema": TICK_SCHEMA,
         "backend": "adaptive",
         "ops": 256,
         "ops_by_type": {"put": 64, "get": 160, "del": 32},
@@ -39,10 +30,10 @@ def test_apply_tick_to_metrics_updates_counters() -> None:
             ]
         },
         "alerts": [{"metric": "load_factor", "severity": "warning"}],
-        "events": [{"type": "migration", "backend": "robinhood", "t": 12.0}]
+        "events": [{"type": "migration", "backend": "robinhood", "t": 12.0}],
     }
 
-    cli.apply_tick_to_metrics(metrics, tick)
+    apply_tick_to_metrics(metrics, tick)
 
     assert metrics.ops_total == 256
     assert metrics.puts_total == 64

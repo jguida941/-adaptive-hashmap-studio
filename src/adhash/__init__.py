@@ -4,5 +4,7 @@ __all__ = [
     "batch",
     "contracts",
     "io",
+    "core",
+    "metrics",
     "tui",
 ]

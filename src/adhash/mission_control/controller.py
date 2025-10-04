@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 from .metrics_client import HttpPoller, MetricsSnapshot
 from .process_manager import ProcessManager
-from .widgets import ConnectionPane, MetricsPane, RunControlPane
+from .widgets import ConfigEditorPane, ConnectionPane, MetricsPane, RunControlPane
 
 try:  # pragma: no cover - only available when PyQt6 is installed
     from PyQt6.QtCore import QObject, pyqtSignal  # type: ignore[import-not-found]
@@ -45,11 +45,13 @@ class MissionControlController:
         connection: ConnectionPane,
         metrics: MetricsPane,
         run_control: RunControlPane,
+        config_editor: Optional[ConfigEditorPane] = None,
         poll_interval: float = 2.0,
     ) -> None:
         self._connection = connection
         self._metrics = metrics
         self._run_control = run_control
+        self._config_editor = config_editor
         self._poll_interval = poll_interval
         self._poller: Optional[HttpPoller] = None
         self._process = ProcessManager(self._handle_process_output, self._handle_process_exit)
@@ -58,6 +60,13 @@ class MissionControlController:
         self._connection.connect_button.clicked.connect(self._on_connect_clicked)  # type: ignore[attr-defined]
         self._run_control.start_button.clicked.connect(self._on_run_start)  # type: ignore[attr-defined]
         self._run_control.stop_button.clicked.connect(self._on_run_stop)  # type: ignore[attr-defined]
+
+        if self._config_editor is not None:
+            try:
+                self._config_editor.add_config_saved_callback(self._handle_config_saved)
+                self._config_editor.add_config_loaded_callback(self._handle_config_loaded)
+            except AttributeError:
+                pass
 
     def shutdown(self) -> None:
         if self._poller:
@@ -141,3 +150,9 @@ class MissionControlController:
             self._run_control.mark_exit(code)
 
         self._ui.submit(_update)
+
+    def _handle_config_saved(self, path: str) -> None:
+        self._ui.submit(self._run_control.apply_config_path, path)
+
+    def _handle_config_loaded(self, path: str) -> None:
+        self._ui.submit(self._run_control.apply_config_path, path)

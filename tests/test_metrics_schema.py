@@ -3,13 +3,15 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 
+from adhash.metrics import TICK_SCHEMA
+
 SCHEMA = json.loads(Path("src/adhash/contracts/metrics_schema.json").read_text(encoding="utf-8"))
 VALIDATOR = Draft202012Validator(SCHEMA)
 
 
 def test_metrics_v1_minimal_tick_validates() -> None:
     tick = {
-        "schema": "metrics.v1",
+        "schema": TICK_SCHEMA,
         "t": 1.234,
         "backend": "adaptive",
         "ops": 10,
@@ -33,7 +35,7 @@ def test_metrics_v1_minimal_tick_validates() -> None:
 
 def test_metrics_v1_missing_percentile_rejected() -> None:
     tick = {
-        "schema": "metrics.v1",
+        "schema": TICK_SCHEMA,
         "t": 0.0,
         "backend": "adaptive",
         "ops": 0,
@@ -46,7 +48,7 @@ def test_metrics_v1_missing_percentile_rejected() -> None:
 
 def test_metrics_v1_alerts_allowed() -> None:
     tick = {
-        "schema": "metrics.v1",
+        "schema": TICK_SCHEMA,
         "t": 2.5,
         "backend": "adaptive",
         "ops": 128,

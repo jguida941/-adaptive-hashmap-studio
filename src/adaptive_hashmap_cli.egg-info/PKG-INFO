@@ -108,11 +108,12 @@ The upgrade roadmap lives in [`upgrade.md`](upgrade.md). This index summarises t
 ### Phase 2 – User Interfaces & Workflow Enhancements
 - `python hashmap_cli.py profile --csv data/workloads/w_uniform.csv` – quick backend recommendation (Audit Step 2).
 - `python hashmap_cli.py profile --csv data/workloads/w_uniform.csv --then get A` – profile and immediately exercise a lookup (Audit Step 2 follow-up).
-- `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --metrics-port 9090` – Plotly dashboard + Prometheus endpoint (Audit Step 3).
+- `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --metrics-port 9090` – dashboard + Prometheus endpoint (Audit Step 3).
 - `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --json-summary-out results/json/perf_uniform.json --latency-sample-k 2000 --latency-sample-every 64` – JSON summary while the dashboard is live (Audit Step 4).
 - `python hashmap_cli.py --mode adaptive put foo bar` / `get foo` / `items` – one-shot CLI smoke (Audit Step 11).
 - `python -m adhash.tui --metrics-endpoint http://127.0.0.1:9090/api/metrics` – interactive Textual TUI (install with `pip install .[ui]`).
-- `python hashmap_cli.py serve --port 9090 --source runs/metrics.ndjson --follow` – sticky dashboard server fed by NDJSON metrics.
+- `python hashmap_cli.py serve --port 9090 --source runs/metrics.ndjson --follow` – sticky dashboard server fed by NDJSON metrics (now with `/healthz`, `/readyz`, gzip, and optional auth).
+- `python -m adhash.batch --list` – show bundled batch specs (baseline, compaction).
 - `python -m adhash.batch --spec docs/examples/batch_baseline.toml` – batch benchmark runner generating Markdown reports.
 - `python hashmap_cli.py mission-control` – launches the PyQt6 Mission Control shell (install with `pip install .[gui]`).
 - Demo flow: `python hashmap_cli.py generate-csv --outfile data/workloads/demo.csv --ops 80000 --read-ratio 0.7 --key-skew 1.1 --key-space 15000 --seed 1 --adversarial-ratio 0.15 --adversarial-lowbits 7` → `python hashmap_cli.py profile --csv data/workloads/demo.csv` → `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/demo.csv --metrics-port 9091 --json-summary-out results/json/demo_perf.json --latency-sample-k 1500 --latency-sample-every 40 --snapshot-out snapshots/demo.pkl.gz --compress` (Audit One-shot Demo).
@@ -123,13 +124,14 @@ The upgrade roadmap lives in [`upgrade.md`](upgrade.md). This index summarises t
 python hashmap_cli.py --mode adaptive run-csv --csv workload.csv --metrics-port 9090
 ```
 
-- Dashboard: `http://localhost:9090/` (Plotly charts with zoom/pan, histograms/heatmaps, and live alert banners)
+- Dashboard: `http://localhost:9090/` (inline charts—no CDN dependency, works offline)
 - Metrics: `http://localhost:9090/metrics`
 - Metrics JSON: `http://localhost:9090/api/metrics` (latest tick, powers dashboard/API consumers)
 - Metrics history: `http://localhost:9090/api/metrics/history?limit=100` (recent ticks when retention enabled)
 - Latency histogram (JSON): `http://localhost:9090/api/metrics/histogram/latency`
 - Probe histogram (JSON): `http://localhost:9090/api/metrics/histogram/probe`
 - Key distribution heatmap (JSON): `http://localhost:9090/api/metrics/heatmap`
+- Health probes: `http://localhost:9090/healthz`, `http://localhost:9090/readyz`
 - Ultra-fast runs? Add `--latency-buckets micro` to `run-csv` for sub-ms latency bins (pairs well with Textual/Plotly views).
 
 Counters include total ops/puts/gets/dels, migrations, compactions, and gauges for load factor, max chaining group length, average Robin Hood probe distance, plus an identifying backend label. The updated dashboard surfaces those metrics alongside throughput, guardrail alerts, latency histograms, probe-length bar charts, and a key-distribution heatmap powered by the new JSON endpoints.
@@ -137,6 +139,11 @@ Counters include total ops/puts/gets/dels, migrations, compactions, and gauges f
 Note: the tombstone ratio plot only populates when the RobinHood backend is active and tombstones exist. Workloads that stay on chaining (or never issue deletes) will keep that series near zero. To exercise the chart, try a workload that forces the adaptive map onto RobinHood (e.g. `runs/audit_w_skew_adv.csv` or any heavy-delete CSV) or run `run-csv` in `--mode fast-lookup` with deletes enabled.
 
 For Prometheus/Grafana setup, import dashboards, and example alert rules, see [`docs/prometheus_grafana.md`](docs/prometheus_grafana.md).
+
+#### Security & smoothing knobs
+
+- Set `ADHASH_TOKEN=<secret>` before `serve`/`run-csv --metrics-port …` to require `Authorization: Bearer <secret>` on every `/api/*` request (dashboard/Mission Control pick up the token automatically).
+- Set `ADHASH_OPS_ALPHA=0.25` (default) to control the EMA smoothing factor used for ops/sec in both the JSON API and Mission Control charts.
 
 ### Terminal TUI (Textual)
 
@@ -159,7 +166,7 @@ Define suites of workloads in a TOML spec and run them with a single command:
 python -m adhash.batch --spec docs/examples/batch_baseline.toml
 ```
 
-This executes each job sequentially, writes any requested JSON summaries, and produces Markdown (and optional HTML) reports (see [`docs/batch_runner.md`](docs/batch_runner.md)). Specs support `profile` and `run-csv` jobs, latency sampling controls, metrics output directories, and arbitrary extra CLI arguments. Use the generated report to diff throughput/backends across workloads without manually replaying each command.
+This executes each job sequentially, writes any requested JSON summaries, and produces Markdown (and optional HTML) reports (see [`docs/batch_runner.md`](docs/batch_runner.md)). Specs support `profile` and `run-csv` jobs, latency sampling controls, metrics output directories, and arbitrary extra CLI arguments. Use `python -m adhash.batch --list` to discover the bundled specs (`docs/examples/batch_baseline.toml`, `docs/examples/batch_compaction.toml`). Use the generated report to diff throughput/backends across workloads without manually replaying each command.
 
 ### Sticky Serve Mode
 

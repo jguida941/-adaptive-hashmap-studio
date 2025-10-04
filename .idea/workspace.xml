@@ -5,21 +5,59 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e6490e9f-c137-4747-85f8-29bac12e1181" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CONTRIBUTING.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/CONTRIBUTING.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/audit.md" beforeDir="false" afterPath="$PROJECT_DIR$/audit.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/workloads/w_uniform_half.csv" beforeDir="false" afterPath="$PROJECT_DIR$/data/workloads/w_uniform_half.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/data_inventory.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/data_inventory.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SECURITY.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/SECURITY.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Screenshot 2025-10-02 at 9.57.36 PM.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/audit.md" beforeDir="false" afterPath="$PROJECT_DIR$/audits/audit.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/batch_runner.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/batch_runner.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/serve_mode.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/serve_mode.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fuck/Screenshot 2025-10-03 at 8.25.42 AM.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/fuck/Screenshot 2025-10-03 at 8.29.03 AM.png" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/hashmap_cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/hashmap_cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/oct1_audit.md" beforeDir="false" afterPath="$PROJECT_DIR$/audits/oct1_audit.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/reports/batch_baseline.html" beforeDir="false" afterPath="$PROJECT_DIR$/reports/batch_baseline.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/reports/batch_baseline.md" beforeDir="false" afterPath="$PROJECT_DIR$/reports/batch_baseline.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/batch_uniform.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/batch_uniform.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/demo_perf.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/demo_perf.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/oct1_demo_perf.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/oct1_demo_perf.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/oct1_perf_heavy_adv.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/oct1_perf_heavy_adv.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/oct1_perf_rest.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/oct1_perf_rest.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/oct1_perf_skew_adv.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/oct1_perf_skew_adv.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/oct1_perf_uniform.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/oct1_perf_uniform.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/perf_heavy_adv.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_heavy_adv.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/results/json/perf_rest.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_rest.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/results/json/perf_skew_adv.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_skew_adv.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/results/json/perf_uniform.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_uniform.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/run_hot.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/run_hot.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/run_hot_lowthresh.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/run_hot_lowthresh.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/run_hot_tiny.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/run_hot_tiny.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/results/json/run_stress.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/run_stress.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/results/json/run_stress_big_tuned.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/run_stress_big_tuned.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/snapshots/chain.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/chain.pkl.gz" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/snapshots/demo.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/demo.pkl.gz" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/snapshots/oct1_demo.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/oct1_demo.pkl.gz" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/snapshots/rh_after.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/rh_after.pkl.gz" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/snapshots/rh_before.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/rh_before.pkl.gz" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/snapshots/rh_fixed.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/rh_fixed.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/state.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/state.pkl.gz" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adaptive_hashmap_cli.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/src/adaptive_hashmap_cli.egg-info/PKG-INFO" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/batch/__main__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/batch/__main__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/batch/runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/batch/runner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/io/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/io/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/layout.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/layout.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/metrics_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/metrics_client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/widgets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/tui/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/tui/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_dashboard_assets.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_dashboard_assets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_metrics_apply.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_metrics_apply.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_metrics_endpoints.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_metrics_endpoints.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_metrics_schema.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_metrics_schema.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_perf_smoke.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_perf_smoke.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/upgrade.md" beforeDir="false" afterPath="$PROJECT_DIR$/upgrade.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -46,24 +84,34 @@
     <option name="sortByType" value="true" />
     <option name="sortKey" value="BY_TYPE" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.__main__.executor": "Run",
+    "Python.app.executor": "Run",
+    "Python.hashmap_cli.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/audits" />
       <recent name="$PROJECT_DIR$/docs" />
+      <recent name="$PROJECT_DIR$/.github" />
+      <recent name="$PROJECT_DIR$/fuck" />
     </key>
   </component>
   <component name="SharedIndexes">
@@ -88,10 +136,18 @@
       <workItem from="1759383312402" duration="60000" />
       <workItem from="1759385508649" duration="7902000" />
       <workItem from="1759437947918" duration="16775000" />
+      <workItem from="1759455508602" duration="8801000" />
+      <workItem from="1759464328019" duration="10778000" />
+      <workItem from="1759483291289" duration="34836000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$__main__.coverage" NAME="__main__ Coverage Results" MODIFIED="1759507131629" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/adhash/mission_control" />
+    <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$app.coverage" NAME="app Coverage Results" MODIFIED="1759507122460" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/adhash/mission_control" />
+    <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$hashmap_cli.coverage" NAME="hashmap_cli Coverage Results" MODIFIED="1759478913799" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

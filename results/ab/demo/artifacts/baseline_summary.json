@@ -1,0 +1,37 @@
+{
+  "elapsed_seconds": 27.404799208015902,
+  "total_ops": 80000,
+  "ops_per_second": 2919.1967214487017,
+  "final_backend": "chaining",
+  "migrations_triggered": 0,
+  "compactions_triggered": 0,
+  "latency_ms": {
+    "overall": {
+      "p50": 0.0007080088835209608,
+      "p90": 1.497125020250678,
+      "p99": 1.5377500094473362
+    },
+    "put": {
+      "p50": 1.4732499839738011,
+      "p90": 1.516959018772468,
+      "p99": 1.5613329887855798
+    },
+    "get": {
+      "p50": 0.0005839974619448185,
+      "p90": 0.0009999785106629133,
+      "p99": 0.0013750104699283838
+    },
+    "del": {
+      "p50": 1.4574580127373338,
+      "p90": 1.5249589923769236,
+      "p99": 1.5451250073965639
+    }
+  },
+  "latency_sample": {
+    "reservoir_k_overall": 1000,
+    "reservoir_k_each": 333,
+    "seen_overall": 625,
+    "every_n_ops": 128
+  },
+  "latency_histogram_preset": "default"
+}

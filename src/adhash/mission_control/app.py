@@ -12,15 +12,14 @@ from __future__ import annotations
 from typing import Optional, Sequence, Any, cast
 
 from . import widgets
-from .controller import MissionControlController
-from .layout import create_dock
+from .builders import build_app as _build_app, build_controller, build_widgets, build_window
 
 _QT_IMPORT_ERROR: Optional[Exception] = None
 
 try:  # pragma: no cover - only executed when PyQt6 is installed
     from PyQt6.QtWidgets import QApplication, QMainWindow  # type: ignore[import-not-found]
-    from PyQt6.QtCore import Qt  # type: ignore[import-not-found]
-    from PyQt6.QtGui import QPalette, QColor  # type: ignore[import-not-found]
+    from PyQt6.QtCore import Qt, QTimer  # type: ignore[import-not-found]
+    from PyQt6.QtGui import QPalette, QColor, QLinearGradient, QBrush  # type: ignore[import-not-found]
 except Exception as exc:  # pragma: no cover - most environments won't have PyQt6
     _QT_IMPORT_ERROR = exc
     QApplication = cast(Any, object)
@@ -28,12 +27,19 @@ except Exception as exc:  # pragma: no cover - most environments won't have PyQt
     Qt = None  # type: ignore[assignment]
     QPalette = cast(Any, object)
     QColor = cast(Any, object)
+    QTimer = cast(Any, None)
+    QLinearGradient = cast(Any, object)
+    QBrush = cast(Any, object)
 
 if Qt is not None:  # pragma: no cover - only when PyQt6 is present
     class MissionControlWindow(QMainWindow):  # type: ignore[misc]
         def __init__(self) -> None:
             super().__init__()
             self._controller: Optional["MissionControlController"] = None
+            self._gradient_angle = 0
+            self._gradient_timer: Optional[QTimer] = None
+            self.setAutoFillBackground(True)
+            self._install_gradient()
 
         def set_controller(self, controller: "MissionControlController") -> None:
             self._controller = controller
@@ -41,7 +47,40 @@ if Qt is not None:  # pragma: no cover - only when PyQt6 is present
         def closeEvent(self, event) -> None:  # type: ignore[override]
             if self._controller is not None:
                 self._controller.shutdown()
+            if self._gradient_timer is not None:
+                self._gradient_timer.stop()
+                self._gradient_timer.deleteLater()
             super().closeEvent(event)
+
+        def resizeEvent(self, event) -> None:  # type: ignore[override]
+            super().resizeEvent(event)
+            self._update_gradient()
+
+        def _install_gradient(self) -> None:
+            if QTimer is None:
+                return
+            self._gradient_timer = QTimer(self)
+            self._gradient_timer.setInterval(60)
+            self._gradient_timer.timeout.connect(self._advance_gradient)  # type: ignore[attr-defined]
+            self._gradient_timer.start()
+            self._update_gradient()
+
+        def _advance_gradient(self) -> None:
+            self._gradient_angle = (self._gradient_angle + 2) % 360
+            self._update_gradient()
+
+        def _update_gradient(self) -> None:
+            if Qt is None:
+                return
+            width = max(self.width(), 1)
+            height = max(self.height(), 1)
+            grad = QLinearGradient(0, 0, width, height)
+            grad.setColorAt(0, QColor.fromHsv(self._gradient_angle, 180, 60))
+            grad.setColorAt(0.5, QColor.fromHsv((self._gradient_angle + 45) % 360, 160, 80))
+            grad.setColorAt(1, QColor.fromHsv((self._gradient_angle + 120) % 360, 180, 40))
+            palette = self.palette()
+            palette.setBrush(QPalette.ColorRole.Window, QBrush(grad))
+            self.setPalette(palette)
 else:  # pragma: no cover - PyQt6 missing
     MissionControlWindow = cast(Any, object)
 
@@ -54,7 +93,7 @@ def _require_qt() -> None:
 
 
 def _create_app(argv: Sequence[str] | None) -> QApplication:
-    app = QApplication(list(argv) if argv is not None else [])  # type: ignore[call-arg]
+    app = _build_app(argv)
     if Qt is not None:
         _apply_futuristic_theme(app)
     return app
@@ -138,33 +177,39 @@ def _apply_futuristic_theme(app: QApplication) -> None:
             color: #666A73;
             border: 2px solid #1B1B1B;
         }
-        QGroupBox {
-            border: 1px solid #2D2D2D;
-            border-radius: 10px;
-            margin-top: 18px;
-            padding-top: 12px;
-            font-weight: 600;
-            background: rgba(18, 18, 32, 0.82);
+        QWidget#missionPane {
+            border: 1px solid #1F2A33;
+            border-radius: 16px;
+            background: qradialgradient(
+                cx:0.3, cy:0.2, radius:1.2,
+                stop:0 rgba(32, 47, 65, 0.32),
+                stop:1 rgba(12, 16, 24, 0.85)
+            );
+            margin-top: 0;
         }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            subcontrol-position: top left;
-            padding: 0 12px;
-            color: #00FFAA;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        QWidget#missionPane[paneKind="run"] {
+            border-color: #27384A;
+        }
+        QWidget#missionPane[paneKind="metrics"] {
+            border-color: #352D5C;
+        }
+        QWidget#missionPane[paneKind="config"] {
+            border-color: #1F2A40;
         }
         QDockWidget {
             titlebar-close-icon: url(none);
             titlebar-normal-icon: url(none);
         }
-        QDockWidget::title {
-            background: #161623;
-            padding: 6px 12px;
-            border-bottom: 1px solid #25253A;
+        QWidget#dockTitleBar {
+            background: transparent;
+            border-bottom: 1px solid rgba(31, 42, 51, 0.6);
+        }
+        QLabel#dockGrip {
+            color: #2D3D4F;
+            font-size: 16px;
+        }
+        QLabel#dockGrip:hover {
             color: #00FFAA;
-            font-weight: 600;
-            letter-spacing: 0.8px;
         }
         QScrollBar:vertical {
             background: #1E1E1E;
@@ -194,6 +239,28 @@ def _apply_futuristic_theme(app: QApplication) -> None:
         QLabel#connectionStatus[statusKind="error"] {
             color: #FF6B6B;
         }
+        QLabel#configBindingLabel {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        QLabel#configBindingLabel[statusKind="connected"] {
+            color: #00FFAA;
+        }
+        QLabel#paneHeading {
+            color: #00FFAA;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        QLabel#histStatusLabel {
+            color: #64748b;
+            font-style: italic;
+            padding: 4px 0;
+        }
+        QWidget#missionPane QPushButton {
+            border-radius: 6px;
+        }
         QLabel#statusLabel {
             font-weight: 600;
         }
@@ -222,6 +289,37 @@ def _apply_futuristic_theme(app: QApplication) -> None:
             padding: 8px;
             background: #141414;
         }
+        QWidget#opsPlot, QWidget#loadPlot, QWidget#latencyPlot, QWidget#probePlot, QWidget#heatmapPlot {
+            border: 1px solid #2D2D2D;
+            border-radius: 12px;
+            background-color: #11141d;
+        }
+        QTabWidget#metricsTabs::pane {
+            border: 1px solid #1F2A33;
+            border-radius: 12px;
+            margin-top: 6px;
+            background: #0F172A;
+        }
+        QTabWidget#metricsTabs::tab-bar {
+            left: 12px;
+        }
+        QTabBar::tab {
+            background: #11141d;
+            color: #94a3b8;
+            padding: 6px 12px;
+            border: 1px solid #1F2937;
+            border-bottom: none;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            margin-right: 6px;
+        }
+        QTabBar::tab:selected {
+            color: #00FFAA;
+            border-color: #00FFAA;
+        }
+        QTabBar::tab:hover {
+            color: #38BDF8;
+        }
         QToolTip {
             background-color: #1F1F1F;
             color: #EEEEEE;
@@ -232,32 +330,10 @@ def _apply_futuristic_theme(app: QApplication) -> None:
 
 
 def _create_window() -> QMainWindow:
-    if Qt is not None:
-        window = MissionControlWindow()  # type: ignore[call-arg]
-    else:
-        window = QMainWindow()  # type: ignore[call-arg]
+    connection, run_control, config_editor, metrics = build_widgets()
+    controller = build_controller(connection, run_control, config_editor, metrics)
+    window = build_window(controller, connection, run_control, config_editor, metrics)
     window.setWindowTitle("Adaptive Hash Map – Mission Control")
-    window.resize(1280, 720)
-
-    connection = widgets.ConnectionPane(window)  # type: ignore[call-arg]
-    run_control = widgets.RunControlPane(window)  # type: ignore[call-arg]
-    metrics = widgets.MetricsPane(window)  # type: ignore[call-arg]
-
-    controller = MissionControlController(connection, metrics, run_control)
-
-    if Qt is not None:
-        window.set_controller(controller)  # type: ignore[attr-defined]
-        window.setObjectName("missionWindow")
-        window.setCentralWidget(metrics)  # type: ignore[call-arg]
-        dock_connection = create_dock("Connection", connection, Qt.DockWidgetArea.LeftDockWidgetArea)  # type: ignore[attr-defined]
-        dock_run_control = create_dock("Run Control", run_control, Qt.DockWidgetArea.LeftDockWidgetArea)  # type: ignore[attr-defined]
-        window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock_connection)  # type: ignore[attr-defined]
-        window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock_run_control)  # type: ignore[attr-defined]
-        dock_run_control.setFeatures(dock_run_control.features() & ~dock_run_control.DockWidgetFeature.DockWidgetClosable)  # type: ignore[attr-defined]
-    else:
-        window.setCentralWidget(metrics)  # type: ignore[call-arg]
-        setattr(window, "_controller", controller)
-
     return window
 
 

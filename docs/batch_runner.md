@@ -52,11 +52,24 @@ latency_sample_every = 64
 python -m adhash.batch --spec docs/examples/batch_baseline.toml
 ```
 
+To discover bundled examples:
+
+```bash
+python -m adhash.batch --list
+```
+
+The repository currently ships `docs/examples/batch_baseline.toml` and
+`docs/examples/batch_compaction.toml`. Copy one of these files and tweak the
+paths to build a custom suite.
+
 After completion the configured report path (in the example
 `reports/batch_baseline.md`) contains a Markdown table summarising each job along
-with a log appendix. If `html_report` is set an HTML version is emitted in the
-same run. JSON summaries or metrics outputs requested in the spec are produced
-alongside the report.
+with a log appendix. Reports now include a **Comparative Summary** section that
+pulls `ops_per_second` and latency metrics from the generated JSON summaries and
+highlights the relative delta versus the fastest job. The HTML variant also embeds
+a horizontal bar visualisation for quick scanning. If `html_report` is set an HTML
+version is emitted in the same run. JSON summaries or metrics outputs requested in
+the spec are produced alongside the report.
 
 ## Tips
 

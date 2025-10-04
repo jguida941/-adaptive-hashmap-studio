@@ -60,8 +60,37 @@ Goal: deepen runtime visibility, harden I/O paths, and protect data integrity.
 - Add watchdog alerts: threshold-based notifications (CLI log + dashboard highlight) when load factor/probe length/tombstone ratio crosses configured limits.  - **Status:** Completed — guardrail config + log/banner alerts shipped.
 - Integrate Prometheus exporters, Grafana dashboards, and alert rules; document setup.  - **Status:** Completed — see `docs/prometheus_grafana.md` (scrape config, alert rules) and `docs/grafana_dashboard.json` for an importable overview dashboard.
 - Instrument performance regression tests; capture baseline throughput/latency in CI (small workloads) and compare with tolerances.  - **Status:** Completed — `tests/test_perf_smoke.py` executes a 200-op replay, asserts ops/s > 0, and validates metrics.ndjson against `metrics.v1`.
-
   - Stretch targets: embed 3D visualisations (e.g., load-factor surfaces), integrate with notebooks via Qt widgets, allow local/offline use without the HTTP server.
+
+
+### Phase 2 – User Interfaces & Workflow Enhancements
+Goal: deliver polished interactive experiences for both terminal and browser users.
+- Replace static Chart.js dashboard with interactive charts (Plotly, ECharts, or D3) featuring zoom/pan, tooltips, multi-series overlays, theming, and adjustable polling intervals.
+- Expose new dashboard panels: latency histograms, probe-length bar charts, key-distribution heatmaps, migration/compaction timeline, alert banners.
+- Publish REST endpoints for histogram/heatmap data to avoid parsing Prometheus text.
+- Build a TUI (`textual`, `urwid`, or `rich`) showing real-time metrics, alerts, and backend status for environments without browsers.
+- Add batch benchmark runner accepting YAML/TOML specs; execute multiple workloads/backends, aggregate stats, and emit Markdown/HTML/PDF reports with charts.
+- Offer configuration UI (CLI wizard or web form) to adjust adaptive thresholds and workload definitions without editing files.
+- Provide `--serve` / sticky server mode to decouple metrics dashboard lifecycle from CSV runs, and optionally persistence/replay of metric history.
+- **Mission Control (PyQt6):** desktop app to configure runs, launch `run-csv`, and visualise `/api/metrics` in real time (pyqtgraph plots, latency histograms, probe-length distribution, migration/compaction timeline) with a live log viewer.
+- **A/B Live Comparison:** run two configurations side-by-side with synchronized charts, automatic config diffs, and statistical significance badges for latency/throughput comparisons.
+- **Benchmark Suite Manager:** GUI for defining benchmark suites (YAML/TOML), executing batch runs, browsing historical results, and generating comparison reports/plots.
+- **Workload DNA Analyzer:** pre-run inspection of CSV workloads (ratios, skew, collision potential) feeding Mission Control and predictors.
+- **Visual Config Editor & Snapshot Inspector:** schema-driven editor for `config.toml` plus a snapshot browser for `.pkl.gz` files (metadata, key search/filter).
+- Build a rich PyQt6 analytics dashboard (desktop app) replicating and exceeding browser features: multi-chart layout, interactive drill-down, historical replay, advanced filtering, scientific plotting (FFT on latency, scatter/correlation plots), configurable alerts, notebook export.
+  - Stretch targets: embed 3D visualisations (e.g., load-factor surfaces), integrate with notebooks via Qt widgets, allow local/offline use without the HTTP server.
+
+#### Phase 2 – Immediate Next Actions (Oct 3, 2025)
+- Harden the metrics REST surface: finish `histogram`, `heatmap`, and latency percentile endpoints in `src/adhash/metrics/server.py`, add schema fixtures, and extend `tests/test_metrics_endpoints.py` to cover new payloads.
+- Upgrade the dashboard frontend (`adhash/dashboard/`) to consume the new endpoints: add latency histogram + probe-length charts, timeline annotations for migrations/compactions, and wire in adjustable polling intervals. ✅ Timeline markers + polling selector wired Oct 3 2025; remaining work: expose migration timeline in UI log.
+- Expand the batch runner into a suite manager: ingest multi-run specs, capture comparative summaries, and emit Markdown/HTML bundles with chart embeds for Phase 2 demos. ✅ Comparative summary tables + inline HTML bars landed Oct 3 2025.
+- Ship a config editor toolkit: reuse the wizard schema to drive an interactive CLI/editor module plus Mission Control panel for editing `config.toml` and storing presets. ✅ CLI + Mission Control editors landed Oct 4 2025 (preset manager + shared validation).
+- Prototype the A/B comparison harness: orchestrate paired `run-csv` executions, align metrics streams, calculate significance (p99 latency ± throughput deltas), and surface results in both the dashboard and Mission Control. ✅ `ab-compare` CLI + `serve --compare` summary landed Oct 4 2025 (ops/latency deltas + timeline export).
+- Stickier serve mode follow-ups – Now that markers/log persistence is in place, add any remaining UX polish (e.g., richer event details or timeline export). ✅ Timeline CSV export + dashboard comparison strip landed Oct 4 2025.
+- Convert the PyQt6 Mission Control spike into a modular app: factor controllers/views under `src/adhash/mission_control/`, add smoke tests that use the off-screen auto-quit hook, and document headless validation steps in `docs/command_audit.md`. ✅ Builders + controller wiring landed Oct 4 2025; headless Qt test exercises widget/controller assemblers.
+
+➡️ **Current focus moves to Phase 3 – Deployment & Integration (Docker packaging, CI, Helm charts). Pending bullets below remain untouched until we finish those deliverables.**
+
 
 ### Phase 3 – Deployment & Integration
 Goal: make the project consumable in production pipelines and external systems.

@@ -8,25 +8,33 @@ import math
 import socket
 from datetime import datetime
 from itertools import pairwise
-from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, cast
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from adhash.metrics import TICK_SCHEMA
+
 _TEXTUAL_ERR: Optional[Exception] = None
-try:  # pragma: no cover - import guarded for environments without Textual
-    from textual.app import App, ComposeResult  # type: ignore[import-not-found]
-    from textual.binding import Binding  # type: ignore[import-not-found]
-    from textual.reactive import reactive  # type: ignore[import-not-found]
-    from textual.widgets import Footer, Header, Static  # type: ignore[import-not-found]
-except ImportError as exc:  # pragma: no cover
-    _TEXTUAL_ERR = exc
-    App = cast(Any, object)
-    ComposeResult = cast(Any, object)
-    Binding = cast(Any, object)
-    reactive = cast(Any, lambda default: default)
-    Footer = cast(Any, object)
-    Header = cast(Any, object)
-    Static = cast(Any, object)
+if TYPE_CHECKING:  # pragma: no cover - only for static analysis
+    from textual.app import App as AppBase, ComposeResult
+    from textual.binding import Binding
+    from textual.reactive import reactive
+    from textual.widgets import Footer, Header, Static
+else:  # pragma: no cover - guarded runtime import
+    try:
+        from textual.app import App as AppBase, ComposeResult  # type: ignore[import-not-found]
+        from textual.binding import Binding  # type: ignore[import-not-found]
+        from textual.reactive import reactive  # type: ignore[import-not-found]
+        from textual.widgets import Footer, Header, Static  # type: ignore[import-not-found]
+    except Exception as exc:  # pragma: no cover
+        _TEXTUAL_ERR = exc
+        AppBase = cast(Any, object)
+        ComposeResult = cast(Any, object)
+        Binding = cast(Any, object)
+        reactive = cast(Any, lambda default=None: default)
+        Footer = cast(Any, object)
+        Header = cast(Any, object)
+        Static = cast(Any, object)
 
 
 def fetch_metrics(endpoint: str, timeout: float = 1.0) -> Optional[Dict[str, Any]]:
@@ -160,7 +168,7 @@ def _format_history(history: Iterable[Dict[str, Any]]) -> str:
 
 
 if _TEXTUAL_ERR is None:
-    class AdaptiveMetricsApp(App[None]):
+    class AdaptiveMetricsApp(AppBase[None]):
         """Minimal Textual application that polls and renders Adaptive Hash Map metrics."""
 
         latest_tick: reactive[Optional[Dict[str, Any]]] = reactive(None)
@@ -245,7 +253,7 @@ if _TEXTUAL_ERR is None:
             tick = await loop.run_in_executor(None, _load)
             if tick is None:
                 return None, None, None
-            if tick.get("schema") not in {None, "metrics.v1"}:
+            if tick.get("schema") not in {None, TICK_SCHEMA}:
                 return None, None, f"Unsupported schema: {tick.get('schema')}"
 
             history_data: Optional[List[Dict[str, Any]]] = None

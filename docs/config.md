@@ -6,6 +6,21 @@ environment variables. Pass `--config path/to/config.toml` to `hashmap_cli.py` (
 an interactive workflow? Run `python hashmap_cli.py config-wizard --outfile config.toml` and
 follow the prompts to generate a ready-to-use file.
 
+Prefer to start from an existing file? `python hashmap_cli.py config-edit --infile config.toml`
+reuses the same schema as the wizard, pre-populating each prompt with the current values.
+While editing you can:
+
+- pass `--apply-preset demo` to start from a saved preset (`~/.adhash/presets` by default)
+- write changes to another destination with `--outfile new-config.toml`
+- save the updated values as a preset via `--save-preset production-baseline`
+
+Presets are stored under `$ADHASH_PRESETS_DIR` when set, otherwise `~/.adhash/presets`. Each
+preset is just a TOML file, so you can commit or inspect them like any other configuration.
+
+Mission Control now exposes the same editor as a dedicated **Config** tab. Save or load a file
+there and the Run Command panel automatically injects `--config <path>` so subsequent launches
+reuse your tweaks.
+
 ```toml
 [adaptive]
 start_backend = "chaining"        # "chaining" or "robinhood"

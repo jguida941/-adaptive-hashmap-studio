@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from adhash.metrics import TICK_SCHEMA
+
 
 CLI = [sys.executable, "hashmap_cli.py"]
 
@@ -64,4 +66,60 @@ def test_run_csv_perf_smoke(tmp_path: Path) -> None:
     ndjson = (metrics_dir / "metrics.ndjson").read_text(encoding="utf-8").strip().splitlines()
     assert ndjson, "metrics.ndjson should not be empty"
     first_tick = json.loads(ndjson[0])
-    assert first_tick.get("schema") == "metrics.v1"
+    assert first_tick.get("schema") == TICK_SCHEMA
+
+
+def test_run_csv_emits_histograms_without_summary(tmp_path: Path) -> None:
+    workload = tmp_path / "histogram.csv"
+    metrics_dir = tmp_path / "metrics"
+
+    run(
+        CLI
+        + [
+            "generate-csv",
+            "--outfile",
+            str(workload),
+            "--ops",
+            "400",
+            "--read-ratio",
+            "0.5",
+            "--key-skew",
+            "0.4",
+            "--key-space",
+            "256",
+            "--seed",
+            "99",
+        ]
+    )
+
+    completed = run(
+        CLI
+        + [
+            "--mode",
+            "fast-lookup",
+            "run-csv",
+            "--csv",
+            str(workload),
+            "--metrics-out-dir",
+            str(metrics_dir),
+            "--metrics-max-ticks",
+            "32",
+            "--latency-sample-k",
+            "128",
+            "--latency-sample-every",
+            "8",
+        ]
+    )
+    assert completed.returncode == 0
+
+    ndjson_path = metrics_dir / "metrics.ndjson"
+    ticks = [json.loads(line) for line in ndjson_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert ticks, "expected metrics ticks"
+
+    hist_tick = next((tick for tick in reversed(ticks) if tick.get("latency_hist_ms")), None)
+    assert hist_tick is not None, "latency histogram never emitted"
+    overall_hist = hist_tick["latency_hist_ms"].get("overall", [])
+    assert overall_hist, "overall latency histogram is empty"
+
+    probe_hist = hist_tick.get("probe_hist", [])
+    assert probe_hist, "probe histogram should not be empty for fast-lookup mode"

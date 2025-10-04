@@ -186,16 +186,31 @@ class BatchRunner:
 
     def _write_report(self, results: Iterable[JobResult]) -> None:
         lines = ["# Adaptive Hash Map Batch Report", "", f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}", ""]
+
+        metrics_summary = []
+
         rows = ["| Job | Command | Status | Duration (s) | Ops/s | Backend |", "|---|---|---|---:|---:|---|"]
         for result in results:
             status = "✅" if result.exit_code == 0 else "❌"
             summary = result.summary or {}
             ops_per_second = summary.get("ops_per_second") or summary.get("throughput_ops_per_sec")
             backend = summary.get("final_backend") or summary.get("backend") or "-"
+            latency_overall = summary.get("latency_ms", {}).get("overall", {}) if isinstance(summary.get("latency_ms"), dict) else {}
+            latency_p99 = latency_overall.get("p99") if isinstance(latency_overall, dict) else None
             if isinstance(ops_per_second, (int, float)):
                 ops_fmt = f"{ops_per_second:,.0f}"
             else:
                 ops_fmt = "-"
+            if isinstance(ops_per_second, (int, float)):
+                metrics_summary.append(
+                    {
+                        "name": result.spec.name,
+                        "ops": ops_per_second,
+                        "duration": result.duration_seconds,
+                        "backend": backend,
+                        "p99": latency_p99 if isinstance(latency_p99, (int, float)) else None,
+                    }
+                )
             rows.append(
                 "| {name} | {command} | {status} | {dur:.2f} | {ops} | {backend} |".format(
                     name=result.spec.name,
@@ -209,6 +224,39 @@ class BatchRunner:
 
         lines.extend(rows)
         lines.append("")
+
+        if metrics_summary:
+            lines.append("## Comparative Summary")
+            lines.append("")
+            lines.append("| Job | Ops/s | Δ vs. max | p99 latency (ms) |")
+            lines.append("|---|---:|---:|---:|")
+            best_ops = max(item["ops"] for item in metrics_summary)
+            for item in sorted(metrics_summary, key=lambda data: data["ops"], reverse=True):
+                delta = 0.0
+                if best_ops > 0:
+                    delta = (item["ops"] - best_ops) / best_ops * 100
+                delta_fmt = "0.0%" if abs(delta) < 0.05 else f"{delta:+.1f}%"
+                p99_fmt = f"{item['p99']:.3f}" if isinstance(item["p99"], (int, float)) else "-"
+                lines.append(
+                    "| {name} | {ops:,.0f} | {delta} | {p99} |".format(
+                        name=item["name"],
+                        ops=item["ops"],
+                        delta=delta_fmt,
+                        p99=p99_fmt,
+                    )
+                )
+            lines.append("")
+            lines.append('<div class="ops-chart">')
+            for item in sorted(metrics_summary, key=lambda data: data["ops"], reverse=True):
+                width = 0 if best_ops <= 0 else min(100, (item["ops"] / best_ops) * 100)
+                lines.append(
+                    f'<div class="ops-bar"><span class="ops-label">{item["name"]}</span>'
+                    f'<div class="ops-track"><div class="ops-fill" style="width:{width:.1f}%"></div></div>'
+                    f'<span class="ops-value">{item["ops"]:,.0f} ops/s</span></div>'
+                )
+            lines.append('</div>')
+            lines.append("")
+
         lines.append("## Job Logs")
         for result in results:
             lines.append(f"### {result.spec.name}")
@@ -287,9 +335,15 @@ class BatchRunner:
 
         html_body = "\n".join(body_lines)
         return (
-            "<!DOCTYPE html><html><head><meta charset='utf-8'/><title>Adaptive Hash Map Batch Report"\
+            "<!DOCTYPE html><html><head><meta charset='utf-8'/><title>Adaptive Hash Map Batch Report"
             "</title><style>body{font-family:system-ui,Arial,sans-serif;margin:24px;}table{border-collapse:collapse;margin:16px 0;}"
             "td,th{border:1px solid #cbd5f5;padding:6px 10px;}pre{background:#111827;color:#e5e7eb;padding:12px;border-radius:8px;}"
+            ".ops-chart{margin:12px 0;display:flex;flex-direction:column;gap:8px;}"
+            ".ops-bar{display:flex;align-items:center;gap:12px;font-size:13px;}"
+            ".ops-label{flex:0 0 140px;font-weight:600;color:#0f172a;}"
+            ".ops-track{flex:1;border:1px solid #cbd5f5;border-radius:6px;height:12px;overflow:hidden;background:#f2f6ff;}"
+            ".ops-fill{height:100%;background:linear-gradient(90deg,#38bdf8,#0f172a);}"
+            ".ops-value{width:120px;text-align:right;color:#0f172a;font-variant-numeric:tabular-nums;}"
             "</style></head><body>" + html_body + "</body></html>"
         )
 
