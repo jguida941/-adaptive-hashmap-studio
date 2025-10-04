@@ -12,9 +12,10 @@ import re
 import tomllib
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-from .config import AppConfig, AdaptivePolicy, WatchdogPolicy
+from .config import AppConfig
+from .config_models import AppConfigSchema
 from .contracts.error import BadInputError
 
 
@@ -177,10 +178,9 @@ def _parse_value(spec: FieldSpec, raw: str, current: Any) -> Any:
         return value
     if kind == "float":
         try:
-            value = float(text)
+            return float(text)
         except ValueError as exc:
             raise BadInputError("Enter a numeric value") from exc
-        return value
     if kind == "optional_float":
         lowered = text.lower()
         if lowered in {"none", "null", "off", "disabled"}:
@@ -301,6 +301,30 @@ def load_preset(name: str, presets_dir: Path) -> AppConfig:
     return load_config_document(path)
 
 
+def validate_preset_file(path: Path) -> AppConfigSchema:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise ValueError(f"Preset file not found: {path}") from exc
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError(f"Invalid TOML in preset {path}: {exc}") from exc
+
+    if not isinstance(data, dict):
+        raise ValueError("Preset root must be a table")
+    if "adaptive" not in data or "watchdog" not in data:
+        raise ValueError("Preset must define [adaptive] and [watchdog] sections")
+
+    try:
+        cfg = AppConfig.from_dict(data)
+        cfg.validate()
+    except Exception as exc:  # pragma: no cover - rewrap config validation errors
+        raise ValueError(f"Preset validation failed: {exc}") from exc
+
+    return AppConfigSchema.from_app_config(cfg)
+
+
 def save_preset(
     cfg: AppConfig,
     name: str,
@@ -351,6 +375,7 @@ __all__ = [
     "list_presets",
     "load_config_document",
     "load_preset",
+    "validate_preset_file",
     "prompt_for_config",
     "resolve_presets_dir",
     "save_preset",

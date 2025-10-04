@@ -6,13 +6,13 @@ from __future__ import annotations
 import gzip
 import logging
 import os
-import pickle
 import tempfile
 from contextlib import suppress
 from pathlib import Path
 from typing import Any, IO, cast
 
 from .snapshot_header import read_snapshot as read_versioned_snapshot, write_snapshot as write_versioned_snapshot
+from .safe_pickle import dump as safe_dump, load as safe_load
 
 
 logger = logging.getLogger("hashmap_cli")
@@ -44,7 +44,7 @@ def load_snapshot_any(path: str) -> Any:
     except Exception as exc:
         logger.debug("Falling back to legacy snapshot load for %s: %s", path, exc)
         with open_snapshot_for_read(str(target)) as fh:
-            return pickle.load(fh)
+            return safe_load(fh)
 
 
 def save_snapshot_any(obj: Any, path: str, compress: bool) -> None:
@@ -65,7 +65,7 @@ def save_snapshot_any(obj: Any, path: str, compress: bool) -> None:
         except Exception as exc:
             logger.debug("Falling back to legacy snapshot save for %s: %s", path, exc)
             with open_snapshot_for_write(str(tmp_path), compress or path.endswith(".gz")) as fh:
-                pickle.dump(obj, fh)
+                safe_dump(obj, fh)
         os.replace(tmp_path, target)
     except Exception:
         with suppress(FileNotFoundError):

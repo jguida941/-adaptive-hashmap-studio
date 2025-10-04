@@ -20,7 +20,8 @@ This plan distills the current state of `hashmap_cli.py`, summarizes audit findi
 - **Testing & Quality Gates**: No automated unit/integration tests, fuzzing, or load validation; manual audit only. No static typing enforcement beyond annotations, no linting, no CI pipeline.
 - **Configuration & Error Handling**: Config via env vars/ad-hoc arguments; no schema validation or hot reload. CSV parsing lacks schema validation and emits inconsistent exit codes/error envelopes.
 - **Observability**: Metrics limited to a handful of counters/gauges; no histograms, latency breakdown per op, or persistent export. Logging handled via root logger without structured output or rotation.
-- **Security**: Snapshots rely on pickle (unsafe for untrusted input). HTTP dashboard has no auth/TLS; metrics parser is regex-based. No resource quota protections.
+- **Security**: Snapshots previously relied on pickle (unsafe for untrusted input). HTTP dashboard had no auth/TLS; metrics parser is regex-based. No resource quota protections.
+  - **Status:** Snapshot loading now flows through a restricted allowlist (`safe_pickle`), and dashboard clients enforce token auth end-to-end. TLS/quota enforcement remains on the roadmap.
 - **Distribution & Ops**: No Dockerfile, pyproject, requirements, binaries, or release automation. No story for Prometheus/Grafana, upstream API integration, or packaging for pip/brew.
 - **UX & Automation**: Dashboard is poll-only with minimal interactivity; no TUI for terminal use; no batch benchmark pipeline with reports.
 
@@ -39,7 +40,8 @@ Goal: carve the monolith into a maintainable project and establish quality gates
 - Set up GitHub Actions (or preferred CI) to run lint, type-check, tests, and a smoke `run-csv` replay per PR.
 - Establish structured logging (JSON formatter + rotating file handler) and consistent error envelopes/exit codes for CLI failures.
 - Replace ad-hoc env parsing with typed config objects (e.g., `pydantic` or dataclasses + `tomllib`). Provide a single canonical config file format (TOML/YAML) and document overrides.
-  - **Status:** Implemented (`src/adhash/config.py`, `--config` flag, TOML loader with env overrides; documented in docs/config.md).
+  - **Status:** Implemented (`src/adhash/config.py`, `--config` flag, TOML loader with env overrides; documented in docs/config.md). Preset files now validate through `validate_preset_file()` and typed schema helpers in `src/adhash/config_models.py`, with regression coverage in `tests/test_config_toolkit_schema.py`.
+- Externalize dashboard assets so HTML/CSS/JS are versioned under `src/adhash/metrics/static/` and loaded via `importlib.resources`, keeping the Python server lean. **Status:** Implemented alongside asset integrity tests.
 - Land the **Phase-0 accuracy kit** so contracts are enforced from day one:
   - Add `src/adhash/contracts/error.py` (error envelope helpers, `Exit` codes, `guard_cli` decorator) and refactor CLI entrypoints to raise typed exceptions and return `int(Exit.OK)`; update integration tests accordingly.
   - Introduce `src/adhash/contracts/metrics_schema.json` and `scripts/validate_metrics_ndjson.py`; stamp `"schema": "metrics.v1"` onto every tick and wire the validator into CI.
@@ -75,7 +77,7 @@ Goal: deliver polished interactive experiences for both terminal and browser use
 - **Mission Control (PyQt6):** desktop app to configure runs, launch `run-csv`, and visualise `/api/metrics` in real time (pyqtgraph plots, latency histograms, probe-length distribution, migration/compaction timeline) with a live log viewer.
 - **A/B Live Comparison:** run two configurations side-by-side with synchronized charts, automatic config diffs, and statistical significance badges for latency/throughput comparisons.
 - **Benchmark Suite Manager:** GUI for defining benchmark suites (YAML/TOML), executing batch runs, browsing historical results, and generating comparison reports/plots.
-- **Workload DNA Analyzer:** pre-run inspection of CSV workloads (ratios, skew, collision potential) feeding Mission Control and predictors.
+- **Workload DNA Analyzer:** pre-run inspection of CSV workloads (ratios, skew, collision potential) feeding Mission Control and predictors. ✅ `hashmap_cli.py workload-dna` plus Mission Control's **Workload DNA** panel landed Oct 5 2025.
 - **Visual Config Editor & Snapshot Inspector:** schema-driven editor for `config.toml` plus a snapshot browser for `.pkl.gz` files (metadata, key search/filter).
 - Build a rich PyQt6 analytics dashboard (desktop app) replicating and exceeding browser features: multi-chart layout, interactive drill-down, historical replay, advanced filtering, scientific plotting (FFT on latency, scatter/correlation plots), configurable alerts, notebook export.
   - Stretch targets: embed 3D visualisations (e.g., load-factor surfaces), integrate with notebooks via Qt widgets, allow local/offline use without the HTTP server.
@@ -83,7 +85,7 @@ Goal: deliver polished interactive experiences for both terminal and browser use
 #### Phase 2 – Immediate Next Actions (Oct 3, 2025)
 - Harden the metrics REST surface: finish `histogram`, `heatmap`, and latency percentile endpoints in `src/adhash/metrics/server.py`, add schema fixtures, and extend `tests/test_metrics_endpoints.py` to cover new payloads.
 - Upgrade the dashboard frontend (`adhash/dashboard/`) to consume the new endpoints: add latency histogram + probe-length charts, timeline annotations for migrations/compactions, and wire in adjustable polling intervals. ✅ Timeline markers + polling selector wired Oct 3 2025; remaining work: expose migration timeline in UI log.
-- Expand the batch runner into a suite manager: ingest multi-run specs, capture comparative summaries, and emit Markdown/HTML bundles with chart embeds for Phase 2 demos. ✅ Comparative summary tables + inline HTML bars landed Oct 3 2025.
+- Expand the batch runner into a suite manager: ingest multi-run specs, capture comparative summaries, and emit Markdown/HTML bundles with chart embeds for Phase 2 demos. ✅ Comparative summary tables + inline HTML bars landed Oct 3 2025; Mission Control now ships a **Benchmark Suites** tab that loads specs and launches runs via the batch runner (Oct 5 2025).
 - Ship a config editor toolkit: reuse the wizard schema to drive an interactive CLI/editor module plus Mission Control panel for editing `config.toml` and storing presets. ✅ CLI + Mission Control editors landed Oct 4 2025 (preset manager + shared validation).
 - Prototype the A/B comparison harness: orchestrate paired `run-csv` executions, align metrics streams, calculate significance (p99 latency ± throughput deltas), and surface results in both the dashboard and Mission Control. ✅ `ab-compare` CLI + `serve --compare` summary landed Oct 4 2025 (ops/latency deltas + timeline export).
 - Stickier serve mode follow-ups – Now that markers/log persistence is in place, add any remaining UX polish (e.g., richer event details or timeline export). ✅ Timeline CSV export + dashboard comparison strip landed Oct 4 2025.

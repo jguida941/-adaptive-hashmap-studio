@@ -5,11 +5,12 @@ from __future__ import annotations
 import gzip
 import hashlib
 import io
-import pickle
 import struct
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Tuple
+
+from .safe_pickle import dumps as safe_dumps, loads as safe_loads
 
 MAGIC = b"ADHSNAP1"
 HEADER_FMT = ">8s H B B H Q"  # magic, version, flags, reserved, checksum length, payload length
@@ -66,7 +67,7 @@ def _unpack_header(data: bytes) -> Tuple[SnapshotHeader, int]:
 def dumps_snapshot(obj: Any, *, compress: bool = True) -> bytes:
     """Serialize an object to `[header][checksum][payload]` bytes."""
 
-    payload = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+    payload = safe_dumps(obj)
     flags = 0
     if compress:
         with io.BytesIO() as buffer:
@@ -97,7 +98,7 @@ def loads_snapshot(blob: bytes) -> Any:
                 payload = gz.read()
         except OSError as exc:
             raise ValueError(f"Corrupt gzip payload: {exc}") from exc
-    return pickle.loads(payload)
+    return safe_loads(payload)
 
 
 def write_snapshot(path: Path, obj: Any, *, compress: bool = True) -> None:

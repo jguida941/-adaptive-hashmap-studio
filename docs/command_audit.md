@@ -18,6 +18,7 @@ Where commands depend on extras, the required install flags are noted. All paths
 | ✅ Verified (manual) | `python hashmap_cli.py ab-compare --csv data/workloads/demo.csv --baseline-config config.toml --candidate-config config.experiment.toml --out-dir results/ab/demo` | 2025-10-04: Generates baseline/candidate artifacts + comparison JSON/Markdown. | `results/ab/demo/comparison.json` |
 | ✅ Verified (manual) | `python hashmap_cli.py --config config.toml run-csv --csv workload.csv` | 2025-10-03: Replayed `data/workloads/w_uniform.csv` with JSON summary at `results/json/config_wizard_run.json`. | `src/adaptive_hashmap_cli.egg-info/PKG-INFO` |
 | ✅ Verified (manual) | `python hashmap_cli.py generate-csv --outfile workload.csv --ops 50000 --read-ratio 0.8` | 2025-10-03: Generated sample workload after CLI modularisation. | `src/adaptive_hashmap_cli.egg-info/PKG-INFO` |
+| ✅ Verified (automated) | `python hashmap_cli.py workload-dna --csv data/workloads/w_uniform.csv --top-keys 8 --pretty` | Covered by `tests/test_workload_dna.py`; outputs Workload DNA summary and optional JSON bundle. | `tests/test_workload_dna.py` |
 | ✅ Verified (manual) | `python hashmap_cli.py --mode adaptive put foo bar` | 2025-10-03: Sanity check after handler extraction; see CLI refactor run log. | README |
 | ✅ Verified (manual) | `python hashmap_cli.py profile --csv data/workloads/w_uniform.csv` | 2025-10-03: CLI dispatcher refactor validated; recommends fast-lookup. | README |
 | ✅ Verified (manual) | `python hashmap_cli.py profile --csv data/workloads/w_uniform.csv --then get A` | 2025-10-03: Profile + follow-up command chaining still works. | README |
@@ -25,6 +26,7 @@ Where commands depend on extras, the required install flags are noted. All paths
 | ✅ Verified (manual) | `python hashmap_cli.py run-csv --csv data/workloads/w_uniform.csv --dry-run` | 2025-10-03: Non-JSON dry-run exercised post-handler refactor. | README |
 | ✅ Verified (automated) | `python scripts/validate_metrics_ndjson.py runs/metrics.ndjson` | 2025-10-03 via `make smoke`; output archived under `runs/metrics.ndjson`. | README |
 | ✅ Verified (manual) | `python hashmap_cli.py mission-control` | 2025-10-04: Config tab edits + Run Command auto-`--config` wiring; earlier heatmap legend + tooltips verified on macOS. Headless CI still uses offscreen auto-quit path. | README |
+| 🟡 Pending | Mission Control → Benchmark Suites → Analyze workload (auto-launch Workload DNA tab) | Validate pyqtgraph visuals and baseline comparison in the new Workload DNA tab. | README |
 | ✅ Verified (automated) | `pytest tests/test_config_wizard.py tests/test_mission_control_widgets_qt.py` | 2025-10-04: Validates CLI editor + Mission Control config pane (uses `QT_QPA_PLATFORM=offscreen`). | Test run |
 
 ## Run CSV – Phase 1 Scenarios (README)
@@ -79,6 +81,7 @@ The `docs/data_inventory.md` table enumerates many dataset-specific replays. Rep
 |--------|---------|-------|
 | ✅ Verified (manual) | `ADHASH_TOKEN=secret python hashmap_cli.py mission-control` | Neon theme + gzip fixes validated; ensure matching metrics port/token. |
 | ✅ Verified (scripted) | `python hashmap_cli.py mission-control` (no auth) | 2025-10-03: Offscreen launch via `run_mission_control` with 500 ms `QTimer` auto-quit (PyQt6 6.9.1). |
+| 🟡 Pending | `python hashmap_cli.py mission-control` (Benchmark Suites tab) | Add headless smoke to ensure the new suite manager loads specs and tails `python -m adhash.batch` output. |
 | ✅ Verified (scripted) | `pip install -e '.[ui]'` → `python -m adhash.tui --metrics-endpoint http://127.0.0.1:9090/api/metrics` | 2025-10-03: Textual 6.2.1 present; auto-quit after 0.5 s using `run_async` + `action_quit`. |
 
 ## Batch Runner

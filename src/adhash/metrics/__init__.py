@@ -32,7 +32,7 @@ from .core import (
     resolve_ema_alpha,
     stream_metrics_file,
 )
-from .server import DASHBOARD_HTML, start_metrics_server
+from .server import start_metrics_server
 
 __all__ = [
     "ALLOWED_HEADERS",
@@ -40,7 +40,6 @@ __all__ = [
     "ALLOWED_METHODS",
     "ALLOW_ORIGIN",
     "CACHE_CONTROL",
-    "DASHBOARD_HTML",
     "ERROR_SCHEMA",
     "EVENTS_SCHEMA",
     "HEALTH_SCHEMA",

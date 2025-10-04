@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import shlex
 import subprocess
 import threading
 from typing import Callable, Optional, Sequence
+
+
+logger = logging.getLogger(__name__)
 
 
 class ProcessManager:
@@ -22,13 +26,20 @@ class ProcessManager:
         with self._lock:
             if self._proc and self._proc.poll() is None:
                 raise RuntimeError("Process already running")
-            self._proc = subprocess.Popen(
-                args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-            )
+            try:
+                self._proc = subprocess.Popen(
+                    args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                )
+            except OSError as exc:
+                logger.error("Failed to start process %s: %s", " ".join(args), exc)
+                self._proc = None
+                self._thread = None
+                self._on_exit(-1)
+                raise RuntimeError(f"Failed to start process: {exc}") from exc
             self._thread = threading.Thread(target=self._pump, daemon=True)
             self._thread.start()
 
@@ -40,8 +51,14 @@ class ProcessManager:
         with self._lock:
             if self._proc and self._proc.poll() is None:
                 self._proc.terminate()
-        if self._thread:
-            self._thread.join(timeout=2.0)
+        thread = self._thread
+        if thread:
+            thread.join(timeout=2.0)
+            if thread.is_alive():
+                logger.warning("Process thread did not terminate cleanly")
+            with self._lock:
+                if self._thread is thread:
+                    self._thread = None
 
     def _pump(self) -> None:
         assert self._proc is not None

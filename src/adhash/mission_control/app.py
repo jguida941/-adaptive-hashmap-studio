@@ -9,10 +9,12 @@ incrementally build the Mission Control experience. When PyQt6 is unavailable
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Any, cast
+from typing import Optional, Sequence, Any, cast, TYPE_CHECKING
 
-from . import widgets
 from .builders import build_app as _build_app, build_controller, build_widgets, build_window
+
+if TYPE_CHECKING:
+    from .controller import MissionControlController
 
 _QT_IMPORT_ERROR: Optional[Exception] = None
 
@@ -196,6 +198,12 @@ def _apply_futuristic_theme(app: QApplication) -> None:
         QWidget#missionPane[paneKind="config"] {
             border-color: #1F2A40;
         }
+        QWidget#missionPane[paneKind="suite"] {
+            border-color: #26413C;
+        }
+        QWidget#missionPane[paneKind="dna"] {
+            border-color: #2E3D4F;
+        }
         QDockWidget {
             titlebar-close-icon: url(none);
             titlebar-normal-icon: url(none);
@@ -276,6 +284,48 @@ def _apply_futuristic_theme(app: QApplication) -> None:
         QLabel#statusLabel[state="completed"] {
             color: #4DD0E1;
         }
+        QLabel#dnaSummaryLabel {
+            color: #cbd5f5;
+        }
+        QLabel#dnaBaselineLabel {
+            color: #94a3b8;
+        }
+        QLabel#dnaBaselineLabel[baselineSet="true"] {
+            color: #00FFAA;
+        }
+        QComboBox#dnaViewSelector, QSpinBox#dnaBucketLimit {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 4px 6px;
+            color: #f8fafc;
+        }
+        QPlainTextEdit#dnaDetailsView {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 10px;
+            color: #e2e8f0;
+            font-family: "JetBrains Mono", "Fira Code", monospace;
+            font-size: 12px;
+        }
+        QLabel#suiteStatusLabel {
+            font-weight: 600;
+        }
+        QLabel#suiteStatusLabel[state="idle"] {
+            color: #77808C;
+        }
+        QLabel#suiteStatusLabel[state="running"] {
+            color: #00FFAA;
+        }
+        QLabel#suiteStatusLabel[state="stopping"] {
+            color: #FFD166;
+        }
+        QLabel#suiteStatusLabel[state="completed"] {
+            color: #4DD0E1;
+        }
+        QLabel#suiteStatusLabel[state="error"] {
+            color: #FF6B6B;
+        }
         QLabel#statusLabel[state="error"] {
             color: #FF6B6B;
         }
@@ -330,9 +380,24 @@ def _apply_futuristic_theme(app: QApplication) -> None:
 
 
 def _create_window() -> QMainWindow:
-    connection, run_control, config_editor, metrics = build_widgets()
-    controller = build_controller(connection, run_control, config_editor, metrics)
-    window = build_window(controller, connection, run_control, config_editor, metrics)
+    connection, run_control, config_editor, metrics, suite_manager, dna_pane = build_widgets()
+    controller = build_controller(
+        connection,
+        run_control,
+        config_editor,
+        metrics,
+        suite_manager,
+        dna_pane,
+    )
+    window = build_window(
+        controller,
+        connection,
+        run_control,
+        config_editor,
+        metrics,
+        suite_manager,
+        dna_pane,
+    )
     window.setWindowTitle("Adaptive Hash Map – Mission Control")
     return window
 

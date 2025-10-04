@@ -59,6 +59,7 @@ python hashmap_cli.py -h                       # explore available subcommands
 python hashmap_cli.py --mode adaptive put K V  # single operation using adaptive backend
 python hashmap_cli.py generate-csv --outfile workload.csv --ops 50000 --read-ratio 0.8
 python hashmap_cli.py profile --csv workload.csv
+python hashmap_cli.py workload-dna --csv workload.csv --top-keys 8 --pretty
 python hashmap_cli.py --mode adaptive run-csv --csv workload.csv --json-summary-out perf.json --metrics-max-ticks 500
 ```
 
@@ -106,6 +107,7 @@ The upgrade roadmap lives in [`upgrade.md`](upgrade.md). This index summarises t
 - `python -m adhash.batch --list` – show bundled batch specs (baseline, compaction).
 - `python -m adhash.batch --spec docs/examples/batch_baseline.toml` – batch benchmark runner generating Markdown reports.
 - `python hashmap_cli.py mission-control` – launches the PyQt6 Mission Control shell (install with `pip install .[gui]`). Use the **Config** tab to edit/save `config.toml`; saved paths automatically flow into the Run Command panel.
+- Mission Control → **Benchmark Suites** → select spec → **Analyze workload** – renders Workload DNA (op ratios, hot keys, skew, collision hotspots) using the integrated analyzer.
 - Demo flow: `python hashmap_cli.py generate-csv --outfile data/workloads/demo.csv --ops 80000 --read-ratio 0.7 --key-skew 1.1 --key-space 15000 --seed 1 --adversarial-ratio 0.15 --adversarial-lowbits 7` → `python hashmap_cli.py profile --csv data/workloads/demo.csv` → `python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/demo.csv --metrics-port 9091 --json-summary-out results/json/demo_perf.json --latency-sample-k 1500 --latency-sample-every 40 --snapshot-out snapshots/demo.pkl.gz --compress` (Audit One-shot Demo).
 
 ### Metrics Dashboard & Prometheus Endpoint
@@ -132,7 +134,7 @@ For Prometheus/Grafana setup, import dashboards, and example alert rules, see [`
 
 #### Security & smoothing knobs
 
-- Set `ADHASH_TOKEN=<secret>` before `serve`/`run-csv --metrics-port …` to require `Authorization: Bearer <secret>` on every `/api/*` request (dashboard/Mission Control pick up the token automatically).
+- Set `ADHASH_TOKEN=<secret>` before `serve`/`run-csv --metrics-port …` to require `Authorization: Bearer <secret>` on every `/api/*` request. Mission Control and the Textual TUI add the header automatically; the browser dashboard accepts an initial visit to `http://127.0.0.1:PORT/?token=<secret>` and strips the token from the URL after loading.
 - Set `ADHASH_OPS_ALPHA=0.25` (default) to control the EMA smoothing factor used for ops/sec in both the JSON API and Mission Control charts.
 
 ### Terminal TUI (Textual)
@@ -292,7 +294,7 @@ Setting a threshold to `"none"` in a TOML config disables that specific guardrai
 
 ## Status & Next Steps
 
-- **Production-ready today.** Snapshot serialization hardened, metrics hooks reattached after load, metrics server lifecycle wrapped in `try/finally` + `server_close()`.
+- **Current focus:** Snapshot loads now flow through a restricted unpickler that only accepts Adaptive Hash Map classes. Legacy raw pickles are rejected to prevent arbitrary code execution. Regenerate snapshots after upgrading.
 - **Next up:** C++ port using the same snapshot binary spec (`Adaptive HMAP v1`) so we can benchmark native throughput and keep cross-language compatibility.
 - **Integration roadmap:** publish the binary snapshot schema, wire metrics into Grafana/Prometheus exporters, add JSONL streaming, and let CI pipelines diff latencies across implementations.
 - **Learning track:** explore the [`audit.md`](#auditmd) demo flow for a quick “generate → profile → run → snapshot → verify → repair” walkthrough, then plug in the forthcoming C++ reader once available.

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import logging
 import math
-import pickle
 from collections import defaultdict
 from dataclasses import dataclass, asdict
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TYPE_CHECKING
 
 from adhash.io.snapshot import load_snapshot_any, open_snapshot_for_write
+from adhash.io.safe_pickle import dump as safe_dump
 
 if TYPE_CHECKING:  # pragma: no cover
     from adhash.metrics import Metrics
@@ -118,7 +118,7 @@ class TwoLevelChainingMap:
 
     def save(self, filepath: str, compress: bool = False) -> None:
         with open_snapshot_for_write(filepath, compress) as fh:
-            pickle.dump(self, fh)
+            safe_dump(self, fh)
 
     @staticmethod
     def load(filepath: str) -> "TwoLevelChainingMap":
@@ -264,7 +264,7 @@ class RobinHoodMap:
 
     def save(self, filepath: str, compress: bool = False) -> None:
         with open_snapshot_for_write(filepath, compress) as fh:
-            pickle.dump(self, fh)
+            safe_dump(self, fh)
 
     @staticmethod
     def load(filepath: str) -> "RobinHoodMap":
@@ -335,7 +335,7 @@ class HybridAdaptiveHashMap:
 
     def __setstate__(self, state: Dict[str, Any]) -> None:
         if not isinstance(state, dict) or "backend" not in state or "name" not in state:
-            raise TypeError("Bad pickle for HybridAdaptiveHashMap")
+            raise TypeError("Corrupt snapshot payload for HybridAdaptiveHashMap")
         cfg_dict = state.get("cfg", {})
         self.cfg = _cfg_from_dict(cfg_dict) if isinstance(cfg_dict, dict) else AdaptiveConfig()
         self._backend = state["backend"]
@@ -343,7 +343,7 @@ class HybridAdaptiveHashMap:
         self._migrating_to = None
         self._migrate_target = None
         self._migrate_iter = None
-        logger.info("Adaptive map restored from pickle (backend=%s)", self._name)
+        logger.info("Adaptive map restored from snapshot (backend=%s)", self._name)
 
     def backend(self) -> Any:
         while self._migrating_to:
@@ -455,7 +455,7 @@ class HybridAdaptiveHashMap:
             "cfg": _cfg_to_picklable_dict(self.cfg),
         }
         with open_snapshot_for_write(filepath, compress) as fh:
-            pickle.dump(state, fh)
+            safe_dump(state, fh)
 
     @staticmethod
     def load(filepath: str) -> "HybridAdaptiveHashMap":

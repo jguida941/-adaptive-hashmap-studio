@@ -19,6 +19,7 @@ from adhash.contracts.error import Exit, IOErrorEnvelope, InvariantError
 from adhash.config_toolkit import list_presets, resolve_presets_dir
 from adhash.io.snapshot import atomic_map_save
 from adhash.metrics import Metrics, apply_tick_to_metrics, start_metrics_server, stream_metrics_file
+from adhash.workloads import WorkloadDNAResult, format_workload_dna
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,7 @@ class CLIContext:
     run_config_editor: Callable[..., Dict[str, Any]]
     run_ab_compare: Callable[..., Dict[str, Any]]
     verify_snapshot: Callable[..., int]
+    analyze_workload: Callable[[str, int, int], WorkloadDNAResult]
     invoke_main: Callable[[List[str]], int]
     logger: logging.Logger
     json_enabled: Callable[[], bool]
@@ -63,6 +65,11 @@ def register_subcommands(
     _register("profile", "Profile a CSV workload and print recommended backend.", lambda parser: _configure_profile(parser, ctx))
     _register("generate-csv", "Generate a synthetic workload CSV.", lambda parser: _configure_generate(parser, ctx))
     _register("run-csv", "Replay a CSV workload (metrics, snapshots, compaction, JSON summary).", lambda parser: _configure_run_csv(parser, ctx))
+    _register(
+        "workload-dna",
+        "Analyze a CSV workload for ratios, skew, and collision risk.",
+        lambda parser: _configure_workload_dna(parser, ctx),
+    )
     _register("config-wizard", "Interactively generate a TOML config file.", lambda parser: _configure_config_wizard(parser, ctx))
     _register(
         "config-edit",
@@ -260,6 +267,50 @@ def _configure_run_csv(parser: argparse.ArgumentParser, ctx: CLIContext) -> Call
     return handler
 
 
+def _configure_workload_dna(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+    parser.add_argument("--csv", required=True, help="CSV workload to inspect")
+    parser.add_argument(
+        "--top-keys", type=int, default=10, help="Number of hot keys to report (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--max-tracked-keys",
+        type=int,
+        default=200_000,
+        help="Upper bound on keys tracked for heavy-hitter detection (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--json-out",
+        help="Optional file to write the DNA summary as JSON (indentation matches --pretty)",
+    )
+    parser.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty-print JSON output (stdout when --json and --json-out are absent)",
+    )
+
+    def handler(args: argparse.Namespace) -> int:
+        result = ctx.analyze_workload(args.csv, args.top_keys, args.max_tracked_keys)
+        payload = result.to_dict()
+
+        if args.json_out:
+            Path(args.json_out).expanduser().write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2 if args.pretty else None)
+                + "\n",
+                encoding="utf-8",
+            )
+
+        summary_text = format_workload_dna(result)
+
+        if ctx.json_enabled():
+            ctx.emit_success("workload-dna", data={"dna": payload})
+        else:
+            ctx.emit_success("workload-dna", text=summary_text, data={"dna": payload})
+
+        return int(Exit.OK)
+
+    return handler
+
+
 def _configure_config_wizard(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
     parser.add_argument(
         "--outfile",
@@ -365,16 +416,17 @@ def _configure_ab_compare(parser: argparse.ArgumentParser, ctx: CLIContext) -> C
         stem = Path(args.csv).stem or "workload"
         base_slug = args.baseline_label.replace(" ", "_")
         cand_slug = args.candidate_label.replace(" ", "_")
+        comparison_slug = f"{stem}_{base_slug}_vs_{cand_slug}".strip("_") or "comparison"
 
         if args.json_out:
             json_out = Path(args.json_out).expanduser().resolve()
         else:
-            json_out = out_dir / "comparison.json"
+            json_out = out_dir / f"{comparison_slug}.json"
 
         if args.markdown_out:
             markdown_out = Path(args.markdown_out).expanduser().resolve()
         else:
-            markdown_out = out_dir / "comparison.md"
+            markdown_out = out_dir / f"{comparison_slug}.md"
 
         if args.no_artifacts:
             metrics_dir: Optional[Path] = None

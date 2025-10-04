@@ -52,7 +52,6 @@ try:  # pragma: no cover - executed only during development
     from adhash.config_toolkit import (
         clone_config,
         format_app_config_to_toml,
-        list_presets,
         load_config_document,
         load_preset,
         prompt_for_config,
@@ -97,6 +96,7 @@ try:  # pragma: no cover - executed only during development
         sample_metrics,
     )
     from adhash.cli.commands import CLIContext, register_subcommands
+    from adhash.workloads import analyze_workload_csv
 except ModuleNotFoundError:  # pragma: no cover - fallback when running from repo root
     if SRC_DIR.exists() and str(SRC_DIR) not in sys.path:
         sys.path.insert(0, str(SRC_DIR))
@@ -104,7 +104,6 @@ except ModuleNotFoundError:  # pragma: no cover - fallback when running from rep
     from adhash.config_toolkit import (
         clone_config,
         format_app_config_to_toml,
-        list_presets,
         load_config_document,
         load_preset,
         prompt_for_config,
@@ -141,6 +140,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback when running from rep
     )
 
     from adhash.cli.commands import CLIContext, register_subcommands
+    from adhash.workloads import analyze_workload_csv
 
 
 # --------------------------------------------------------------------
@@ -470,6 +470,10 @@ def generate_csv(out_path: str, ops: int, read_ratio: float, key_skew: float,
                     w.writerow(["del", key, ""])
                 else:
                     w.writerow(["put", key, str(rng.randint(0, 1_000_000))])
+
+
+def analyze_workload(path: str, top_keys: int, max_tracked_keys: int):
+    return analyze_workload_csv(path, top_keys=top_keys, max_tracked_keys=max_tracked_keys)
 
 # --------------------------------------------------------------------
 # Runner with proactive compaction, JSON summary (+ percentiles), snapshots
@@ -1309,6 +1313,11 @@ def main(argv: List[str]) -> int:
         run_config_editor=run_config_editor,
         run_ab_compare=run_ab_compare,
         verify_snapshot=verify_snapshot,
+        analyze_workload=lambda csv_path, top_keys, max_tracked: analyze_workload(
+            csv_path,
+            top_keys,
+            max_tracked,
+        ),
         invoke_main=lambda argv_inner: main(argv_inner),
         logger=logger,
         json_enabled=lambda: OUTPUT_JSON,

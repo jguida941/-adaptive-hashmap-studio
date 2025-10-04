@@ -132,6 +132,7 @@ tombstone_ratio_warn = 0.35
     assert abs(cfg.adaptive.max_lf_chaining - 0.9) < 1e-9
     assert cfg.watchdog.enabled is False
     assert cfg.watchdog.avg_probe_warn is None
+    assert cfg.watchdog.tombstone_ratio_warn is not None
     assert abs(cfg.watchdog.tombstone_ratio_warn - 0.4) < 1e-9
 
 

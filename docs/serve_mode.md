@@ -50,8 +50,9 @@ Security & headers:
   decompress gzip responses (Python `requests` does this automatically).
 - Set `ADHASH_TOKEN=<secret>` before launching `serve` (or any `run-csv` with
   `--metrics-port`) to require `Authorization: Bearer <secret>` on every API
-  call. The Mission Control poller and the dashboard JS honour the token when
-  present.
+  call. Mission Control and the dashboard JS honour the token automatically;
+  the dashboard accepts an initial `/?token=<secret>` visit and immediately
+  removes the query parameter once it has been captured.
 - Throughput smoothing is exposed via `ADHASH_OPS_ALPHA` (default `0.25`). Lower
   values smooth more aggressively; higher values react faster.
 

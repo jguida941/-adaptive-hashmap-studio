@@ -5,7 +5,8 @@ import json
 import time
 from collections import deque
 from typing import Any, Dict
-from urllib.request import urlopen
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 import pytest
 
@@ -20,12 +21,16 @@ from adhash.metrics import (
 from hashmap_cli import TwoLevelChainingMap, collect_key_heatmap
 
 
-def wait_for_server(port: int, retries: int = 10, delay: float = 0.05) -> None:
+def wait_for_server(port: int, retries: int = 10, delay: float = 0.05, headers: Dict[str, str] | None = None) -> None:
     """Helper to wait until the HTTP server starts accepting connections."""
 
     for _ in range(retries):
         try:
-            with urlopen(f"http://127.0.0.1:{port}/api/metrics", timeout=0.1):
+            request = Request(
+                f"http://127.0.0.1:{port}/api/metrics",
+                headers=headers or {"Accept": "application/json"},
+            )
+            with urlopen(request, timeout=0.1):
                 return
         except Exception:
             time.sleep(delay)
@@ -65,7 +70,7 @@ def test_histogram_endpoints_expose_json() -> None:
         pytest.skip("network bindings not permitted in sandbox")
     try:
         port = server.server_address[1]
-        wait_for_server(port)
+        wait_for_server(port, headers={"Authorization": "Bearer secret", "Accept": "application/json"})
 
         def read_json(path: str) -> Dict[str, Any]:
             with urlopen(path, timeout=0.5) as response:
@@ -127,7 +132,10 @@ def test_history_csv_endpoint_returns_rows() -> None:
         pytest.skip("network bindings not permitted in sandbox")
     try:
         port = server.server_address[1]
-        wait_for_server(port)
+        wait_for_server(
+            port,
+            headers={"Authorization": "Bearer secret", "Accept": "application/json"},
+        )
         with urlopen(f"http://127.0.0.1:{port}/api/metrics/history.csv?limit=2", timeout=0.5) as response:
             assert response.status == 200
             assert response.headers.get("Content-Type", "").startswith("text/csv")
@@ -140,3 +148,34 @@ def test_history_csv_endpoint_returns_rows() -> None:
         assert first_row[1] == "0"
     finally:
         stop_server()
+
+
+def test_dashboard_requires_token_and_embeds_meta(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ADHASH_TOKEN", "secret")
+    metrics = Metrics()
+
+    try:
+        server, stop_server = start_metrics_server(metrics, 0)
+    except PermissionError:
+        pytest.skip("network bindings not permitted in sandbox")
+    try:
+        port = server.server_address[1]
+        wait_for_server(port)
+
+        with pytest.raises(HTTPError) as exc_info:
+            urlopen(f"http://127.0.0.1:{port}/", timeout=0.5)
+        assert exc_info.value.code == 401
+
+        with urlopen(f"http://127.0.0.1:{port}/?token=secret", timeout=0.5) as response:
+            html_body = response.read().decode("utf-8")
+        assert '<meta name="adhash-token" content="secret"/>' in html_body
+
+        request = Request(
+            f"http://127.0.0.1:{port}/api/metrics",
+            headers={"Authorization": "Bearer secret", "Accept": "application/json"},
+        )
+        with urlopen(request, timeout=0.5) as response:
+            assert response.status == 200
+    finally:
+        stop_server()
+        monkeypatch.delenv("ADHASH_TOKEN", raising=False)

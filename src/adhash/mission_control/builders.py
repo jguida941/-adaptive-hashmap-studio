@@ -2,73 +2,128 @@
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple, TYPE_CHECKING, Any, Type, cast
 
 from . import widgets
 from .controller import MissionControlController
 
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from PyQt6.QtCore import Qt as QtNamespace
+    from PyQt6.QtWidgets import QApplication as QApplicationLike, QMainWindow as QMainWindowLike, QWidget as QWidgetLike
+else:  # pragma: no cover - fallback aliases
+    QtNamespace = Any  # type: ignore[assignment]
+    QApplicationLike = Any  # type: ignore[assignment]
+    QMainWindowLike = Any  # type: ignore[assignment]
+    QWidgetLike = Any  # type: ignore[assignment]
+
 try:  # pragma: no cover - optional dependency in headless environments
-    from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget  # type: ignore[import-not-found]
-    from PyQt6.QtCore import Qt  # type: ignore[import-not-found]
+    from PyQt6 import QtCore as _QtCore, QtWidgets as _QtWidgets  # type: ignore[import-not-found]
 except Exception:  # pragma: no cover - fallback when PyQt6 unavailable
-    QApplication = None  # type: ignore[assignment]
-    QMainWindow = None  # type: ignore[assignment]
-    QWidget = None  # type: ignore[assignment]
-    Qt = None  # type: ignore[assignment]
+    _QtCore = None  # type: ignore[assignment]
+    _QtWidgets = None  # type: ignore[assignment]
+
+_QApplication = getattr(_QtWidgets, "QApplication", None)
+_QMainWindow = getattr(_QtWidgets, "QMainWindow", None)
+_QWidget = getattr(_QtWidgets, "QWidget", None)
+_Qt = getattr(_QtCore, "Qt", None)
+
+QAPPLICATION_CLS: Optional[Type[QApplicationLike]] = cast(Optional[Type[QApplicationLike]], _QApplication)
+QMAINWINDOW_CLS: Optional[Type[QMainWindowLike]] = cast(Optional[Type[QMainWindowLike]], _QMainWindow)
+QWIDGET_CLS: Optional[Type[QWidgetLike]] = cast(Optional[Type[QWidgetLike]], _QWidget)
+QT_NAMESPACE: Optional[QtNamespace] = cast(Optional[QtNamespace], _Qt)
 
 
-def build_widgets(parent: Optional[QWidget] = None) -> Tuple[widgets.ConnectionPane, widgets.RunControlPane, widgets.ConfigEditorPane, widgets.MetricsPane]:
+def build_widgets(parent: Optional[QWidgetLike] = None) -> Tuple[
+    widgets.ConnectionPane,
+    widgets.RunControlPane,
+    widgets.ConfigEditorPane,
+    widgets.MetricsPane,
+    widgets.BenchmarkSuitePane,
+    widgets.WorkloadDNAPane,
+]:
     """Construct the core Mission Control widgets."""
 
     connection = widgets.ConnectionPane(parent)
     run_control = widgets.RunControlPane(parent)
     config_editor = widgets.ConfigEditorPane(parent)
     metrics = widgets.MetricsPane(parent)
-    return connection, run_control, config_editor, metrics
+    suite_manager = widgets.BenchmarkSuitePane(parent)
+    dna_pane = widgets.WorkloadDNAPane(parent)
+    return connection, run_control, config_editor, metrics, suite_manager, dna_pane
 
 
-def build_controller(connection: widgets.ConnectionPane, run_control: widgets.RunControlPane, config_editor: widgets.ConfigEditorPane, metrics: widgets.MetricsPane, *, poll_interval: float = 2.0) -> MissionControlController:
+def build_controller(
+    connection: widgets.ConnectionPane,
+    run_control: widgets.RunControlPane,
+    config_editor: widgets.ConfigEditorPane,
+    metrics: widgets.MetricsPane,
+    suite_manager: widgets.BenchmarkSuitePane,
+    dna_pane: widgets.WorkloadDNAPane,
+    *,
+    poll_interval: float = 2.0,
+) -> MissionControlController:
     """Wire up the Mission Control controller with the provided widgets."""
 
-    return MissionControlController(connection, metrics, run_control, config_editor=config_editor, poll_interval=poll_interval)
+    return MissionControlController(
+        connection,
+        metrics,
+        run_control,
+        config_editor=config_editor,
+        suite_manager=suite_manager,
+        dna_panel=dna_pane,
+        poll_interval=poll_interval,
+    )
 
 
-def build_window(controller: MissionControlController, connection: widgets.ConnectionPane, run_control: widgets.RunControlPane, config_editor: widgets.ConfigEditorPane, metrics: widgets.MetricsPane) -> QMainWindow:
+def build_window(
+    controller: MissionControlController,
+    connection: widgets.ConnectionPane,
+    run_control: widgets.RunControlPane,
+    config_editor: widgets.ConfigEditorPane,
+    metrics: widgets.MetricsPane,
+    suite_manager: widgets.BenchmarkSuitePane,
+    dna_pane: widgets.WorkloadDNAPane,
+) -> QMainWindowLike:
     """Create the Mission Control main window and embed widgets."""
 
-    if QMainWindow is None:  # pragma: no cover - PyQt6 missing
+    if QMAINWINDOW_CLS is None:  # pragma: no cover - PyQt6 missing
         raise RuntimeError("PyQt6 not available")
 
-    mission_window_cls = None
-    if Qt is not None:
+    mission_window_cls: Optional[Type[QMainWindowLike]] = None
+    if QT_NAMESPACE is not None:
         try:  # lazy import to avoid circular reference
             from .app import MissionControlWindow  # type: ignore
 
-            mission_window_cls = MissionControlWindow
+            mission_window_cls = cast(Type[QMainWindowLike], MissionControlWindow)
         except Exception:  # pragma: no cover - fallback when custom subclass unavailable
             mission_window_cls = None
 
-    window = mission_window_cls() if mission_window_cls is not None else QMainWindow()
+    window_cls = mission_window_cls or QMAINWINDOW_CLS
+    assert window_cls is not None  # for mypy
+    window = window_cls()  # type: ignore[call-arg]
     window.setObjectName("missionWindow")
     window.resize(1280, 720)
-    if Qt is not None:
+    if QT_NAMESPACE is not None and QWIDGET_CLS is not None:
         tabs = widgets.QTabWidget(window)  # type: ignore[call-arg]
         tabs.setObjectName("missionTabs")
         tabs.addTab(metrics, "Telemetry")  # type: ignore[attr-defined]
         tabs.addTab(config_editor, "Config Editor")  # type: ignore[attr-defined]
+        tabs.addTab(suite_manager, "Benchmark Suites")  # type: ignore[attr-defined]
+        tabs.addTab(dna_pane, "Workload DNA")  # type: ignore[attr-defined]
         window.setCentralWidget(tabs)  # type: ignore[call-arg]
     else:
         window.setCentralWidget(metrics)  # type: ignore[call-arg]
 
     controller_ref = controller
-    if Qt is not None:
+    if QT_NAMESPACE is not None:
         from .layout import create_dock
         if hasattr(window, "set_controller"):
             window.set_controller(controller_ref)  # type: ignore[attr-defined]
-        dock_connection = create_dock("Connection Settings", connection, Qt.DockWidgetArea.LeftDockWidgetArea)  # type: ignore[attr-defined]
-        dock_run = create_dock("Run Command", run_control, Qt.DockWidgetArea.LeftDockWidgetArea)  # type: ignore[attr-defined]
-        window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock_connection)  # type: ignore[attr-defined]
-        window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock_run)  # type: ignore[attr-defined]
+        dock_area = QT_NAMESPACE.DockWidgetArea.LeftDockWidgetArea  # type: ignore[attr-defined]
+        dock_connection = create_dock("Connection Settings", connection, dock_area)  # type: ignore[attr-defined]
+        dock_run = create_dock("Run Command", run_control, dock_area)  # type: ignore[attr-defined]
+        window.addDockWidget(dock_area, dock_connection)  # type: ignore[attr-defined]
+        window.addDockWidget(dock_area, dock_run)  # type: ignore[attr-defined]
         dock_run.setFeatures(dock_run.features() & ~dock_run.DockWidgetFeature.DockWidgetClosable)  # type: ignore[attr-defined]
     else:
         setattr(window, "_controller", controller_ref)
@@ -78,7 +133,7 @@ def build_window(controller: MissionControlController, connection: widgets.Conne
     return window
 
 
-def build_app(argv: Sequence[str] | None = None) -> QApplication:
-    if QApplication is None:  # pragma: no cover
+def build_app(argv: Sequence[str] | None = None) -> QApplicationLike:
+    if QAPPLICATION_CLS is None:  # pragma: no cover
         raise RuntimeError("PyQt6 not available")
-    return QApplication(list(argv) if argv is not None else [])
+    return QAPPLICATION_CLS(list(argv) if argv is not None else [])

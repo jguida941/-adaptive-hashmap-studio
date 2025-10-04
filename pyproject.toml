@@ -49,8 +49,12 @@ ignore_missing_imports = true
 module = "adhash.tui.app"
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = "pyqtgraph"
+ignore_missing_imports = true
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"adhash" = ["py.typed"]
+"adhash" = ["py.typed", "metrics/static/*.html", "metrics/static/*.css", "metrics/static/*.js"]

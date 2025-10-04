@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -45,4 +46,23 @@ def test_process_manager_stop(tmp_path: Path) -> None:
     while manager.is_running() and time.time() < timeout:
         time.sleep(0.1)
 
+    assert not manager.is_running()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Subprocess commands differ on Windows")
+def test_process_manager_start_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    outputs: List[str] = []
+    exit_codes: List[int] = []
+
+    manager = ProcessManager(outputs.append, exit_codes.append)
+
+    def _raise(*_args, **_kwargs):
+        raise FileNotFoundError("missing executable")
+
+    monkeypatch.setattr(subprocess, "Popen", _raise)
+
+    with pytest.raises(RuntimeError):
+        manager.start(["missing-binary"])
+
+    assert exit_codes and exit_codes[-1] == -1
     assert not manager.is_running()

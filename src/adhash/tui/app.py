@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import os
 import socket
 from datetime import datetime
 from itertools import pairwise
@@ -40,7 +41,7 @@ else:  # pragma: no cover - guarded runtime import
 def fetch_metrics(endpoint: str, timeout: float = 1.0) -> Optional[Dict[str, Any]]:
     """Return the latest metrics JSON from ``endpoint`` or ``None`` on error."""
 
-    request = Request(endpoint, headers={"Accept": "application/json"})
+    request = Request(endpoint, headers=_build_headers("application/json"))
     try:
         with urlopen(request, timeout=timeout) as response:  # nosec: B310 (local HTTP only)
             payload = response.read()
@@ -54,7 +55,7 @@ def fetch_metrics(endpoint: str, timeout: float = 1.0) -> Optional[Dict[str, Any
 
 
 def fetch_history(endpoint: str, timeout: float = 1.0) -> Optional[List[Dict[str, Any]]]:
-    request = Request(endpoint, headers={"Accept": "application/json"})
+    request = Request(endpoint, headers=_build_headers("application/json"))
     try:
         with urlopen(request, timeout=timeout) as response:  # nosec: B310
             payload = response.read()
@@ -67,6 +68,14 @@ def fetch_history(endpoint: str, timeout: float = 1.0) -> Optional[List[Dict[str
     if isinstance(data, list) and all(isinstance(item, dict) for item in data):
         return data
     return None
+
+
+def _build_headers(accept: str) -> Dict[str, str]:
+    headers = {"Accept": accept}
+    token = os.getenv("ADHASH_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
 
 
 def _safe_float(value: Any) -> Optional[float]:

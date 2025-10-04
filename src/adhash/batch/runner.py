@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 import sys
 import time
@@ -15,6 +16,9 @@ try:  # Python 3.11+
     import tomllib
 except ModuleNotFoundError as exc:  # pragma: no cover
     raise ImportError("Python 3.11+ with tomllib support is required") from exc
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -115,7 +119,19 @@ class JobResult:
     summary: Optional[Dict[str, Any]]
 
 
+@dataclass
+class _SummaryRow:
+    name: str
+    ops: float
+    duration_seconds: float
+    backend: str
+    p99_ms: Optional[float]
+
+
 class BatchRunner:
+    _MAX_SUMMARY_ROWS = 500
+    _MAX_SNIPPET_CHARS = 4000
+
     def __init__(self, spec: BatchSpec, python_executable: str | None = None) -> None:
         self.spec = spec
         self.python = python_executable or sys.executable
@@ -131,20 +147,49 @@ class BatchRunner:
     def _run_job(self, job: JobSpec) -> JobResult:
         command = self._build_command(job)
         start = time.perf_counter()
-        proc = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=self.spec.working_dir,
-            text=True,
-        )
-        duration = time.perf_counter() - start
+        try:
+            proc = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=self.spec.working_dir,
+                text=True,
+            )
+            duration = time.perf_counter() - start
+        except OSError as exc:
+            duration = time.perf_counter() - start
+            logger.error("Failed to launch batch job %s: %s", job.name, exc)
+            return JobResult(
+                spec=job,
+                exit_code=1,
+                duration_seconds=duration,
+                stdout="",
+                stderr=str(exc),
+                summary=None,
+            )
+        except Exception as exc:  # pragma: no cover - defensive guard
+            duration = time.perf_counter() - start
+            logger.exception("Unexpected error while running batch job %s", job.name)
+            return JobResult(
+                spec=job,
+                exit_code=1,
+                duration_seconds=duration,
+                stdout="",
+                stderr=str(exc),
+                summary=None,
+            )
+
         summary = None
         if proc.returncode == 0 and job.json_summary and job.json_summary.exists():
             try:
                 summary = json.loads(job.json_summary.read_text())
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as exc:
+                logger.warning("Failed to parse summary for job %s: %s", job.name, exc)
                 summary = None
+        if proc.returncode != 0:
+            logger.warning(
+                "Batch job %s exited with status %s", job.name, proc.returncode
+            )
         return JobResult(
             spec=job,
             exit_code=proc.returncode,
@@ -187,38 +232,50 @@ class BatchRunner:
     def _write_report(self, results: Iterable[JobResult]) -> None:
         lines = ["# Adaptive Hash Map Batch Report", "", f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}", ""]
 
-        metrics_summary = []
+        metrics_summary: List[_SummaryRow] = []
 
         rows = ["| Job | Command | Status | Duration (s) | Ops/s | Backend |", "|---|---|---|---:|---:|---|"]
         for result in results:
             status = "✅" if result.exit_code == 0 else "❌"
             summary = result.summary or {}
             ops_per_second = summary.get("ops_per_second") or summary.get("throughput_ops_per_sec")
-            backend = summary.get("final_backend") or summary.get("backend") or "-"
-            latency_overall = summary.get("latency_ms", {}).get("overall", {}) if isinstance(summary.get("latency_ms"), dict) else {}
+            backend_raw = summary.get("final_backend") or summary.get("backend") or "-"
+            backend = str(backend_raw)
+            latency_packet = summary.get("latency_ms") if isinstance(summary.get("latency_ms"), dict) else {}
+            latency_overall = latency_packet.get("overall") if isinstance(latency_packet, dict) else {}
             latency_p99 = latency_overall.get("p99") if isinstance(latency_overall, dict) else None
+
+            safe_name = self._clean_text(result.spec.name, max_chars=120)
+            safe_command = self._clean_text(result.spec.command, max_chars=120)
+            safe_backend = self._clean_text(backend, max_chars=120)
+
+            ops_fmt = "-"
             if isinstance(ops_per_second, (int, float)):
-                ops_fmt = f"{ops_per_second:,.0f}"
-            else:
-                ops_fmt = "-"
-            if isinstance(ops_per_second, (int, float)):
-                metrics_summary.append(
-                    {
-                        "name": result.spec.name,
-                        "ops": ops_per_second,
-                        "duration": result.duration_seconds,
-                        "backend": backend,
-                        "p99": latency_p99 if isinstance(latency_p99, (int, float)) else None,
-                    }
-                )
+                ops_value = float(ops_per_second)
+                ops_fmt = f"{ops_value:,.0f}"
+                p99_value: Optional[float]
+                if isinstance(latency_p99, (int, float)):
+                    p99_value = float(latency_p99)
+                else:
+                    p99_value = None
+                if len(metrics_summary) < self._MAX_SUMMARY_ROWS:
+                    metrics_summary.append(
+                        _SummaryRow(
+                            name=safe_name,
+                            ops=ops_value,
+                            duration_seconds=result.duration_seconds,
+                            backend=safe_backend,
+                            p99_ms=p99_value,
+                        )
+                    )
             rows.append(
                 "| {name} | {command} | {status} | {dur:.2f} | {ops} | {backend} |".format(
-                    name=result.spec.name,
-                    command=result.spec.command,
+                    name=safe_name,
+                    command=safe_command,
                     status=status,
                     dur=result.duration_seconds,
                     ops=ops_fmt,
-                    backend=backend,
+                    backend=safe_backend,
                 )
             )
 
@@ -230,39 +287,39 @@ class BatchRunner:
             lines.append("")
             lines.append("| Job | Ops/s | Δ vs. max | p99 latency (ms) |")
             lines.append("|---|---:|---:|---:|")
-            best_ops = max(item["ops"] for item in metrics_summary)
-            for item in sorted(metrics_summary, key=lambda data: data["ops"], reverse=True):
-                delta = 0.0
-                if best_ops > 0:
-                    delta = (item["ops"] - best_ops) / best_ops * 100
+            best_ops = max(row.ops for row in metrics_summary)
+            for row in sorted(metrics_summary, key=lambda data: data.ops, reverse=True):
+                delta = 0.0 if best_ops <= 0 else (row.ops - best_ops) / best_ops * 100
                 delta_fmt = "0.0%" if abs(delta) < 0.05 else f"{delta:+.1f}%"
-                p99_fmt = f"{item['p99']:.3f}" if isinstance(item["p99"], (int, float)) else "-"
+                p99_fmt = f"{row.p99_ms:.3f}" if row.p99_ms is not None else "-"
                 lines.append(
                     "| {name} | {ops:,.0f} | {delta} | {p99} |".format(
-                        name=item["name"],
-                        ops=item["ops"],
+                        name=row.name,
+                        ops=row.ops,
                         delta=delta_fmt,
                         p99=p99_fmt,
                     )
                 )
             lines.append("")
             lines.append('<div class="ops-chart">')
-            for item in sorted(metrics_summary, key=lambda data: data["ops"], reverse=True):
-                width = 0 if best_ops <= 0 else min(100, (item["ops"] / best_ops) * 100)
+            for row in sorted(metrics_summary, key=lambda data: data.ops, reverse=True):
+                width = 0.0 if best_ops <= 0 else min(100.0, (row.ops / best_ops) * 100)
                 lines.append(
-                    f'<div class="ops-bar"><span class="ops-label">{item["name"]}</span>'
+                    f'<div class="ops-bar"><span class="ops-label">{row.name}</span>'
                     f'<div class="ops-track"><div class="ops-fill" style="width:{width:.1f}%"></div></div>'
-                    f'<span class="ops-value">{item["ops"]:,.0f} ops/s</span></div>'
+                    f'<span class="ops-value">{row.ops:,.0f} ops/s</span></div>'
                 )
             lines.append('</div>')
             lines.append("")
 
         lines.append("## Job Logs")
         for result in results:
-            lines.append(f"### {result.spec.name}")
+            section_title = self._clean_text(result.spec.name, max_chars=120)
+            lines.append(f"### {section_title}")
             lines.append("")
             lines.append("```text")
-            snippet = result.stdout.strip() or result.stderr.strip()
+            snippet_raw = result.stdout.strip() or result.stderr.strip()
+            snippet = self._clean_text(snippet_raw) if snippet_raw else ""
             lines.append(snippet or "(no output)")
             lines.append("```\n")
 
@@ -273,6 +330,17 @@ class BatchRunner:
             self.spec.html_report_path.parent.mkdir(parents=True, exist_ok=True)
             html = self._markdown_to_html(markdown)
             self.spec.html_report_path.write_text(html)
+
+    @staticmethod
+    def _clean_text(value: str, *, max_chars: int = 4000) -> str:
+        sanitized = []
+        for ch in value:
+            if ch in {"\n", "\t"} or " " <= ch <= "\ufffd":
+                sanitized.append(ch)
+        cleaned = "".join(sanitized)
+        if len(cleaned) > max_chars:
+            return cleaned[:max_chars] + "…"
+        return cleaned
 
     @staticmethod
     def _markdown_to_html(markdown: str) -> str:

@@ -3,7 +3,12 @@
 The batch runner executes a suite of `hashmap_cli.py` commands from a single TOML
 specification and produces a Markdown report with results and command output
 snippets. Use it to replay a consistent set of workloads across backends and
-capture summary metrics without hand-running each CLI invocation.
+capture summary metrics without hand-running each CLI invocation. Mission
+Control now exposes this workflow through the **Benchmark Suites** tab,
+allowing you to browse specs, launch runs, and tail logs without leaving the
+desktop UI. From there a dedicated **Workload DNA** tab renders bucket heatmaps
+and collision-depth histograms for any analyzed job, making it easy to spot
+skew before you hit “Run”.
 
 ## Specification format
 
