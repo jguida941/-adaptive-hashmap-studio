@@ -392,25 +392,43 @@ class RunControlPane(QWidget):  # type: ignore[misc]
 
         text = self.command_edit.text().strip()
         if not text:
-            self.command_edit.setText(f"python hashmap_cli.py --config {resolved} run-csv --csv data/workloads/w_uniform.csv")
+            default_command = [
+                "python",
+                "hashmap_cli.py",
+                "--config",
+                resolved,
+                "run-csv",
+                "--csv",
+                "data/workloads/w_uniform.csv",
+            ]
+            self.command_edit.setText(" ".join(shlex.quote(part) for part in default_command))
             return
 
-        parts = text.split()
-        if "--config" in parts:
-            idx = parts.index("--config")
-            if idx + 1 < len(parts):
-                parts[idx + 1] = resolved
+        try:
+            args = list(ProcessManager.parse_command(text))
+        except ValueError:
+            self.command_edit.setText(f"{text} --config {shlex.quote(resolved)}")
+            return
+
+        if not args:
+            args = ["python", "hashmap_cli.py"]
+
+        if "--config" in args:
+            idx = args.index("--config")
+            if idx == len(args) - 1:
+                args.append(resolved)
             else:
-                parts.append(resolved)
-            self.command_edit.setText(" ".join(parts))
-            return
-
-        if text.startswith("python hashmap_cli.py"):
-            self.command_edit.setText(
-                text.replace("python hashmap_cli.py", f"python hashmap_cli.py --config {resolved}", 1)
-            )
+                args[idx + 1] = resolved
         else:
-            self.command_edit.setText(f"{text} --config {resolved}")
+            insert_at = len(args)
+            for index, arg in enumerate(args):
+                if arg.endswith("hashmap_cli.py") or arg.endswith("hashmap_cli.pyc"):
+                    insert_at = index + 1
+                    break
+            args[insert_at:insert_at] = ["--config", resolved]
+
+        rebuilt = " ".join(shlex.quote(part) for part in args)
+        self.command_edit.setText(rebuilt)
 
 
 class ConfigEditorPane(QWidget):  # type: ignore[misc]
