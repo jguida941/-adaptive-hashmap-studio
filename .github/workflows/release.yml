@@ -61,8 +61,32 @@ jobs:
             sha256sum "$file" >> SHA256SUMS.txt
           done
 
+      - name: Detect TestPyPI token
+        id: detect_testpypi
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect PyPI token
+        id: detect_pypi
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload to TestPyPI
-        if: ${{ secrets.TEST_PYPI_API_TOKEN != '' }}
+        if: ${{ steps.detect_testpypi.outputs.available == 'true' }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
@@ -70,7 +94,7 @@ jobs:
           python -m twine upload --repository testpypi --skip-existing dist/*
 
       - name: Upload to PyPI
-        if: ${{ secrets.PYPI_API_TOKEN != '' }}
+        if: ${{ steps.detect_pypi.outputs.available == 'true' }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
