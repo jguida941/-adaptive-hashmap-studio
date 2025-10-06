@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, ca
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from adhash.metrics import TICK_SCHEMA
+from adhash.metrics import SUMMARY_SCHEMA, TICK_SCHEMA
 
 _TEXTUAL_ERR: Optional[Exception] = None
 if TYPE_CHECKING:  # pragma: no cover - only for static analysis
@@ -262,7 +262,7 @@ if _TEXTUAL_ERR is None:
             tick = await loop.run_in_executor(None, _load)
             if tick is None:
                 return None, None, None
-            if tick.get("schema") not in {None, TICK_SCHEMA}:
+            if tick.get("schema") not in {None, TICK_SCHEMA, SUMMARY_SCHEMA}:
                 return None, None, f"Unsupported schema: {tick.get('schema')}"
 
             history_data: Optional[List[Dict[str, Any]]] = None

@@ -6,7 +6,7 @@ import math
 import time
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar
 
 from concurrent.futures import ThreadPoolExecutor, Future
 
@@ -41,8 +41,21 @@ from .common import (
 T = TypeVar("T")
 
 
+class _BaseMainThreadInvoker:
+    """Common typing surface for both Qt and stub implementations."""
+
+    def __init__(self, parent: Optional[object] = None) -> None:
+        self._parent = parent
+
+    def submit(self, func: Callable[[], None]) -> None:
+        raise NotImplementedError
+
+
+_MainThreadInvoker: Type[_BaseMainThreadInvoker]
+
+
 if QObject is not None and pyqtSignal is not None:  # type: ignore[truthy-bool]
-    class _MainThreadInvoker(QObject):  # type: ignore[misc]
+    class _QtMainThreadInvoker(QObject, _BaseMainThreadInvoker):  # type: ignore[misc]
         """Queue callbacks onto the Qt main thread."""
 
         call = pyqtSignal(object)  # type: ignore[call-arg]
@@ -59,13 +72,18 @@ if QObject is not None and pyqtSignal is not None:  # type: ignore[truthy-bool]
                 payload()
 
 
+    _MainThreadInvoker = _QtMainThreadInvoker
+
 else:  # pragma: no cover - PyQt6 missing in test envs
-    class _MainThreadInvoker:  # type: ignore[too-few-public-methods]
+    class _StubMainThreadInvoker(_BaseMainThreadInvoker):  # type: ignore[too-few-public-methods]
         def __init__(self, parent: Optional[object] = None) -> None:
-            self._parent = parent
+            super().__init__(parent)
 
         def submit(self, func: Callable[[], None]) -> None:
             func()
+
+
+    _MainThreadInvoker = _StubMainThreadInvoker
 
 
 class BenchmarkSuitePane(QWidget):  # type: ignore[misc]

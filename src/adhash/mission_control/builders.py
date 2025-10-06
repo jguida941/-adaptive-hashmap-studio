@@ -40,6 +40,7 @@ def build_widgets(parent: Optional[QWidgetLike] = None) -> Tuple[
     widgets.MetricsPane,
     widgets.BenchmarkSuitePane,
     widgets.WorkloadDNAPane,
+    widgets.SnapshotInspectorPane,
 ]:
     """Construct the core Mission Control widgets."""
 
@@ -49,7 +50,16 @@ def build_widgets(parent: Optional[QWidgetLike] = None) -> Tuple[
     metrics = widgets.MetricsPane(parent)
     suite_manager = widgets.BenchmarkSuitePane(parent)
     dna_pane = widgets.WorkloadDNAPane(parent)
-    return connection, run_control, config_editor, metrics, suite_manager, dna_pane
+    snapshot_inspector = widgets.SnapshotInspectorPane(parent)
+    return (
+        connection,
+        run_control,
+        config_editor,
+        metrics,
+        suite_manager,
+        dna_pane,
+        snapshot_inspector,
+    )
 
 
 def build_controller(
@@ -59,6 +69,7 @@ def build_controller(
     metrics: widgets.MetricsPane,
     suite_manager: widgets.BenchmarkSuitePane,
     dna_pane: widgets.WorkloadDNAPane,
+    snapshot_inspector: widgets.SnapshotInspectorPane,
     *,
     poll_interval: float = 2.0,
 ) -> MissionControlController:
@@ -71,6 +82,7 @@ def build_controller(
         config_editor=config_editor,
         suite_manager=suite_manager,
         dna_panel=dna_pane,
+        snapshot_panel=snapshot_inspector,
         poll_interval=poll_interval,
     )
 
@@ -83,6 +95,7 @@ def build_window(
     metrics: widgets.MetricsPane,
     suite_manager: widgets.BenchmarkSuitePane,
     dna_pane: widgets.WorkloadDNAPane,
+    snapshot_inspector: widgets.SnapshotInspectorPane,
 ) -> QMainWindowLike:
     """Create the Mission Control main window and embed widgets."""
 
@@ -108,6 +121,7 @@ def build_window(
         tabs.setObjectName("missionTabs")
         tabs.addTab(metrics, "Telemetry")  # type: ignore[attr-defined]
         tabs.addTab(config_editor, "Config Editor")  # type: ignore[attr-defined]
+        tabs.addTab(snapshot_inspector, "Snapshot Inspector")  # type: ignore[attr-defined]
         tabs.addTab(suite_manager, "Benchmark Suites")  # type: ignore[attr-defined]
         tabs.addTab(dna_pane, "Workload DNA")  # type: ignore[attr-defined]
         window.setCentralWidget(tabs)  # type: ignore[call-arg]

@@ -389,7 +389,15 @@ def _apply_futuristic_theme(app: QApplication) -> None:
 
 
 def _create_window() -> QMainWindow:
-    connection, run_control, config_editor, metrics, suite_manager, dna_pane = build_widgets()
+    (
+        connection,
+        run_control,
+        config_editor,
+        metrics,
+        suite_manager,
+        dna_pane,
+        snapshot_pane,
+    ) = build_widgets()
     controller = build_controller(
         connection,
         run_control,
@@ -397,6 +405,7 @@ def _create_window() -> QMainWindow:
         metrics,
         suite_manager,
         dna_pane,
+        snapshot_pane,
     )
     window = build_window(
         controller,
@@ -406,6 +415,7 @@ def _create_window() -> QMainWindow:
         metrics,
         suite_manager,
         dna_pane,
+        snapshot_pane,
     )
     window.setWindowTitle("Adaptive Hash Map – Mission Control")
     return window

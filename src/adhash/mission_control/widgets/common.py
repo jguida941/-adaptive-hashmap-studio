@@ -35,6 +35,9 @@ try:  # pragma: no cover - only when PyQt6 is present
         QSpinBox,
         QToolTip,
         QProgressBar,
+        QFileDialog,
+        QSlider,
+        QDoubleSpinBox,
     )
     from PyQt6.QtGui import QColor, QCursor
 except Exception as exc:  # pragma: no cover - CI or headless environments
@@ -54,6 +57,9 @@ except Exception as exc:  # pragma: no cover - CI or headless environments
     QSpinBox = cast(Any, None)
     QToolTip = cast(Any, None)
     QProgressBar = cast(Any, None)
+    QFileDialog = cast(Any, None)
+    QSlider = cast(Any, None)
+    QDoubleSpinBox = cast(Any, None)
     pyqtSignal = None  # type: ignore[assignment]
     QColor = cast(Any, object)
     QCursor = cast(Any, object)
@@ -98,6 +104,9 @@ __all__ = [
     "QSpinBox",
     "QToolTip",
     "QProgressBar",
+    "QFileDialog",
+    "QSlider",
+    "QDoubleSpinBox",
     "QColor",
     "QCursor",
     "pg",

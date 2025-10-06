@@ -36,6 +36,7 @@ from .benchmark_suite import BenchmarkSuitePane
 from .config_editor import ConfigEditorPane
 from .connection import ConnectionPane
 from .metrics import MetricsPane
+from .snapshot_inspector import SnapshotInspectorPane
 from .run_control import RunControlPane
 from .workload_dna import WorkloadDNAPane
 
@@ -45,6 +46,7 @@ __all__ = [
     "ConfigEditorPane",
     "BenchmarkSuitePane",
     "MetricsPane",
+    "SnapshotInspectorPane",
     "WorkloadDNAPane",
     "Qt",
     "QTimer",

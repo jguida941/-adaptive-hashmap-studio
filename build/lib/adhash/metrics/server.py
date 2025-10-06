@@ -75,12 +75,37 @@ def start_metrics_server(
             self._set_common_headers(content_type=content_type, length=len(body), gzip_enabled=gzip_enabled)
             self.end_headers()
             if self.command != "HEAD":
-                self.wfile.write(body)
+                try:
+                    self.wfile.write(body)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+
+        def _client_supports_gzip(self) -> bool:
+            header = self.headers.get("Accept-Encoding") or ""
+            encodings = [entry.strip() for entry in header.split(",") if entry.strip()]
+            for encoding in encodings:
+                parts = [part.strip() for part in encoding.split(";") if part.strip()]
+                if not parts:
+                    continue
+                name = parts[0].lower()
+                if name != "gzip":
+                    continue
+                q = 1.0
+                for param in parts[1:]:
+                    if param.lower().startswith("q="):
+                        try:
+                            q = float(param[2:])
+                        except ValueError:
+                            q = 0.0
+                if q > 0.0:
+                    return True
+            return False
 
         def _write_json(self, payload: Any, status: int = 200) -> None:
             raw = json.dumps(payload).encode("utf-8")
-            body = gzip.compress(raw)
-            self._write_body(body, JSON_CONTENT_TYPE, gzip_enabled=True, status=status)
+            gzip_enabled = self._client_supports_gzip()
+            body = gzip.compress(raw) if gzip_enabled else raw
+            self._write_body(body, JSON_CONTENT_TYPE, gzip_enabled=gzip_enabled, status=status)
 
         def _unauthorized(self) -> None:
             self._write_json(

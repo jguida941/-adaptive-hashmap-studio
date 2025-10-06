@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import io
 import json
 import logging
@@ -13,11 +14,12 @@ from collections import deque
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Deque, Dict, List, Optional, Type
+from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Tuple, Type
 
 from adhash.contracts.error import Exit, IOErrorEnvelope, InvariantError
 from adhash.config_toolkit import list_presets, resolve_presets_dir
-from adhash.io.snapshot import atomic_map_save
+from adhash.io.snapshot import atomic_map_save, load_snapshot_any
+from adhash.io.snapshot_header import describe_snapshot
 from adhash.metrics import Metrics, apply_tick_to_metrics, start_metrics_server, stream_metrics_file
 from adhash.workloads import WorkloadDNAResult, format_workload_dna
 
@@ -69,6 +71,11 @@ def register_subcommands(
         "workload-dna",
         "Analyze a CSV workload for ratios, skew, and collision risk.",
         lambda parser: _configure_workload_dna(parser, ctx),
+    )
+    _register(
+        "inspect-snapshot",
+        "Inspect snapshot metadata and optionally search for keys.",
+        lambda parser: _configure_inspect_snapshot(parser, ctx),
     )
     _register("config-wizard", "Interactively generate a TOML config file.", lambda parser: _configure_config_wizard(parser, ctx))
     _register(
@@ -309,6 +316,169 @@ def _configure_workload_dna(parser: argparse.ArgumentParser, ctx: CLIContext) ->
         return int(Exit.OK)
 
     return handler
+
+
+def _configure_inspect_snapshot(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+    parser.add_argument("--in", dest="path", required=True, help="Snapshot file (.pkl or .pkl.gz)")
+    parser.add_argument("--key", help="Exact key to search (literal evaluated if possible)")
+    parser.add_argument("--contains", default=None, help="Filter preview keys containing this substring")
+    parser.add_argument("--limit", type=int, default=20, help="Preview entry limit (default: %(default)s)")
+
+    def handler(args: argparse.Namespace) -> int:
+        path = Path(args.path).expanduser().resolve()
+        if not path.exists():
+            raise IOErrorEnvelope(f"Snapshot not found: {path}")
+
+        try:
+            descriptor = describe_snapshot(path)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise IOErrorEnvelope(f"Failed to parse snapshot header: {exc}") from exc
+
+        try:
+            payload = load_snapshot_any(str(path))
+        except Exception as exc:  # pragma: no cover - defensive
+            raise IOErrorEnvelope(f"Failed to load snapshot payload: {exc}") from exc
+
+        header = descriptor.header
+        header_data: Dict[str, Any] = {
+            "version": header.version,
+            "compressed": descriptor.compressed,
+            "checksum_hex": descriptor.checksum_hex,
+            "payload_bytes": header.payload_len,
+            "checksum_bytes": header.checksum_len,
+            "file_bytes": path.stat().st_size,
+        }
+
+        object_data: Dict[str, Any] = {"type": type(payload).__name__}
+        try:
+            object_data["size"] = len(payload)  # type: ignore[arg-type]
+        except Exception:
+            pass
+        if hasattr(payload, "backend_name"):
+            try:
+                object_data["backend"] = payload.backend_name()
+            except Exception:
+                pass
+        for attr, label in (
+            ("load_factor", "load_factor"),
+            ("tombstone_ratio", "tombstone_ratio"),
+            ("max_group_len", "max_group_len"),
+        ):
+            fn = getattr(payload, attr, None)
+            if callable(fn):
+                try:
+                    value = fn()
+                except Exception:
+                    continue
+                if isinstance(value, (int, float)):
+                    object_data[label] = float(value)
+
+        limit = max(args.limit, 1)
+        filter_text = (args.contains or "").strip().lower() or None
+        preview: List[Dict[str, Any]] = []
+        try:
+            for key, value in _iter_snapshot_items(payload):
+                key_text = str(key)
+                if filter_text and filter_text not in key_text.lower():
+                    continue
+                preview.append({"key": key_text, "value": _repr_trim(value)})
+                if len(preview) >= limit:
+                    break
+        except Exception as exc:  # pragma: no cover - defensive
+            preview = [{"error": f"Failed to iterate snapshot entries: {exc}"}]
+
+        key_result: Optional[Dict[str, Any]] = None
+        if args.key:
+            parsed = _parse_literal(args.key)
+            value, found = _lookup_snapshot_value(payload, parsed)
+            key_result = {
+                "input": args.key,
+                "parsed": parsed,
+                "found": found,
+                "value": _repr_trim(value) if found else None,
+            }
+
+        data: Dict[str, Any] = {
+            "path": str(path),
+            "header": header_data,
+            "object": object_data,
+            "preview": preview,
+        }
+        if key_result is not None:
+            data["key"] = key_result
+
+        text_lines = [
+            f"Snapshot: {path}",
+            f"Version {header.version} | compressed: {'yes' if descriptor.compressed else 'no'}",
+            f"Payload bytes: {header.payload_len:,} (checksum bytes: {header.checksum_len})",
+            f"Checksum: {descriptor.checksum_hex}",
+            f"Object type: {object_data.get('type')}",
+        ]
+        if "size" in object_data:
+            text_lines.append(f"Items: {object_data['size']:,}")
+        if "backend" in object_data:
+            text_lines.append(f"Backend: {object_data['backend']}")
+        for field in ("load_factor", "tombstone_ratio", "max_group_len"):
+            if field in object_data:
+                text_lines.append(f"{field.replace('_', ' ').title()}: {object_data[field]}")
+        if preview:
+            if "error" in preview[0]:
+                text_lines.append(preview[0]["error"])
+            else:
+                text_lines.append("Preview:")
+                for entry in preview[:5]:
+                    text_lines.append(f"  {entry['key']} -> {entry['value']}")
+        if key_result is not None:
+            if key_result["found"]:
+                text_lines.append(f"Key {key_result['parsed']!r} => {key_result['value']}")
+            else:
+                text_lines.append(f"Key {key_result['parsed']!r} not found")
+
+        ctx.emit_success("inspect-snapshot", text="\n".join(text_lines), data=data)
+        return int(Exit.OK)
+
+    return handler
+
+
+def _iter_snapshot_items(payload: Any) -> Iterable[Tuple[Any, Any]]:
+    items = getattr(payload, "items", None)
+    if callable(items):
+        try:
+            it = items()
+            if isinstance(it, Iterable):
+                return it
+        except Exception:
+            pass
+    if isinstance(payload, dict):
+        return payload.items()
+    return []
+
+
+def _lookup_snapshot_value(payload: Any, key: Any) -> Tuple[Any, bool]:
+    getter = getattr(payload, "get", None)
+    if callable(getter):
+        try:
+            value = getter(key)
+            if value is not None:
+                return value, True
+        except Exception:
+            pass
+    for candidate, value in _iter_snapshot_items(payload):
+        if candidate == key:
+            return value, True
+    return None, False
+
+
+def _repr_trim(value: Any, limit: int = 160) -> str:
+    text = repr(value)
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _parse_literal(text: str) -> Any:
+    try:
+        return ast.literal_eval(text)
+    except Exception:
+        return text
 
 
 def _configure_config_wizard(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:

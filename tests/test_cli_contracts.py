@@ -112,3 +112,29 @@ def test_run_csv_json_with_snapshot(tmp_path: Path) -> None:
     assert verify_payload["command"] == "verify-snapshot"
     assert verify_payload["repaired"] is False
     assert any("snapshot verified" in msg.lower() for msg in verify_payload.get("messages", []))
+
+
+def test_inspect_snapshot_cli(tmp_path: Path) -> None:
+    from adhash.core.maps import HybridAdaptiveHashMap
+    from adhash.io.snapshot import save_snapshot_any
+
+    snapshot_path = tmp_path / "inspector.pkl.gz"
+    map_obj = HybridAdaptiveHashMap()
+    map_obj.put("K1", "V1")
+    map_obj.put("K2", "V2")
+    save_snapshot_any(map_obj, str(snapshot_path), compress=True)
+
+    code, out, err = run_cli(f"inspect-snapshot --in {snapshot_path} --limit 5")
+    assert code == 0
+    assert "Snapshot:" in out
+    assert str(snapshot_path) in out
+
+    code, out_json, err_json = run_cli(f"--json inspect-snapshot --in {snapshot_path} --key K1 --limit 3")
+    assert code == 0
+    payload = json.loads(out_json)
+    assert payload["ok"] is True
+    assert payload["command"] == "inspect-snapshot"
+    key_section = payload.get("key")
+    assert key_section is not None
+    assert key_section["found"] is True
+    assert key_section["value"]

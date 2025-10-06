@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import json
 import math
 import time
-from typing import TYPE_CHECKING, Any, Mapping, Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
 from .common import (
+    QFileDialog,
     QLabel,
+    QCheckBox,
+    QComboBox,
     QHBoxLayout,
     QPlainTextEdit,
+    QPushButton,
+    QSlider,
     QTabWidget,
     Qt,
     QVBoxLayout,
@@ -43,6 +50,59 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         if Qt is not None:
             self.summary_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.summary_label)
+
+        self._history: List["MetricsSnapshot"] = []
+        self._history_throughput: List[Optional[float]] = []
+        self._history_slider = (
+            QSlider(Qt.Orientation.Horizontal) if Qt is not None and QSlider is not None else None  # type: ignore[call-arg]
+        )
+        self._history_label = QLabel("No samples yet")  # type: ignore[call-arg]
+        self._history_label.setObjectName("historyStatusLabel")
+        if Qt is not None:
+            self._history_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self._latency_series_selector = QComboBox() if QComboBox is not None else None  # type: ignore[call-arg]
+        self._latency_metric_selector = QComboBox() if QComboBox is not None else None  # type: ignore[call-arg]
+        self._export_button = QPushButton("Export history") if QPushButton is not None else None  # type: ignore[call-arg]
+        self._accumulate_checkbox = QCheckBox("Keep history between runs") if QCheckBox is not None else None  # type: ignore[call-arg]
+        if self._accumulate_checkbox is not None:
+            self._accumulate_checkbox.setChecked(False)
+
+        controls_row = QHBoxLayout()  # type: ignore[call-arg]
+        controls_row.setContentsMargins(4, 0, 4, 0)
+        if self._history_slider is not None:
+            self._history_slider.setMinimum(1)
+            self._history_slider.setMaximum(1)
+            self._history_slider.setValue(1)
+            self._history_slider.setEnabled(False)
+            controls_row.addWidget(QLabel("History:"))  # type: ignore[call-arg]
+            controls_row.addWidget(self._history_slider, 1)
+        else:
+            controls_row.addStretch()
+        controls_row.addWidget(self._history_label)
+        if self._latency_series_selector is not None and self._latency_metric_selector is not None:
+            self._latency_series_selector.addItems(["overall", "put", "get", "del"])
+            self._latency_metric_selector.addItems(["p50", "p90", "p99"])
+            controls_row.addWidget(QLabel("Series:"))  # type: ignore[call-arg]
+            controls_row.addWidget(self._latency_series_selector)
+            controls_row.addWidget(QLabel("Metric:"))  # type: ignore[call-arg]
+            controls_row.addWidget(self._latency_metric_selector)
+        if self._export_button is not None:
+            controls_row.addWidget(self._export_button)
+        if self._accumulate_checkbox is not None:
+            controls_row.addWidget(self._accumulate_checkbox)
+        controls_row.addStretch()
+        layout.addLayout(controls_row)
+
+        if self._history_slider is not None:
+            self._history_slider.valueChanged.connect(self._on_history_slider_changed)  # type: ignore[attr-defined]
+        if self._latency_series_selector is not None:
+            self._latency_series_selector.currentTextChanged.connect(self._on_latency_selector_changed)  # type: ignore[attr-defined]
+        if self._latency_metric_selector is not None:
+            self._latency_metric_selector.currentTextChanged.connect(self._on_latency_selector_changed)  # type: ignore[attr-defined]
+        if self._export_button is not None:
+            self._export_button.clicked.connect(self._export_history)  # type: ignore[attr-defined]
+        if self._accumulate_checkbox is not None:
+            self._accumulate_checkbox.toggled.connect(self._on_accumulate_toggled)  # type: ignore[attr-defined]
         self._supports_charts = Qt is not None and pg is not None
         self._max_points = 120
         self._tick_index = 0
@@ -66,6 +126,11 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         self._probe_status = None
         self._heatmap_status = None
         self._heatmap_gradient = None
+        self._scatter_plot = None
+        self._scatter_item = None
+        self._fft_plot = None
+        self._fft_curve = None
+        self._fft_status = None
         self._analytics_tabs = None
         if self._supports_charts:
             tabs = QTabWidget(self) if Qt is not None and QTabWidget is not None else None  # type: ignore[call-arg]
@@ -261,6 +326,52 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                 tip_heatmap = "Bucket density visualization. Bright spots = heavy clustering."
                 _set_tab_tooltip(idx, tip_heatmap)
 
+                if pg is not None:
+                    analytics_container = QWidget(self)  # type: ignore[call-arg]
+                    analytics_layout = QVBoxLayout(analytics_container)  # type: ignore[call-arg]
+                    analytics_layout.setContentsMargins(6, 6, 6, 6)
+
+                    self._scatter_plot = pg.PlotWidget(title="Load factor vs throughput")  # type: ignore[attr-defined]
+                    self._scatter_plot.setObjectName("analyticsScatter")
+                    self._scatter_plot.showGrid(x=True, y=True, alpha=0.2)  # type: ignore[attr-defined]
+                    self._scatter_plot.setLabel("bottom", "Load factor", color="#8CA3AF")  # type: ignore[attr-defined]
+                    self._scatter_plot.setLabel("left", "Ops/s", color="#A855F7")  # type: ignore[attr-defined]
+                    style_plot(
+                        self._scatter_plot,
+                        title="Load factor vs throughput",
+                        title_color="#A855F7",
+                        axis_color="#8CA3AF",
+                        border_color="#3B0764",
+                    )
+                    self._scatter_item = pg.ScatterPlotItem(size=8, brush=pg.mkBrush("#A855F7"), pen=pg.mkPen(None))  # type: ignore[attr-defined]
+                    self._scatter_plot.addItem(self._scatter_item)
+                    analytics_layout.addWidget(self._scatter_plot)
+
+                    self._fft_plot = pg.PlotWidget(title="Latency FFT magnitude")  # type: ignore[attr-defined]
+                    self._fft_plot.setObjectName("analyticsFft")
+                    self._fft_plot.showGrid(x=True, y=True, alpha=0.2)  # type: ignore[attr-defined]
+                    self._fft_plot.setLabel("bottom", "Normalised frequency", color="#8CA3AF")  # type: ignore[attr-defined]
+                    self._fft_plot.setLabel("left", "Magnitude", color="#FB7185")  # type: ignore[attr-defined]
+                    style_plot(
+                        self._fft_plot,
+                        title="Latency FFT magnitude",
+                        title_color="#FB7185",
+                        axis_color="#8CA3AF",
+                        border_color="#7F1D1D",
+                    )
+                    self._fft_curve = self._fft_plot.plot(pen=pg.mkPen("#FB7185", width=2.0))  # type: ignore[attr-defined]
+                    analytics_layout.addWidget(self._fft_plot)
+
+                    self._fft_status = QLabel("Collecting samples for FFT…")  # type: ignore[call-arg]
+                    if Qt is not None:
+                        self._fft_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    self._fft_status.setObjectName("histStatusLabel")
+                    analytics_layout.addWidget(self._fft_status)
+
+                    idx = tabs.addTab(analytics_container, "Analytics")  # type: ignore[attr-defined]
+                    tip_analytics = "Advanced analytics: scatter plots and latency FFT for deeper diagnostics."
+                    _set_tab_tooltip(idx, tip_analytics)
+
             if tabs is not None:
                 layout.addWidget(tabs)
                 self._analytics_tabs = tabs
@@ -276,10 +387,18 @@ class MetricsPane(QWidget):  # type: ignore[misc]
     def update_snapshot(self, snapshot: MetricsSnapshot) -> None:
         self._tick_index += 1
         throughput = self._estimate_throughput(snapshot)
-        summary = self._summarize_snapshot(snapshot, throughput)
-        self.update_summary(summary)
         self._update_charts(snapshot, throughput)
-        self.update_events(snapshot.events)
+
+        was_replay = self._in_replay_mode()
+        self._append_history(snapshot, throughput)
+        self._refresh_history_slider(preserve_position=was_replay)
+
+        display_index = self._current_history_index()
+        display_snapshot = self._history[display_index]
+        self.update_events(display_snapshot.events)
+        self._refresh_summary_for_current_tick()
+        self._update_history_label()
+        self._update_analytics_panels()
 
     def update_events(self, events: list[dict[str, Any]]) -> None:
         if not events:
@@ -293,26 +412,300 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             lines.append(f"{timestamp:.2f}s — {etype} (backend={backend})" if isinstance(timestamp, (int, float)) else f"{etype} (backend={backend})")
         self.events_view.setPlainText("\n".join(lines))
 
+    # ------------------------------------------------------------------
+    def _append_history(self, snapshot: "MetricsSnapshot", throughput: Optional[float]) -> None:
+        self._history.append(snapshot)
+        self._history_throughput.append(throughput)
+        if len(self._history) > self._max_points:
+            self._history.pop(0)
+            self._history_throughput.pop(0)
+
+    def _current_history_index(self) -> int:
+        if not self._history:
+            return 0
+        if self._history_slider is None or not self._history_slider.isEnabled():
+            return len(self._history) - 1
+        value = self._history_slider.value()
+        return max(1, min(value, len(self._history))) - 1
+
+    def _in_replay_mode(self) -> bool:
+        if self._history_slider is None or not self._history or not self._history_slider.isEnabled():
+            return False
+        return self._history_slider.value() < self._history_slider.maximum()
+
+    def _refresh_history_slider(self, *, preserve_position: bool) -> None:
+        if self._history_slider is None:
+            return
+        length = len(self._history)
+        self._history_slider.blockSignals(True)
+        if length <= 1:
+            self._history_slider.setEnabled(False)
+            self._history_slider.setMaximum(1)
+            self._history_slider.setMinimum(1)
+            self._history_slider.setValue(1)
+        else:
+            previous_value = self._history_slider.value()
+            self._history_slider.setEnabled(True)
+            self._history_slider.setMinimum(1)
+            self._history_slider.setMaximum(length)
+            target = previous_value if preserve_position and previous_value <= length else length
+            target = max(1, min(target, length))
+            self._history_slider.setValue(target)
+        self._history_slider.blockSignals(False)
+
+    def _update_history_label(self) -> None:
+        if self._history_label is None:
+            return
+        if not self._history:
+            self._history_label.setText("No samples yet")
+            return
+        if not self._in_replay_mode():
+            self._history_label.setText("Live view")
+        else:
+            index = self._current_history_index() + 1
+            self._history_label.setText(f"Historical tick {index}/{len(self._history)}")
+
+    def _on_history_slider_changed(self, _value: int) -> None:
+        if not self._history:
+            return
+        index = self._current_history_index()
+        snapshot = self._history[index]
+        self.update_events(snapshot.events)
+        self._refresh_summary_for_current_tick()
+        self._update_history_label()
+        self._update_analytics_panels()
+
+    def _current_latency_selection(self) -> Tuple[str, str]:
+        series = "overall"
+        metric = "p99"
+        if self._latency_series_selector is not None:
+            text = self._latency_series_selector.currentText()
+            if text:
+                series = text
+        if self._latency_metric_selector is not None:
+            text = self._latency_metric_selector.currentText()
+            if text:
+                metric = text
+        return series, metric
+
+    def _refresh_summary_for_current_tick(self) -> None:
+        if not self._history:
+            self.update_summary("Waiting for metrics…")
+            return
+        index = self._current_history_index()
+        snapshot = self._history[index]
+        throughput = self._history_throughput[index]
+        summary = self._summarize_snapshot(snapshot, throughput)
+        self.update_summary(summary)
+
+    def _on_latency_selector_changed(self, _text: str) -> None:
+        self._refresh_summary_for_current_tick()
+        self._update_analytics_panels()
+
+    def _update_analytics_panels(self) -> None:
+        if not self._history:
+            if self._scatter_item is not None:
+                self._scatter_item.setData([])
+            if self._fft_curve is not None:
+                self._fft_curve.setData([], [])
+            if self._fft_status is not None:
+                self._fft_status.setVisible(True)
+            if self._fft_plot is not None:
+                self._fft_plot.setTitle("Latency FFT magnitude")  # type: ignore[attr-defined]
+                self._fft_plot.setLabel("bottom", "Normalised frequency", color="#8CA3AF")  # type: ignore[attr-defined]
+            return
+
+        series, metric = self._current_latency_selection()
+
+        if self._scatter_item is not None:
+            xs: List[float] = []
+            ys: List[float] = []
+            for snapshot, throughput in zip(self._history, self._history_throughput):
+                if throughput is None:
+                    continue
+                load = snapshot.tick.get("load_factor") if isinstance(snapshot.tick, Mapping) else None
+                if isinstance(load, (int, float)):
+                    xs.append(float(load))
+                    ys.append(float(throughput))
+            self._scatter_item.setData(x=xs, y=ys)
+
+        if self._fft_curve is not None and np is not None:
+            if self._fft_plot is not None:
+                metric_label = metric.upper()
+                self._fft_plot.setTitle(
+                    f"Latency FFT – {series} / {metric_label}"
+                )  # type: ignore[attr-defined]
+                self._fft_plot.setLabel(
+                    "bottom",
+                    f"Normalised frequency ({series})",
+                    color="#8CA3AF",
+                )  # type: ignore[attr-defined]
+
+            values: List[float] = []
+            for snapshot in self._history:
+                packet = snapshot.tick.get("latency_ms") if isinstance(snapshot.tick, Mapping) else None
+                if isinstance(packet, Mapping):
+                    series_payload = packet.get(series)
+                    if isinstance(series_payload, Mapping):
+                        raw = series_payload.get(metric)
+                        if isinstance(raw, (int, float)):
+                            values.append(float(raw))
+
+            if len(values) >= 4:
+                arr = np.array(values, dtype=float)
+                arr = arr - np.mean(arr)
+                spectrum = np.abs(np.fft.rfft(arr))
+                freqs = np.fft.rfftfreq(len(arr))
+                if len(freqs) > 1:
+                    self._fft_curve.setData(freqs[1:], spectrum[1:])  # drop DC component
+                else:
+                    self._fft_curve.setData([], [])
+                if self._fft_status is not None:
+                    self._fft_status.setVisible(False)
+            else:
+                self._fft_curve.setData([], [])
+                if self._fft_status is not None:
+                    self._fft_status.setVisible(True)
+
+    def _export_history(self) -> None:
+        if not self._history:
+            self.events_view.appendPlainText("No history samples to export.")
+            return
+        if QFileDialog is None:
+            self.events_view.appendPlainText("Export unavailable: Qt file dialog missing.")
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export metrics history",
+            "metrics_history.json",
+            "JSON files (*.json);;All files (*)",
+        )  # type: ignore[call-arg]
+        if not filename:
+            return
+        payload: List[Dict[str, Any]] = []
+        for snapshot, throughput in zip(self._history, self._history_throughput):
+            payload.append(
+                {
+                    "tick": snapshot.tick,
+                    "latency": snapshot.latency,
+                    "probe": snapshot.probe,
+                    "heatmap": snapshot.heatmap,
+                    "events": snapshot.events,
+                    "throughput": throughput,
+                }
+            )
+        try:
+            Path(filename).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as exc:  # pragma: no cover - defensive
+            self.events_view.appendPlainText(f"Failed to export history: {exc}")
+            return
+        self.events_view.appendPlainText(f"Exported {len(payload)} samples to {filename}")
+
+    def prepare_for_new_run(self) -> None:
+        if not self._should_accumulate_history():
+            self._clear_history()
+
+    def _should_accumulate_history(self) -> bool:
+        if self._accumulate_checkbox is None:
+            return False
+        return bool(self._accumulate_checkbox.isChecked())
+
+    def _on_accumulate_toggled(self, checked: bool) -> None:
+        if not checked:
+            self._clear_history()
+        else:
+            self._update_history_label()
+            self._refresh_summary_for_current_tick()
+            self._update_analytics_panels()
+
+    def _clear_history(self) -> None:
+        self._history.clear()
+        self._history_throughput.clear()
+        self._tick_index = 0
+        self._last_ops = None
+        self._last_time = None
+        self._last_throughput = None
+        self._last_wall_time = None
+        self._ops_x.clear()
+        self._ops_y.clear()
+        self._load_x.clear()
+        self._load_y.clear()
+
+        if self._history_slider is not None:
+            self._history_slider.blockSignals(True)
+            self._history_slider.setEnabled(False)
+            self._history_slider.setMinimum(1)
+            self._history_slider.setMaximum(1)
+            self._history_slider.setValue(1)
+            self._history_slider.blockSignals(False)
+
+        if self._ops_curve is not None:
+            self._ops_curve.setData([], [])
+        if self._load_curve is not None:
+            self._load_curve.setData([], [])
+        if self._latency_plot is not None:
+            self._latency_plot.clear()
+            self._latency_bars = None
+            if self._latency_status is not None:
+                self._latency_status.setVisible(True)
+        if self._probe_plot is not None:
+            self._probe_plot.clear()
+            self._probe_bars = None
+            if self._probe_status is not None:
+                self._probe_status.setVisible(True)
+        if self._heatmap_item is not None and np is not None:
+            self._heatmap_item.setImage(np.zeros((1, 1)))  # type: ignore[attr-defined]
+            if self._heatmap_status is not None:
+                self._heatmap_status.setVisible(True)
+        if self._scatter_item is not None:
+            self._scatter_item.setData([])
+        if self._fft_curve is not None:
+            self._fft_curve.setData([], [])
+        if self._fft_status is not None:
+            self._fft_status.setVisible(True)
+
+        self.update_events([])
+        self.update_summary("Waiting for metrics…")
+        self._update_history_label()
+        self._update_analytics_panels()
+
     def _summarize_snapshot(self, snapshot: MetricsSnapshot, throughput: Optional[float]) -> str:
         tick = snapshot.tick
         backend = tick.get("backend", "unknown")
         ops = tick.get("ops", 0)
-        summary = f"Backend: {backend} | Ops: {ops}"
+        segments: List[str] = [f"Backend: {backend}", f"Ops: {ops:,}"]
+
         load_factor = tick.get("load_factor")
         if isinstance(load_factor, (int, float)):
-            summary += f" | Load factor: {load_factor:.3f}"
-        if not isinstance(throughput, (int, float)):
-            throughput = tick.get("ops_per_second_instant")
-        if isinstance(throughput, (int, float)):
-            summary += f" | Ops/s: {throughput:.1f}"
+            segments.append(f"Load factor: {float(load_factor):.3f}")
+        else:
+            segments.append("Load factor: —")
+
+        display_throughput = throughput
+        if not isinstance(display_throughput, (int, float)):
+            candidate = tick.get("ops_per_second_instant") or tick.get("ops_per_second")
+            display_throughput = candidate if isinstance(candidate, (int, float)) else None
+        if isinstance(display_throughput, (int, float)):
+            segments.append(f"Ops/s: {display_throughput:,.1f}")
+        else:
+            segments.append("Ops/s: —")
+
+        series, metric = self._current_latency_selection()
+        latency_value = None
         latency_ms = tick.get("latency_ms")
         if isinstance(latency_ms, Mapping):
-            overall = latency_ms.get("overall")
-            if isinstance(overall, Mapping):
-                p99 = overall.get("p99")
-                if isinstance(p99, (int, float)):
-                    summary += f" | p99: {p99:.3f} ms"
-        return summary
+            series_payload = latency_ms.get(series)
+            if isinstance(series_payload, Mapping):
+                raw = series_payload.get(metric)
+                if isinstance(raw, (int, float)):
+                    latency_value = float(raw)
+        metric_label = metric.upper()
+        if latency_value is not None:
+            segments.append(f"Latency ({series} {metric_label}): {latency_value:.3f} ms")
+        else:
+            segments.append(f"Latency ({series} {metric_label}): —")
+
+        return " | ".join(segments)
 
     def _update_charts(self, snapshot: MetricsSnapshot, throughput: Optional[float]) -> None:
         if not self._supports_charts:

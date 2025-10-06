@@ -50,16 +50,41 @@ else:
     ) -> None:
         from adhash.mission_control import build_controller, build_widgets, build_window
 
-        connection, run_control, config_editor, metrics, suite, dna = build_widgets()
-        controller = build_controller(connection, run_control, config_editor, metrics, suite, dna)
-        window = build_window(controller, connection, run_control, config_editor, metrics, suite, dna)
+        (
+            connection,
+            run_control,
+            config_editor,
+            metrics,
+            suite,
+            dna,
+            snapshot_pane,
+        ) = build_widgets()
+        controller = build_controller(
+            connection,
+            run_control,
+            config_editor,
+            metrics,
+            suite,
+            dna,
+            snapshot_pane,
+        )
+        window = build_window(
+            controller,
+            connection,
+            run_control,
+            config_editor,
+            metrics,
+            suite,
+            dna,
+            snapshot_pane,
+        )
 
         assert window.windowTitle()  # Mission window title assigned in app module
         assert hasattr(window, "centralWidget")
         central = window.centralWidget()
         assert central is not None
         if hasattr(central, "count"):
-            assert central.count() >= 4  # type: ignore[attr-defined]
+            assert central.count() >= 5  # type: ignore[attr-defined]
 
 
     def test_config_editor_save_and_presets(

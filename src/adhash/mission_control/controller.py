@@ -19,6 +19,7 @@ from .widgets import (
     RunControlPane,
     BenchmarkSuitePane,
     WorkloadDNAPane,
+    SnapshotInspectorPane,
 )
 
 try:  # pragma: no cover - only available when PyQt6 is installed
@@ -60,6 +61,7 @@ class MissionControlController:
         config_editor: Optional[ConfigEditorPane] = None,
         suite_manager: Optional[BenchmarkSuitePane] = None,
         dna_panel: Optional[WorkloadDNAPane] = None,
+        snapshot_panel: Optional[SnapshotInspectorPane] = None,
         poll_interval: float = 2.0,
     ) -> None:
         self._connection = connection
@@ -68,6 +70,7 @@ class MissionControlController:
         self._config_editor = config_editor
         self._suite_pane = suite_manager
         self._dna_pane = dna_panel
+        self._snapshot_pane = snapshot_panel
         self._poll_interval = poll_interval
         self._poller: Optional[HttpPoller] = None
         self._process = ProcessManager(self._handle_process_output, self._handle_process_exit)
@@ -150,6 +153,11 @@ class MissionControlController:
         if not args:
             self._run_control.append_log("Command is empty.")
             return
+        if hasattr(self._metrics, "prepare_for_new_run"):
+            try:
+                self._metrics.prepare_for_new_run()
+            except Exception:  # pragma: no cover - defensive
+                self._run_control.append_log("Warning: failed to reset metrics history before run.")
         try:
             self._process.start(args)
             self._run_control.set_running(True)

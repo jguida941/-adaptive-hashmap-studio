@@ -114,8 +114,34 @@ def read_snapshot(path: Path) -> Any:
     return loads_snapshot(path.read_bytes())
 
 
+@dataclass(slots=True, frozen=True)
+class SnapshotDescriptor:
+    """Lightweight metadata view of a snapshot file."""
+
+    header: SnapshotHeader
+    checksum_hex: str
+
+    @property
+    def compressed(self) -> bool:
+        return bool(self.header.flags & FLAG_GZIP)
+
+
+def describe_snapshot(path: Path) -> SnapshotDescriptor:
+    """Return header/checksum metadata without deserialising the payload."""
+
+    blob = path.read_bytes()
+    header, offset = _unpack_header(blob)
+    checksum_end = offset + header.checksum_len
+    if len(blob) < checksum_end:
+        raise ValueError("Snapshot file truncated before checksum")
+    checksum = blob[offset:checksum_end]
+    return SnapshotDescriptor(header=header, checksum_hex=checksum.hex())
+
+
 __all__ = [
     "SnapshotHeader",
+    "SnapshotDescriptor",
+    "describe_snapshot",
     "write_snapshot",
     "read_snapshot",
     "dumps_snapshot",
