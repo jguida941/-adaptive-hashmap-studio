@@ -4,7 +4,8 @@ from pathlib import Path
 
 import json
 
-from hashmap_cli import APP_CONFIG, clone_config, run_ab_compare
+from adhash.config_toolkit import clone_config
+from adhash.hashmap_cli import APP_CONFIG, run_ab_compare
 
 
 def test_ab_compare_generates_artifacts(tmp_path: Path) -> None:

@@ -298,8 +298,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                         legend.setObjectName("heatmapLegend")
                         legend.setEnabled(False)
                         self._heatmap_gradient = legend
-                self._heatmap_item.setAutoDownsample(True)  # type: ignore[attr-defined]
-                self._heatmap_plot.addItem(self._heatmap_item)  # type: ignore[attr-defined]
+                if self._heatmap_item is not None and self._heatmap_plot is not None:
+                    self._heatmap_item.setAutoDownsample(True)  # type: ignore[attr-defined]
+                    self._heatmap_plot.addItem(self._heatmap_item)  # type: ignore[attr-defined]
                 heatmap_container = QWidget(self)  # type: ignore[call-arg]
                 heatmap_layout = QVBoxLayout(heatmap_container)  # type: ignore[call-arg]
                 heatmap_layout.setContentsMargins(6, 6, 6, 6)

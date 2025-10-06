@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shlex
 import time
 from enum import Enum
@@ -31,6 +32,10 @@ class _RunStatus(Enum):
     STOPPING = "stopping"
     COMPLETED = "completed"
     ERROR = "error"
+
+
+_GLOBAL_OPTS_WITH_VALUES = {"--mode", "--log-file", "--log-max-bytes", "--log-backup-count", "--config"}
+_GLOBAL_FLAG_OPTS = {"--json", "--log-json"}
 
 
 class RunControlPane(QWidget):  # type: ignore[misc]
@@ -226,14 +231,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         if not args:
             args = ["python", "-m", "hashmap_cli"]
 
-        if "--config" in args:
-            idx = args.index("--config")
-            if idx == len(args) - 1:
-                args.append(resolved)
-            else:
-                args[idx + 1] = resolved
-        else:
-            args.extend(["--config", resolved])
+        self._inject_config_option(args, resolved)
 
         rebuilt = " ".join(shlex.quote(part) for part in args)
         self.command_edit.setText(rebuilt)
@@ -258,6 +256,72 @@ class RunControlPane(QWidget):  # type: ignore[misc]
             return
         style.unpolish(widget)  # type: ignore[attr-defined]
         style.polish(widget)  # type: ignore[attr-defined]
+
+    @staticmethod
+    def _inject_config_option(args: List[str], config_path: str) -> None:
+        """Ensure ``--config`` appears before the CLI subcommand."""
+
+        # Remove any existing --config occurrences to avoid duplicates.
+        i = 0
+        while i < len(args):
+            if args[i] == "--config":
+                del args[i]
+                if i < len(args):
+                    del args[i]
+                continue
+            i += 1
+
+        if not args:
+            args.extend(["python", "-m", "hashmap_cli"])
+
+        scan_start = RunControlPane._locate_cli_scan_start(args)
+        insert_idx = RunControlPane._find_config_insert_index(args, scan_start)
+        args[insert_idx:insert_idx] = ["--config", config_path]
+
+    @staticmethod
+    def _locate_cli_scan_start(args: List[str]) -> int:
+        # Prefer explicit module invocation (python -m hashmap_cli)
+        for idx, token in enumerate(args):
+            if token == "-m" and idx + 1 < len(args):
+                module = args[idx + 1]
+                if module in {"hashmap_cli", "adhash.hashmap_cli"}:
+                    return idx + 2
+
+        for idx, token in enumerate(args):
+            basename = os.path.basename(token)
+            root, _ = os.path.splitext(basename)
+            if basename in {"hashmap-cli", "hashmap_cli"} or root in {"hashmap-cli", "hashmap_cli"}:
+                return idx + 1
+
+        for idx, token in enumerate(args):
+            path = Path(token)
+            if path.name == "hashmap_cli.py" or path.name == "__main__.py" and path.parent.name == "hashmap_cli":
+                return idx + 1
+
+        return 0
+
+    @staticmethod
+    def _find_config_insert_index(args: List[str], start_idx: int) -> int:
+        i = start_idx
+        while i < len(args):
+            token = args[i]
+            if token in _GLOBAL_OPTS_WITH_VALUES:
+                i += 2
+                continue
+            if token in _GLOBAL_FLAG_OPTS:
+                i += 1
+                continue
+            if token == "--":
+                return i
+            if token.startswith("--") and "=" in token:
+                i += 1
+                continue
+            if token.startswith("-"):
+                i += 1
+                continue
+            return i
+
+        return len(args)
 
     def _parse_command_args(self) -> Optional[List[str]]:
         text = self.command_edit.text().strip()

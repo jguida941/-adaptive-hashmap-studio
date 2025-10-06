@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib
 import sys
 
+from adhash.hashmap_cli import *  # noqa: F401,F403
+
 _impl = importlib.import_module("adhash.hashmap_cli")
 
 # Replace this module entry with the real implementation so attribute access,

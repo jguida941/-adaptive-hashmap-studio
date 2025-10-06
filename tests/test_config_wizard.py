@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterator, List
 
-from hashmap_cli import AppConfig, run_config_editor, run_config_wizard
+from adhash.config import AppConfig
+from adhash.hashmap_cli import run_config_editor, run_config_wizard
 
 
 def make_input(responses: List[str]) -> Iterator[str]:

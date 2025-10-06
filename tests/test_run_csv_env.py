@@ -11,7 +11,7 @@ from adhash.cli.commands import CLIContext, _configure_run_csv
 from adhash.workloads import WorkloadDNAResult
 from adhash.contracts.error import BadInputError
 from adhash.core.maps import RobinHoodMap
-from hashmap_cli import run_csv
+from adhash.hashmap_cli import run_csv
 
 
 def _write_minimal_workload(path: Path) -> None:

@@ -18,7 +18,7 @@ from adhash.metrics import (
     TICK_SCHEMA,
     start_metrics_server,
 )
-from hashmap_cli import TwoLevelChainingMap, collect_key_heatmap
+from adhash.core.maps import TwoLevelChainingMap, collect_key_heatmap
 
 
 def wait_for_server(port: int, retries: int = 10, delay: float = 0.05, headers: Dict[str, str] | None = None) -> None:

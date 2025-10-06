@@ -1,4 +1,4 @@
-from hashmap_cli import (
+from adhash.core.latency import (
     LATENCY_BUCKET_PRESETS_MS,
     resolve_latency_bucket_bounds,
 )
