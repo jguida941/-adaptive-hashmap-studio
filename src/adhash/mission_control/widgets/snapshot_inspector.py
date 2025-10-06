@@ -185,8 +185,12 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
         if not path.exists():
             self._set_status(f"Snapshot not found: {path}", error=True)
             return
+        descriptor: Optional[SnapshotDescriptor]
         try:
             descriptor = describe_snapshot(path)
+        except Exception:
+            descriptor = None
+        try:
             payload = load_snapshot_any(str(path))
         except Exception as exc:  # noqa: BLE001
             self._set_status(f"Failed to load snapshot: {exc}", error=True)
@@ -201,23 +205,33 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
 
         self._descriptor = descriptor
         self._payload = payload
-        self._set_status(f"Loaded snapshot {path.name}")
+        status = "Loaded snapshot"
+        if descriptor is None:
+            status = "Loaded legacy snapshot"
+        self._set_status(f"{status} {path.name}")
         self._render_header(descriptor, path)
         self._render_summary(payload)
         self._refresh_preview()
         self.result_view.setPlainText("")
 
-    def _render_header(self, descriptor: SnapshotDescriptor, path: Path) -> None:
-        header = descriptor.header
+    def _render_header(self, descriptor: Optional[SnapshotDescriptor], path: Path) -> None:
         lines = [
             f"File: {path}",
             f"Size: {path.stat().st_size:,} bytes",
-            f"Version: {header.version}",
-            f"Compressed: {'yes' if descriptor.compressed else 'no'}",
-            f"Payload bytes: {header.payload_len:,}",
-            f"Checksum length: {header.checksum_len}",
-            f"Checksum (hex): {descriptor.checksum_hex}",
         ]
+        if descriptor is None:
+            lines.append("Format: legacy pickle (no versioned header)")
+        else:
+            header = descriptor.header
+            lines.extend(
+                [
+                    f"Version: {header.version}",
+                    f"Compressed: {'yes' if descriptor.compressed else 'no'}",
+                    f"Payload bytes: {header.payload_len:,}",
+                    f"Checksum length: {header.checksum_len}",
+                    f"Checksum (hex): {descriptor.checksum_hex}",
+                ]
+            )
         self.header_view.setPlainText("\n".join(lines))
 
     def _render_summary(self, payload: Any) -> None:

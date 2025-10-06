@@ -1,8 +1,11 @@
+LICENSE
+NOTICE
 README.md
 pyproject.toml
 src/adaptive_hashmap_cli.egg-info/PKG-INFO
 src/adaptive_hashmap_cli.egg-info/SOURCES.txt
 src/adaptive_hashmap_cli.egg-info/dependency_links.txt
+src/adaptive_hashmap_cli.egg-info/entry_points.txt
 src/adaptive_hashmap_cli.egg-info/requires.txt
 src/adaptive_hashmap_cli.egg-info/top_level.txt
 src/adhash/__init__.py
@@ -10,6 +13,8 @@ src/adhash/config.py
 src/adhash/config_models.py
 src/adhash/config_toolkit.py
 src/adhash/py.typed
+src/adhash/analysis/__init__.py
+src/adhash/analysis/probe.py
 src/adhash/batch/__init__.py
 src/adhash/batch/__main__.py
 src/adhash/batch/runner.py
@@ -45,7 +50,9 @@ src/adhash/mission_control/widgets/common.py
 src/adhash/mission_control/widgets/config_editor.py
 src/adhash/mission_control/widgets/connection.py
 src/adhash/mission_control/widgets/metrics.py
+src/adhash/mission_control/widgets/probe_visualizer.py
 src/adhash/mission_control/widgets/run_control.py
+src/adhash/mission_control/widgets/snapshot_inspector.py
 src/adhash/mission_control/widgets/workload_dna.py
 src/adhash/tui/__init__.py
 src/adhash/tui/__main__.py
@@ -55,6 +62,7 @@ src/adhash/workloads/dna.py
 tests/test_ab_compare.py
 tests/test_batch_runner.py
 tests/test_cli_contracts.py
+tests/test_cli_probe_command.py
 tests/test_cli_workload_dna.py
 tests/test_config.py
 tests/test_config_toolkit_schema.py
@@ -63,13 +71,18 @@ tests/test_dashboard_assets.py
 tests/test_hybrid_capacity.py
 tests/test_latency_buckets.py
 tests/test_metrics_apply.py
+tests/test_metrics_core.py
 tests/test_metrics_endpoints.py
 tests/test_metrics_schema.py
 tests/test_mission_control_charts.py
 tests/test_mission_control_stub.py
 tests/test_mission_control_widgets_qt.py
 tests/test_perf_smoke.py
+tests/test_probe_tracer.py
 tests/test_process_manager.py
+tests/test_run_csv_env.py
 tests/test_snapshot_header.py
+tests/test_tui_probe.py
 tests/test_tui_smoke.py
+tests/test_validate_metrics_ndjson.py
 tests/test_workload_dna.py

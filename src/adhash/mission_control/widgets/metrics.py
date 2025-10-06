@@ -6,7 +6,7 @@ import json
 import math
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from .common import (
     QFileDialog,
@@ -669,6 +669,14 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         self._update_history_label()
         self._update_analytics_panels()
 
+    @staticmethod
+    def _first_numeric(payload: Mapping[str, Any], keys: Iterable[str]) -> Optional[float]:
+        for key in keys:
+            value = payload.get(key)
+            if isinstance(value, (int, float)):
+                return float(value)
+        return None
+
     def _summarize_snapshot(self, snapshot: MetricsSnapshot, throughput: Optional[float]) -> str:
         tick = snapshot.tick
         backend = tick.get("backend", "unknown")
@@ -683,8 +691,10 @@ class MetricsPane(QWidget):  # type: ignore[misc]
 
         display_throughput = throughput
         if not isinstance(display_throughput, (int, float)):
-            candidate = tick.get("ops_per_second_instant") or tick.get("ops_per_second")
-            display_throughput = candidate if isinstance(candidate, (int, float)) else None
+            display_throughput = self._first_numeric(
+                tick,
+                ("ops_per_second_instant", "ops_per_second"),
+            )
         if isinstance(display_throughput, (int, float)):
             segments.append(f"Ops/s: {display_throughput:,.1f}")
         else:
@@ -816,11 +826,11 @@ class MetricsPane(QWidget):  # type: ignore[misc]
 
     def _estimate_throughput(self, snapshot: MetricsSnapshot) -> Optional[float]:
         tick = snapshot.tick
-        raw = tick.get("ops_per_second") or tick.get("throughput")
-        throughput: Optional[float]
-        if isinstance(raw, (int, float)):
-            throughput = float(raw)
-        else:
+        throughput: Optional[float] = self._first_numeric(
+            tick,
+            ("ops_per_second", "throughput", "ops_per_second_instant"),
+        )
+        if throughput is None:
             throughput = self._last_throughput
 
         ops = tick.get("ops")

@@ -9,7 +9,10 @@ description = "Adaptive Hash Map CLI tooling"
 authors = [{name = "Adaptive HashMap Maintainers"}]
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
+classifiers = [
+  "License :: OSI Approved :: Apache Software License",
+]
 dependencies = []
 
 [project.optional-dependencies]
@@ -20,18 +23,58 @@ dev = [
   "ruff>=0.6.9",
   "mypy>=1.11",
   "coverage[toml]>=7.6",
+  "build>=1.2",
+  "towncrier>=23.11",
+  "twine>=5.0",
   "black>=24.8",
   "pre-commit>=3.6",
-  "textual>=0.56",
-]
-
-ui = [
   "textual>=0.56",
 ]
 
 gui = [
   "PyQt6>=6.7",
 ]
+
+ui = [
+  "textual>=0.56",
+]
+
+[tool.towncrier]
+package = "adaptive_hashmap_cli"
+filename = "CHANGELOG.md"
+directory = "newsfragments"
+title_format = "## Version {version} ({project_date})"
+issue_format = "#{issue}"
+underlines = ""
+template = "newsfragments/_template.jinja"
+start_string = "<!-- towncrier release notes start -->\n"
+
+[[tool.towncrier.section]]
+path = ""
+title = "Changes"
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bugfixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "internal"
+name = "Internal"
+showcontent = true
+
+[project.scripts]
+hashmap-cli = "hashmap_cli:console_main"
 
 [tool.ruff]
 line-length = 100
@@ -40,6 +83,10 @@ target-version = "py311"
 [tool.coverage.run]
 branch = true
 source = ["hashmap_cli", "src/adhash"]
+
+[tool.coverage.report]
+fail_under = 50
+show_missing = true
 
 [[tool.mypy.overrides]]
 module = "textual.*"
@@ -52,6 +99,9 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = "pyqtgraph"
 ignore_missing_imports = true
+
+[tool.setuptools]
+py-modules = ["hashmap_cli"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

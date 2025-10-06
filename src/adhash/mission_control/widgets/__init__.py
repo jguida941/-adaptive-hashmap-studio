@@ -39,6 +39,7 @@ from .metrics import MetricsPane
 from .snapshot_inspector import SnapshotInspectorPane
 from .run_control import RunControlPane
 from .workload_dna import WorkloadDNAPane
+from .probe_visualizer import ProbeVisualizerPane
 
 __all__ = [
     "ConnectionPane",
@@ -48,6 +49,7 @@ __all__ = [
     "MetricsPane",
     "SnapshotInspectorPane",
     "WorkloadDNAPane",
+    "ProbeVisualizerPane",
     "Qt",
     "QTimer",
     "pyqtSignal",

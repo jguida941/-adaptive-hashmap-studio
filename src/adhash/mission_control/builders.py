@@ -41,6 +41,7 @@ def build_widgets(parent: Optional[QWidgetLike] = None) -> Tuple[
     widgets.BenchmarkSuitePane,
     widgets.WorkloadDNAPane,
     widgets.SnapshotInspectorPane,
+    widgets.ProbeVisualizerPane,
 ]:
     """Construct the core Mission Control widgets."""
 
@@ -51,6 +52,7 @@ def build_widgets(parent: Optional[QWidgetLike] = None) -> Tuple[
     suite_manager = widgets.BenchmarkSuitePane(parent)
     dna_pane = widgets.WorkloadDNAPane(parent)
     snapshot_inspector = widgets.SnapshotInspectorPane(parent)
+    probe_visualizer = widgets.ProbeVisualizerPane(parent)
     return (
         connection,
         run_control,
@@ -59,6 +61,7 @@ def build_widgets(parent: Optional[QWidgetLike] = None) -> Tuple[
         suite_manager,
         dna_pane,
         snapshot_inspector,
+        probe_visualizer,
     )
 
 
@@ -70,6 +73,7 @@ def build_controller(
     suite_manager: widgets.BenchmarkSuitePane,
     dna_pane: widgets.WorkloadDNAPane,
     snapshot_inspector: widgets.SnapshotInspectorPane,
+    probe_visualizer: widgets.ProbeVisualizerPane,
     *,
     poll_interval: float = 2.0,
 ) -> MissionControlController:
@@ -83,6 +87,7 @@ def build_controller(
         suite_manager=suite_manager,
         dna_panel=dna_pane,
         snapshot_panel=snapshot_inspector,
+        probe_panel=probe_visualizer,
         poll_interval=poll_interval,
     )
 
@@ -96,6 +101,7 @@ def build_window(
     suite_manager: widgets.BenchmarkSuitePane,
     dna_pane: widgets.WorkloadDNAPane,
     snapshot_inspector: widgets.SnapshotInspectorPane,
+    probe_visualizer: widgets.ProbeVisualizerPane,
 ) -> QMainWindowLike:
     """Create the Mission Control main window and embed widgets."""
 
@@ -124,6 +130,7 @@ def build_window(
         tabs.addTab(snapshot_inspector, "Snapshot Inspector")  # type: ignore[attr-defined]
         tabs.addTab(suite_manager, "Benchmark Suites")  # type: ignore[attr-defined]
         tabs.addTab(dna_pane, "Workload DNA")  # type: ignore[attr-defined]
+        tabs.addTab(probe_visualizer, "Probe Visualizer")  # type: ignore[attr-defined]
         window.setCentralWidget(tabs)  # type: ignore[call-arg]
     else:
         window.setCentralWidget(metrics)  # type: ignore[call-arg]

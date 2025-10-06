@@ -1,8 +1,13 @@
 import json
+import os
+import re
 import shlex
+import signal
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 CLI = [sys.executable, "hashmap_cli.py"]
 
@@ -89,6 +94,15 @@ def test_run_csv_dry_run_json(tmp_path: Path) -> None:
     assert payload["mode"] == "adaptive"
 
 
+def test_run_csv_accepts_zero_metrics_port(tmp_path: Path) -> None:
+    csv_path = tmp_path / "work.csv"
+    csv_path.write_text("op,key,value\nput,K1,1\n", encoding="utf-8")
+    code, out, err = run_cli(f"--json run-csv --csv {csv_path} --dry-run --metrics-port 0")
+    assert code == 0
+    payload = json.loads(out)
+    assert payload["status"] == "validated"
+
+
 def test_run_csv_json_with_snapshot(tmp_path: Path) -> None:
     csv_path = tmp_path / "work.csv"
     csv_path.write_text("op,key,value\nput,K1,1\nget,K1,\n", encoding="utf-8")
@@ -138,3 +152,43 @@ def test_inspect_snapshot_cli(tmp_path: Path) -> None:
     assert key_section is not None
     assert key_section["found"] is True
     assert key_section["value"]
+
+
+@pytest.mark.parametrize("port_arg", ["auto", "0"])
+def test_serve_auto_reports_bound_port(port_arg: str) -> None:
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+    proc = subprocess.Popen(
+        CLI + ["serve", "--port", port_arg, "--host", "127.0.0.1"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+    stdout = proc.stdout
+    stderr = proc.stderr
+    assert stdout is not None
+    assert stderr is not None
+    try:
+        while True:
+            line = stdout.readline()
+            if not line:
+                if proc.poll() is not None:
+                    stderr_output = stderr.read()
+                    if "Operation not permitted" in stderr_output:
+                        pytest.skip("Socket binding not permitted in sandbox")
+                    raise AssertionError(f"serve exited unexpectedly: {stderr_output}")
+                continue
+            line = line.strip()
+            if line:
+                break
+        assert line.startswith("Dashboard:"), line
+        match = re.search(r"http://localhost:(\d+)/", line)
+        assert match is not None, line
+        assert match.group(1) != "0", line
+    finally:
+        proc.send_signal(signal.SIGINT)
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()

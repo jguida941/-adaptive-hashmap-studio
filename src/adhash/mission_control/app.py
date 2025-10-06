@@ -397,6 +397,7 @@ def _create_window() -> QMainWindow:
         suite_manager,
         dna_pane,
         snapshot_pane,
+        probe_pane,
     ) = build_widgets()
     controller = build_controller(
         connection,
@@ -406,6 +407,7 @@ def _create_window() -> QMainWindow:
         suite_manager,
         dna_pane,
         snapshot_pane,
+        probe_pane,
     )
     window = build_window(
         controller,
@@ -416,6 +418,7 @@ def _create_window() -> QMainWindow:
         suite_manager,
         dna_pane,
         snapshot_pane,
+        probe_pane,
     )
     window.setWindowTitle("Adaptive Hash Map – Mission Control")
     return window

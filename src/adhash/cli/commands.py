@@ -14,13 +14,18 @@ from collections import deque
 from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Tuple, Type
+from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Tuple, Type, cast
 
-from adhash.contracts.error import Exit, IOErrorEnvelope, InvariantError
+import os
+
+from adhash.analysis import format_trace_lines, trace_probe_get, trace_probe_put
+
+from adhash.contracts.error import BadInputError, Exit, IOErrorEnvelope, InvariantError, PolicyError
 from adhash.config_toolkit import list_presets, resolve_presets_dir
 from adhash.io.snapshot import atomic_map_save, load_snapshot_any
 from adhash.io.snapshot_header import describe_snapshot
 from adhash.metrics import Metrics, apply_tick_to_metrics, start_metrics_server, stream_metrics_file
+from adhash.core.maps import HybridAdaptiveHashMap, RobinHoodMap, TwoLevelChainingMap
 from adhash.workloads import WorkloadDNAResult, format_workload_dna
 
 
@@ -92,6 +97,11 @@ def register_subcommands(
     _register("serve", "Serve the dashboard/metrics API without running a workload.", lambda parser: _configure_serve(parser, ctx))
     _register("compact-snapshot", "Compact a RobinHoodMap snapshot offline.", lambda parser: _configure_compact_snapshot(parser, ctx))
     _register("verify-snapshot", "Verify invariants of a snapshot; optional safe repair (RobinHoodMap).", lambda parser: _configure_verify_snapshot(parser, ctx))
+    _register(
+        "probe-visualize",
+        "Trace probe paths for GET/PUT operations (text/JSON).",
+        lambda parser: _configure_probe_visualize(parser, ctx),
+    )
 
     return handlers
 
@@ -218,9 +228,27 @@ def _configure_generate(parser: argparse.ArgumentParser, ctx: CLIContext) -> Cal
     return handler
 
 
+def _parse_port(raw: str) -> int:
+    port = int(raw)
+    if port == 0:
+        return 0
+    if not (1 <= port <= 65_535):
+        raise ValueError("port must be between 0 and 65535")
+    return port
+
+
 def _configure_run_csv(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("--csv", required=True)
-    parser.add_argument("--metrics-port", type=int, default=None)
+    parser.add_argument(
+        "--metrics-port",
+        default=None,
+        help="Port to expose metrics/dashboard (env: ADHASH_METRICS_PORT, use 'auto' for ephemeral)",
+    )
+    parser.add_argument(
+        "--metrics-host",
+        default=None,
+        help="Interface to bind for metrics/dashboard (env: ADHASH_METRICS_HOST)",
+    )
     parser.add_argument(
         "--metrics-out-dir",
         type=str,
@@ -250,10 +278,43 @@ def _configure_run_csv(parser: argparse.ArgumentParser, ctx: CLIContext) -> Call
     )
 
     def handler(args: argparse.Namespace) -> int:
+        if args.metrics_port is None:
+            metrics_port: Optional[int] = None
+        else:
+            raw = str(args.metrics_port).strip()
+            if raw.lower() == "auto":
+                metrics_port = 0
+            else:
+                try:
+                    metrics_port = _parse_port(raw)
+                except ValueError as exc:
+                    raise BadInputError(
+                        f"Invalid --metrics-port '{raw}'",
+                        hint="Provide an integer 0-65535 or 'auto'",
+                    ) from exc
+
+        if metrics_port is None:
+            env_port = os.getenv("ADHASH_METRICS_PORT")
+            if env_port:
+                try:
+                    env_value = env_port.strip()
+                    if env_value.lower() == "auto":
+                        metrics_port = 0
+                    else:
+                        metrics_port = _parse_port(env_value)
+                except ValueError as exc:
+                    raise BadInputError(
+                        f"Invalid ADHASH_METRICS_PORT '{env_port}'",
+                        hint="Set ADHASH_METRICS_PORT to an integer 0-65535 or 'auto'.",
+                    ) from exc
+
+        metrics_host = args.metrics_host or os.getenv("ADHASH_METRICS_HOST") or "127.0.0.1"
+
         result = ctx.run_csv(
             args.csv,
             args.mode,
-            metrics_port=args.metrics_port,
+            metrics_port=metrics_port,
+            metrics_host=metrics_host,
             snapshot_in=args.snapshot_in,
             snapshot_out=args.snapshot_out,
             compress_out=args.compress,
@@ -639,8 +700,16 @@ def _configure_mission_control(parser: argparse.ArgumentParser, ctx: CLIContext)
 
 
 def _configure_serve(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
-    parser.add_argument("--port", type=int, default=9090, help="Port for the metrics server (default: %(default)s)")
-    parser.add_argument("--host", default="127.0.0.1", help="Host/interface to bind (default: %(default)s)")
+    parser.add_argument(
+        "--port",
+        default=None,
+        help="Port for the metrics server (env fallback: ADHASH_METRICS_PORT, default: 9090, 'auto' allowed)",
+    )
+    parser.add_argument(
+        "--host",
+        default=None,
+        help="Host/interface to bind (env fallback: ADHASH_METRICS_HOST, default: 127.0.0.1)",
+    )
     parser.add_argument("--source", default=None, help="Optional metrics NDJSON file to load")
     parser.add_argument("--follow", action="store_true", help="Tail the metrics source for new ticks")
     parser.add_argument("--history-limit", type=int, default=360, help="History buffer length for dashboard plots")
@@ -664,15 +733,48 @@ def _configure_serve(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callab
                 raise IOErrorEnvelope(f"Failed to parse comparison JSON: {exc}") from exc
             ctx.logger.info("Loaded comparison summary from %s", compare_path)
 
-        server, stop_server = start_metrics_server(metrics, args.port, host=args.host, comparison=comparison_payload)
+        host = args.host or os.getenv("ADHASH_METRICS_HOST") or "127.0.0.1"
+        if args.port is not None:
+            raw_port = str(args.port).strip()
+            if raw_port.lower() == "auto":
+                port = 0
+            else:
+                try:
+                    port = _parse_port(raw_port)
+                except ValueError as exc:
+                    raise BadInputError(
+                        f"Invalid --port '{raw_port}'",
+                        hint="Provide an integer 0-65535 or 'auto'",
+                    ) from exc
+        else:
+            env_port = os.getenv("ADHASH_METRICS_PORT")
+            if env_port:
+                try:
+                    env_value = env_port.strip()
+                    if env_value.lower() == "auto":
+                        port = 0
+                    else:
+                        port = _parse_port(env_value)
+                except ValueError as exc:
+                    raise BadInputError(
+                        f"Invalid ADHASH_METRICS_PORT '{env_port}'",
+                        hint="Set ADHASH_METRICS_PORT to an integer 0-65535 or 'auto'.",
+                    ) from exc
+            else:
+                port = 9090
+
+        server, stop_server = start_metrics_server(metrics, port, host=host, comparison=comparison_payload)
+        bound_port = getattr(server, "server_port", port)
         ctx.logger.info(
             "Serve mode: dashboard available at http://%s:%d/ (source=%s, follow=%s)",
-            args.host,
-            args.port,
+            host,
+            bound_port,
             args.source or "none",
             args.follow,
         )
-        print(f"Dashboard: http://{args.host.replace('127.0.0.1', 'localhost')}:{args.port}/")
+        print(
+            f"Dashboard: http://{host.replace('127.0.0.1', 'localhost')}:{bound_port}/"
+        )
 
         def ingest(tick: Dict[str, Any]) -> None:
             apply_tick_to_metrics(metrics, tick)
@@ -800,6 +902,112 @@ def _configure_verify_snapshot(parser: argparse.ArgumentParser, ctx: CLIContext)
     return handler
 
 
+def _configure_probe_visualize(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+    parser.add_argument(
+        "--operation",
+        choices=["get", "put"],
+        required=True,
+        help="Operation to trace",
+    )
+    parser.add_argument("--key", required=True, help="Key to probe")
+    parser.add_argument("--value", help="Value for PUT operations")
+    parser.add_argument("--snapshot", help="Snapshot file to load before tracing")
+    parser.add_argument(
+        "--seed",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Seed the map with entries before tracing (repeatable)",
+    )
+    parser.add_argument(
+        "--export-json",
+        help="Write the trace payload to a JSON file (indent=2)",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply the operation to the map after tracing (mutates in-memory copy)",
+    )
+
+    def handler(args: argparse.Namespace) -> int:
+        if args.operation == "put" and args.value is None:
+            raise BadInputError("PUT operation requires --value")
+
+        map_obj = _resolve_probe_map(args, ctx)
+        _seed_map_for_probe(map_obj, args.seed)
+
+        if args.operation == "get":
+            trace = trace_probe_get(map_obj, args.key)
+            if args.apply:
+                map_obj.get(args.key)
+        else:
+            trace = trace_probe_put(map_obj, args.key, args.value)
+            if args.apply:
+                map_obj.put(args.key, args.value)
+
+        snapshot_text: Optional[str] = None
+        if args.snapshot:
+            snapshot_text = str(Path(args.snapshot).expanduser().resolve())
+
+        if args.export_json:
+            export_path = Path(args.export_json).expanduser().resolve()
+            export_path.parent.mkdir(parents=True, exist_ok=True)
+            export_path.write_text(json.dumps(trace, indent=2), encoding="utf-8")
+        else:
+            export_path = None
+
+        text_output = "\n".join(
+            format_trace_lines(trace, snapshot=snapshot_text, seeds=args.seed, export_path=export_path)
+        )
+
+        payload: Dict[str, Any] = {"trace": cast(Any, trace)}
+        if snapshot_text is not None:
+            payload["snapshot"] = snapshot_text
+        if args.seed:
+            payload["seed_entries"] = list(args.seed)
+        if export_path is not None:
+            payload["export_json"] = str(export_path)
+
+        ctx.emit_success("probe-visualize", text=text_output, data=payload)
+        return int(Exit.OK)
+
+    return handler
+
+
+def _resolve_probe_map(args: argparse.Namespace, ctx: CLIContext) -> Any:
+    if args.snapshot:
+        snapshot_path = Path(args.snapshot).expanduser().resolve()
+        try:
+            loaded = load_snapshot_any(str(snapshot_path))
+        except FileNotFoundError as exc:
+            raise IOErrorEnvelope(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001
+            raise InvariantError(f"Failed to load snapshot: {exc}") from exc
+
+        if isinstance(loaded, (TwoLevelChainingMap, RobinHoodMap, HybridAdaptiveHashMap)):
+            return loaded
+        if isinstance(loaded, dict) and "backend" in loaded:
+            try:
+                return HybridAdaptiveHashMap.load(str(snapshot_path))
+            except Exception as exc:  # noqa: BLE001
+                raise PolicyError(f"Unsupported snapshot payload for probe visualizer: {exc}") from exc
+        raise PolicyError("Snapshot must contain a chaining, robinhood, or adaptive map")
+
+    mode = getattr(args, "mode", "adaptive") or "adaptive"
+    return ctx.build_map(mode)
+
+
+def _seed_map_for_probe(map_obj: Any, seeds: List[str]) -> None:
+    if not seeds:
+        return
+    put_fn = getattr(map_obj, "put", None)
+    if not callable(put_fn):
+        raise PolicyError(f"Map object {type(map_obj)!r} does not support put() for seeding")
+    for entry in seeds:
+        if "=" not in entry:
+            raise BadInputError(f"Seed entry '{entry}' must be KEY=VALUE")
+        key, value = entry.split("=", 1)
+        put_fn(key, value)
 def _parse_items_output(raw: Optional[str]) -> List[Dict[str, str]]:
     if not raw:
         return []

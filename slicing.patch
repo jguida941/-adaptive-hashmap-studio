@@ -1,0 +1,8 @@
+*** Begin Patch
+*** Update File: src/adhash/mission_control/widgets/snapshot_inspector.py
+@@
+-from adhash.io.snapshot import load_snapshot_any
+-from adhash.io.snapshot_header import SnapshotDescriptor, describe_snapshot
++from adhash.io.snapshot import load_snapshot_any
++from adhash.io.snapshot_header import SnapshotDescriptor, describe_snapshot
+*** End Patch

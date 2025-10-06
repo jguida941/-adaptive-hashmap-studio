@@ -5,10 +5,25 @@ echo "Recent audit artifacts include CSVs, JSON summaries, and snapshots. Review
 
 git status -sb
 
-read -r -p "Stage audit outputs for commit? [y/N] " ans
+read -r -p "Stage core source/docs for commit? [y/N] " ans
 case "$ans" in
   [yY]*)
-    git add audit.md README.md hashmap_cli.py perf_*.json demo_perf.json state.pkl.gz rh_*.pkl.gz demo*.pkl.gz chain.pkl.gz w_*.csv demo.csv
+    git add \
+      README.md \
+      LICENSE \
+      NOTICE \
+      audit.md \
+      upgrade.md \
+      pyproject.toml \
+      hashmap_cli.py \
+      src \
+      tests \
+      docs \
+      docker \
+      Dockerfile \
+      Dockerfile.dev \
+      docker-compose.yml \
+      Makefile
     git status -sb
     read -r -p "Commit now? [y/N] " commit_ans
     if [[ "$commit_ans" =~ ^[yY] ]]; then

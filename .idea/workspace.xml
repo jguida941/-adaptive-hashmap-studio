@@ -5,52 +5,30 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e6490e9f-c137-4747-85f8-29bac12e1181" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.github/workflows/ci.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/ci.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/audits/audit.md" beforeDir="false" afterPath="$PROJECT_DIR$/audits/audit.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/batch/__main__.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/batch/__main__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/batch/runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/batch/runner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/io/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/io/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/io/snapshot_header.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/io/snapshot_header.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/mission_control/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/mission_control/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/mission_control/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/mission_control/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/mission_control/controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/mission_control/controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/mission_control/layout.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/mission_control/layout.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/mission_control/metrics_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/mission_control/metrics_client.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/mission_control/process_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/mission_control/process_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build/lib/adhash/tui/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/build/lib/adhash/tui/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gemini_audit.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/reports/batch_baseline.html" beforeDir="false" afterPath="$PROJECT_DIR$/reports/batch_baseline.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/reports/batch_baseline.md" beforeDir="false" afterPath="$PROJECT_DIR$/reports/batch_baseline.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/reports/batch_compaction.html" beforeDir="false" afterPath="$PROJECT_DIR$/reports/batch_compaction.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/ab/demo/artifacts/baseline_summary.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/ab/demo/artifacts/baseline_summary.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/ab/demo/artifacts/candidate_summary.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/ab/demo/artifacts/candidate_summary.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/ab/demo/demo_baseline_vs_candidate.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/ab/demo/demo_baseline_vs_candidate.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/ab/demo/demo_baseline_vs_candidate.md" beforeDir="false" afterPath="$PROJECT_DIR$/results/ab/demo/demo_baseline_vs_candidate.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Screenshot 2025-10-05 at 11.55.47 PM.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/commit.sh" beforeDir="false" afterPath="$PROJECT_DIR$/commit.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/hashmap_cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/hashmap_cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/results/json/batch_uniform.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/batch_uniform.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/demo_perf.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/demo_perf.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/perf_heavy_adv.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_heavy_adv.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/perf_rest.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_rest.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/perf_skew_adv.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_skew_adv.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/perf_uniform.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_uniform.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/phase2_uniform_snapshot.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/phase2_uniform_snapshot.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/chain.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/chain.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/demo.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/demo.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/rh_after.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/rh_after.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/rh_before.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/rh_before.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/rh_fixed.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/rh_fixed.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/state.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/state.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adaptive_hashmap_cli.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/src/adaptive_hashmap_cli.egg-info/PKG-INFO" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adaptive_hashmap_cli.egg-info/SOURCES.txt" beforeDir="false" afterPath="$PROJECT_DIR$/src/adaptive_hashmap_cli.egg-info/SOURCES.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/batch/runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/batch/runner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/results/json/demo_metrics_session.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/demo_metrics_session.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/cli/commands.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/cli/commands.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/metrics/core.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/metrics/core.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/adhash/metrics/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/metrics/server.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/widgets/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/builders.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/builders.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/controller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/widgets/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/widgets/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/widgets/metrics.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/widgets/metrics.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/tui/__main__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/tui/__main__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/adhash/tui/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/tui/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/workloads/dna.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/workloads/dna.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_metrics_endpoints.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_metrics_endpoints.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_cli_contracts.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_cli_contracts.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/test_mission_control_widgets_qt.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_mission_control_widgets_qt.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/upgrade.md" beforeDir="false" afterPath="$PROJECT_DIR$/upgrade.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -139,21 +117,32 @@
       <workItem from="1759464328019" duration="10778000" />
       <workItem from="1759483291289" duration="34836000" />
       <workItem from="1759550679556" duration="34145000" />
-      <workItem from="1759621628620" duration="30600000" />
+      <workItem from="1759621628620" duration="55437000" />
     </task>
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/scripts/launch_mission_control.py</url>
+          <line>11</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$launch_tui.coverage" NAME="launch_tui Coverage Results" MODIFIED="1759722940482" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/scripts" />
     <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$__main__.coverage" NAME="__main__ Coverage Results" MODIFIED="1759507131629" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/adhash/mission_control" />
     <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$app.coverage" NAME="app Coverage Results" MODIFIED="1759507122460" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/adhash/mission_control" />
     <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$validate_metrics_ndjson.coverage" NAME="validate_metrics_ndjson Coverage Results" MODIFIED="1759722982696" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/scripts" />
-    <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$hashmap_cli.coverage" NAME="hashmap_cli Coverage Results" MODIFIED="1759478913799" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$hashmap_cli.coverage" NAME="hashmap_cli Coverage Results" MODIFIED="1759778777236" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$error.coverage" NAME="error Coverage Results" MODIFIED="1759571743803" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/adhash/contracts" />
-    <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$launch_mission_control.coverage" NAME="launch_mission_control Coverage Results" MODIFIED="1759722914918" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/scripts" />
     <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$query_metric_endpoint.coverage" NAME="query_metric_endpoint Coverage Results" MODIFIED="1759722967374" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/scripts" />
+    <SUITE FILE_PATH="coverage/AdaptiveHashMapCli$launch_mission_control.coverage" NAME="launch_mission_control Coverage Results" MODIFIED="1759778784728" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/scripts" />
   </component>
 </project>

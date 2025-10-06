@@ -7,12 +7,14 @@ import json
 import math
 import os
 import socket
+from pathlib import Path
 from datetime import datetime
 from itertools import pairwise
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, cast
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from adhash.analysis import format_trace_lines
 from adhash.metrics import SUMMARY_SCHEMA, TICK_SCHEMA
 
 _TEXTUAL_ERR: Optional[Exception] = None
@@ -191,7 +193,11 @@ if _TEXTUAL_ERR is None:
         #alerts { padding: 1 2; color: #f97316; }
         """
 
-        BINDINGS = [Binding("r", "refresh", "Refresh"), Binding("q", "quit", "Quit")]
+        BINDINGS = [
+            Binding("r", "refresh", "Refresh"),
+            Binding("p", "reload_probe", "Reload Probe"),
+            Binding("q", "quit", "Quit"),
+        ]
 
         def __init__(
             self,
@@ -199,12 +205,16 @@ if _TEXTUAL_ERR is None:
             history_endpoint: Optional[str] = None,
             poll_interval: float = 2.0,
             timeout: float = 1.0,
+            probe_trace: Optional[str] = None,
         ) -> None:
             super().__init__()
             self.metrics_endpoint = metrics_endpoint
             self.history_endpoint = history_endpoint
             self.poll_interval = poll_interval
             self.timeout = timeout
+            self._probe_path: Optional[Path] = (
+                Path(probe_trace).expanduser().resolve() if probe_trace else None
+            )
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
@@ -212,6 +222,7 @@ if _TEXTUAL_ERR is None:
             yield Static("", id="summary")
             yield Static("", id="history")
             yield Static("", id="alerts")
+            yield Static("", id="probe")
             yield Footer()
 
         async def on_mount(self) -> None:
@@ -219,11 +230,20 @@ if _TEXTUAL_ERR is None:
             self._status = self.query_one("#status", Static)
             self._history = self.query_one("#history", Static)
             self._alerts = self.query_one("#alerts", Static)
+            self._probe = self.query_one("#probe", Static)
             self.set_interval(self.poll_interval, self._poll_and_render)
             await self._poll_and_render(initial=True)
+            self._render_probe_trace(initial=True)
 
         async def action_refresh(self) -> None:  # noqa: D401 - Textual action signature
             await self._poll_and_render()
+
+        async def action_reload_probe(self) -> None:  # noqa: D401
+            if self._probe_path is None:
+                self._status.update("Set --probe-json to enable the probe visualiser.")
+                return
+            message = await asyncio.to_thread(self._load_probe_trace)
+            self._probe.update(message)
 
         async def _poll_and_render(self, initial: bool = False) -> None:
             tick, history, error = await self._fetch_tick_and_history()
@@ -276,6 +296,47 @@ if _TEXTUAL_ERR is None:
                 )
 
             return tick, history_data or [], None
+
+        def _render_probe_trace(self, initial: bool = False) -> None:
+            if not hasattr(self, "_probe"):
+                return
+            if self._probe_path is None:
+                if initial:
+                    self._probe.update(
+                        "Probe visualiser inactive. Export a trace with `hashmap-cli probe-visualize --export-json` "
+                        "and launch the TUI with `--probe-json /path/to/trace.json`."
+                    )
+                return
+            self._probe.update(self._load_probe_trace())
+
+        def _load_probe_trace(self) -> str:
+            if self._probe_path is None:
+                return "Probe trace path not configured."
+            try:
+                data = json.loads(self._probe_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                return f"Failed to load probe trace: {exc}"
+            trace: Optional[Dict[str, Any]]
+            seeds = None
+            snapshot = None
+            export_path = None
+            if isinstance(data, dict) and isinstance(data.get("trace"), dict):
+                trace = data["trace"]
+                if isinstance(data.get("seed_entries"), list):
+                    seeds = data["seed_entries"]
+                if isinstance(data.get("snapshot"), str):
+                    snapshot = data["snapshot"]
+                if isinstance(data.get("export_json"), str):
+                    export_path = data["export_json"]
+            elif isinstance(data, dict):
+                trace = data
+            else:
+                trace = None
+            if trace is None:
+                return "Probe trace JSON must contain an object or {\"trace\": {...}}"
+            lines = format_trace_lines(trace, snapshot=snapshot, seeds=seeds, export_path=export_path)
+            header = f"Trace file: {self._probe_path}" if self._probe_path else ""
+            return "\n".join(([header] if header else []) + lines)
 else:  # pragma: no cover - exercised only when Textual is absent
     class AdaptiveMetricsApp:  # type: ignore[no-redef]
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -289,6 +350,7 @@ def run_tui(
     history_endpoint: Optional[str] = None,
     poll_interval: float = 2.0,
     timeout: float = 1.0,
+    probe_trace: Optional[str] = None,
 ) -> None:
     """Launch the Textual TUI against the given metrics endpoint."""
 
@@ -297,6 +359,7 @@ def run_tui(
         history_endpoint=history_endpoint,
         poll_interval=poll_interval,
         timeout=timeout,
+        probe_trace=probe_trace,
     )
     app.run()
 

@@ -478,6 +478,15 @@ def analyze_workload(path: str, top_keys: int, max_tracked_keys: int):
 # --------------------------------------------------------------------
 # Runner with proactive compaction, JSON summary (+ percentiles), snapshots
 # --------------------------------------------------------------------
+def _parse_port(raw: str) -> int:
+    port = int(raw)
+    if port == 0:
+        return 0
+    if not (1 <= port <= 65_535):
+        raise ValueError("port must be between 0 and 65535")
+    return port
+
+
 def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
             snapshot_in: Optional[str] = None, snapshot_out: Optional[str] = None,
             compress_out: bool = False, compact_interval: Optional[float] = None,
@@ -489,6 +498,7 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
             dry_run: bool = False,
             csv_max_rows: int = DEFAULT_CSV_MAX_ROWS,
             csv_max_bytes: int = DEFAULT_CSV_MAX_BYTES,
+            metrics_host: Optional[str] = None,
             *,
             capture_history: bool = False) -> Dict[str, Any]:
     """
@@ -502,6 +512,21 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
     csv_hint = "See docs/workload_schema.md"
     csv_path = Path(path)
     row_counter = 0
+
+    if metrics_port is None:
+        env_port = os.getenv("ADHASH_METRICS_PORT")
+        if env_port:
+            try:
+                env_value = env_port.strip()
+                if env_value.lower() == "auto":
+                    metrics_port = 0
+                else:
+                    metrics_port = _parse_port(env_value)
+            except ValueError as exc:
+                raise BadInputError(
+                    f"Invalid ADHASH_METRICS_PORT '{env_port}'",
+                    hint="Set ADHASH_METRICS_PORT to an integer port or 'auto'.",
+                ) from exc
 
     if csv_max_bytes and csv_max_bytes > 0:
         try:
@@ -632,8 +657,12 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
     metrics.history_buffer = history_buffer
     server = None
     stop_server = None
+    bind_host = metrics_host or os.getenv("ADHASH_METRICS_HOST") or "127.0.0.1"
     if metrics_port is not None:
-        server, stop_server = start_metrics_server(metrics, metrics_port)
+        server, stop_server = start_metrics_server(metrics, metrics_port, host=bind_host)
+        actual_port = getattr(server, "server_port", metrics_port)
+        run_result["metrics_port"] = actual_port
+        run_result["metrics_host"] = bind_host
 
     metrics_file = None
     metrics_path: Optional[Path] = None
@@ -1353,6 +1382,18 @@ def main(argv: List[str]) -> int:
     if handler is None:
         raise PolicyError(f"Unknown command {args.cmd}")
     return handler(args)
+
+def console_main() -> None:
+    """Entry point for console_scripts."""
+
+    try:
+        raise SystemExit(main(sys.argv[1:]))
+    except SystemExit:
+        raise
+    except Exception as e:
+        logger.exception("Fatal error: %s", e)
+        raise SystemExit(2) from e
+
 
 if __name__ == "__main__":
     try:

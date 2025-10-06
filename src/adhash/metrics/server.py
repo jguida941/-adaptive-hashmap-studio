@@ -401,12 +401,13 @@ def start_metrics_server(
 
     Handler.api_token = os.getenv(TOKEN_ENV_VAR)
     server = HTTPServer((host, port), Handler)
+    bound_port = server.server_port
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     logger.info(
         "Metrics server: http://%s:%d/  (dashboard) and /metrics",
         host.replace("127.0.0.1", "localhost"),
-        port,
+        bound_port,
     )
 
     def stop() -> None:

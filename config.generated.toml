@@ -1,0 +1,17 @@
+[adaptive]
+start_backend = "chaining"
+initial_buckets = 64
+groups_per_bucket = 8
+initial_capacity_rh = 64
+incremental_batch = 2048
+max_lf_chaining = 0.82
+max_group_len = 8
+max_avg_probe_robinhood = 6
+max_tombstone_ratio = 0.25
+large_map_warn_threshold = 1000000
+
+[watchdog]
+enabled = true
+load_factor_warn = 0.9
+avg_probe_warn = 8
+tombstone_ratio_warn = 0.35

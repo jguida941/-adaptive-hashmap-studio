@@ -1,0 +1,9 @@
+{% for section, categories in sections.items() %}
+### {{ section }}
+
+{% for category, items in categories.items() %}
+{% for item in items %}- {{ item }}
+{% endfor %}
+{% endfor %}
+
+{% endfor %}

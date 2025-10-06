@@ -15,6 +15,13 @@ This plan distills the current state of `hashmap_cli.py`, summarizes audit findi
 - Built-in observability primitives (metrics class, reservoir sampling, HTML dashboard) and hooks for callbacks during migrations/compactions.
 - CSV-driven workflows and documented audit provide reproducible experimentation and reference artifacts.
 
+## Progress Since Audit (Oct 2025)
+- Repository now structured as an installable package under `src/adhash` with `pyproject.toml`, editable extras, and a matching `Makefile` / pre-commit workflow.
+- Continuous Integration (`.github/workflows/ci.yml`) runs `ruff`, `mypy`, full `pytest`, and a smoke workload validator across Python 3.11/3.12; release automation is scaffolded via `release.yml`.
+- Mission Control ships a dedicated Probe Visualizer tab and documentation (`docs/analysis/probe_visualizer.md`, README updates) describing JSON export + reload flows.
+- Textual TUI integrates probe traces (`--probe-json`, `p` to reload) via the new `adhash.analysis.format_trace_lines`, keeping terminal diagnostics aligned with Mission Control.
+- Snapshot loading hardened through `safe_pickle` allowlists; config now flows through typed TOML presets with validation helpers and tests.
+
 ## Production Gaps & Risks
 - **Architecture**: 1,200+ line monolith; hard to extend, test, or import as a library. No packaging metadata or dependency pinning.
 - **Testing & Quality Gates**: No automated unit/integration tests, fuzzing, or load validation; manual audit only. No static typing enforcement beyond annotations, no linting, no CI pipeline.
@@ -27,6 +34,13 @@ This plan distills the current state of `hashmap_cli.py`, summarizes audit findi
 
 ## Recommendation
 Yes—pursuing production hardening is worthwhile. The data-structure core and CLI workflows are already valuable; investing in modularization, automated validation, and richer observability will let the tool serve both educational and operational users. The roadmap below prioritizes foundational hygiene before UI polish to avoid locking in technical debt.
+
+- [x] Harden CLI QA (Oct 2025): added probe-visualize error-path contracts and NDJSON validator regression tests (`tests/test_cli_probe_command.py`, `tests/test_validate_metrics_ndjson.py`).
+- [x] Enable automated coverage reporting in CI (Oct 2025): GitHub Actions now runs `coverage run -m pytest` with a fail-under baseline of 50 % (planned ratchet toward 80 %).
+- [x] Stabilize distribution artifacts by finalizing `LICENSE`/`NOTICE`, generating an SBOM during `make release`, and documenting signing/verification steps alongside the new release workflow. *(Oct 2025: `LICENSE`/`NOTICE` committed, `scripts/build_release_artifacts.py` + `make release`, runbook updated with verification steps.)*
+- [x] Produce operational runbooks (`docs/ops/`) covering deployment, token/TLS configuration, and smoke procedures for Docker / Mission Control to support on-call handover. *(Oct 2025: `docs/ops/runbook.md` added and linked from README.)*
+- [x] Extend Mission Control/TUI parity tests (Textual harness, Qt widget snapshots) so probe visualizer regressions fail fast. *(Oct 2025: new coverage in `tests/test_mission_control_widgets_qt.py` and `tests/test_tui_probe.py`.)*
+- [x] Finish authoring `upgrade.md` Phase summaries with acceptance criteria + current status flags so stakeholders can track momentum without diffing history. *(Oct 2025 refresh captured for all phases.)*
 
 ## Phased Roadmap
 
@@ -96,17 +110,18 @@ Goal: deliver polished interactive experiences for both terminal and browser use
 
 ### Phase 3 – Deployment & Integration
 Goal: make the project consumable in production pipelines and external systems.
-- Publish Dockerfile(s) for CPU-only and dev builds; include health checks and configurable ports.
-- Provide Helm chart or Compose file for running long-lived services (metrics server + workload runner).
-- Package library to PyPI (and optionally Homebrew) with semantic versioning and changelog automation (`towncrier` or similar).
-- Integrate Prometheus exporters, Grafana dashboards, and alert rules; document setup.
-- Add REST/GRPC API or Python bindings so other services can run workloads programmatically.
-- Automate release builds with tagged CI workflows producing artifacts (Docker images, wheels, tarballs) and verifying checksums/signatures.
-- Document operational runbooks (log locations, snapshot management, troubleshooting) and SLOs.
+> **Status (Oct 2025):** Docker packaging (production + dev images), compose stack, and a tag-driven release workflow are complete. Remaining bullets focus on ecosystem integrations and distribution.
+- [x] Publish Dockerfile(s) for CPU-only and dev builds; include health checks and configurable ports.
+- [x] Provide Helm chart or Compose file for running long-lived services (metrics server + workload runner).
+- [x] Package library to PyPI (and optionally Homebrew) with semantic versioning and changelog automation (`towncrier` or similar). *(Release workflow now uploads to TestPyPI/PyPI when API tokens are provided; runbook documents the manual Homebrew bump workflow while we wire automation.)*
+- [x] Integrate Prometheus exporters, Grafana dashboards, and alert rules; document setup. *(Prometheus exporter exercised in `tests/test_metrics_endpoints.py`; setup captured in `docs/prometheus_grafana.md` with dashboard JSON and sample alerts.)*
+- [ ] Add REST/GRPC API or Python bindings so other services can run workloads programmatically. *(Architectural plan captured in `docs/control_surface.md`; waiting on implementation milestone and security review.)*
+- [x] Automate release builds with tagged CI workflows producing artifacts (Docker images, wheels, tarballs) and verifying checksums/signatures.
+- [x] Document operational runbooks (log locations, snapshot management, troubleshooting) and SLOs. *(Oct 2025: `docs/ops/runbook.md` covers smoke checks, logs, incident response, release verification.)*
 
 ### Phase 4 – Advanced Analytics & Stretch Goals
 Goal: leverage the richer platform for research and teaching value.
-- Probe-path visualizer/animator (web or TUI) to demonstrate Robin Hood displacement and collisions.
+- [x] Probe-path visualizer/animator (CLI foundation in place; feeds Mission Control instrumentation).
 - Adaptive policy experimentation: auto-tune thresholds via reinforcement learning or heuristic search; surface recommendations in the dashboard.
 - Predictive analytics: train simple models (XGBoost, Prophet) to forecast when to migrate/compact; feed predictions into alerts.
 - Cost modeling: track CPU cycles/op, memory footprint, GC stats; expose cost-per-op comparisons across backends.
@@ -116,6 +131,29 @@ Goal: leverage the richer platform for research and teaching value.
 - **Workload DNA + Predictor:** integrate ML models that use the Workload DNA Analyzer to forecast backend performance, generate proactive recommendations, and annotate migrations/compactions with rich “Explain this event” diagnostics.
 - **Statistical Insight Engine:** run statistical tests on latency histograms or throughput curves (p-value badges, regression trendlines) to quantify A/B differences inside Mission Control reports.
 - **Jupyter Integration:** provide embeddable Qt widgets so Mission Control charts and Explorer views can be dropped into notebooks for reproducible research.
+
+#### Phase 4 Milestones (Draft)
+
+**M4.1 – Interactive Hash Map Explorer Alpha (3 sprints)**
+- **Scope**: Standalone PyQt6 window embedding the existing Mission Control chart components with a deterministic playback engine that can step through insert/get/delete operations. Include bucket visualisation, probe animation, and editable workloads under 1k ops.
+- **Dependencies**: Finalise REST control surface (Phase 3), refresh snapshot schema docs, reuse `adhash.analysis.probe` plumbing.
+- **Deliverables**:
+  - New package `adhash.explorer` with Qt widgets, command palette, and JSON import/export.
+  - CLI entry point `hashmap-cli explorer --snapshot ...` launching the explorer with playback controls.
+  - Tutorial in `docs/explorer/quickstart.md` plus recorded demo.
+- **Acceptance**: QE walkthrough exercises three workloads (uniform, skew, adversarial), confirms step controls, verifies probe overlays, and ensures state rewind works without crashes.
+
+**M4.2 – Adaptive Policy Lab (2 sprints)**
+- **Scope**: Experimental orchestrator that runs policy variants (thresholds, reinforcement-learning agents) against canonical workloads and surfaces recommendations via Mission Control + reports.
+- **Dependencies**: Control surface job API (Phase 3), batch runner HTML report pipeline, metrics schema v1.
+- **Deliverables**:
+  - `adhash.lab` module housing policy definitions, evaluation harness, and summary exporters.
+  - CLI command `hashmap-cli policy-lab --suite docs/examples/policy_lab.toml` producing Markdown/HTML comparisons.
+  - Mission Control pane that loads lab outputs and highlights recommended policy deltas.
+- **Acceptance**: Automated test suite runs two baseline policies vs. a candidate, asserts diff calculations, and generates artifacts validated by `scripts/validate_metrics_ndjson.py`. UX review signs off on dashboard integration and documentation in `docs/policy_lab.md`.
+
+**Backlog – M4.3+**
+- Predictive analytics, statistical insight engine, Jupyter widgets, and cross-language support remain scoped for later planning cycles once M4.1/M4.2 land.
 
 ## Cross-Cutting Considerations
 - **Documentation**: Maintain a revamped README, API docs (Sphinx/MkDocs), architecture diagrams, and “how to reproduce audit” guides. Version them alongside releases.

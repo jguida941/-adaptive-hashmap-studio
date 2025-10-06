@@ -34,6 +34,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=1.0,
         help="HTTP timeout in seconds (default: %(default)s)",
     )
+    parser.add_argument(
+        "--probe-json",
+        default=None,
+        help="Optional probe trace JSON to display inside the TUI.",
+    )
     return parser
 
 
@@ -44,6 +49,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         history_endpoint=args.history_endpoint,
         poll_interval=args.poll_interval,
         timeout=args.timeout,
+        probe_trace=args.probe_json,
     )
 
 

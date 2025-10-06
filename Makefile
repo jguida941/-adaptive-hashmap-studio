@@ -1,7 +1,9 @@
 PY ?= python
 PKG ?= src/adhash
 
-.PHONY: setup lint type test cov smoke validate precommit fmt
+.PHONY: setup lint type test cov smoke validate precommit fmt release \
+	publish-testpypi publish-pypi \
+	docker-build docker-build-dev docker-run docker-compose-up docker-compose-down
 
 setup:
 	$(PY) -m pip install -U pip
@@ -35,3 +37,42 @@ precommit:
 fmt:
 	black .
 	ruff check . --fix
+
+release:
+	rm -rf dist
+	VERSION=$$($(PY) -c "import pathlib, tomllib; data = tomllib.loads(pathlib.Path('pyproject.toml').read_text()); print(data['project']['version'])") ; \
+		towncrier build --yes --skip-if-empty --version "$$VERSION" ; \
+		$(PY) scripts/build_release_artifacts.py --outdir dist ; \
+		$(PY) -m twine check dist/*
+
+publish-testpypi: release
+	@if [ -z "$$TWINE_USERNAME" ] || [ -z "$$TWINE_PASSWORD" ]; then \
+		echo "Set TWINE_USERNAME=__token__ and TWINE_PASSWORD=<TestPyPI token> before running make publish-testpypi" ; \
+		exit 1 ; \
+	fi
+	$(PY) -m twine upload --repository testpypi --skip-existing dist/*
+
+publish-pypi: release
+	@if [ -z "$$TWINE_USERNAME" ] || [ -z "$$TWINE_PASSWORD" ]; then \
+		echo "Set TWINE_USERNAME=__token__ and TWINE_PASSWORD=<PyPI token> before running make publish-pypi" ; \
+		exit 1 ; \
+	fi
+	$(PY) -m twine upload dist/*
+
+docker-build:
+	docker build -t adaptive-hashmap-cli:local -f Dockerfile .
+
+docker-build-dev:
+	docker build -t adaptive-hashmap-cli:dev -f Dockerfile.dev .
+
+docker-run:
+	docker run --rm \
+		-p ${ADHASH_METRICS_PORT:-9090}:${ADHASH_METRICS_PORT:-9090} \
+		-e ADHASH_METRICS_PORT=${ADHASH_METRICS_PORT:-9090} \
+		adaptive-hashmap-cli:local serve --host 0.0.0.0 --port ${ADHASH_METRICS_PORT:-9090}
+
+docker-compose-up:
+	docker compose up --build
+
+docker-compose-down:
+	docker compose down

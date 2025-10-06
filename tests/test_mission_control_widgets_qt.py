@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 from pathlib import Path
@@ -58,6 +59,7 @@ else:
             suite,
             dna,
             snapshot_pane,
+            probe_pane,
         ) = build_widgets()
         controller = build_controller(
             connection,
@@ -67,6 +69,7 @@ else:
             suite,
             dna,
             snapshot_pane,
+            probe_pane,
         )
         window = build_window(
             controller,
@@ -77,6 +80,7 @@ else:
             suite,
             dna,
             snapshot_pane,
+            probe_pane,
         )
 
         assert window.windowTitle()  # Mission window title assigned in app module
@@ -246,3 +250,47 @@ else:
         baseline_result = analyze_workload_csv(csv_path)
         dna_pane.pin_baseline(baseline_result, "baseline")
         assert "Baseline" in dna_pane.baseline_label.text()
+
+
+    def test_probe_visualizer_loads_trace(tmp_path: Path, qt_app: QApplication) -> None:
+        pane = widgets.ProbeVisualizerPane()
+
+        trace_path = tmp_path / "trace.json"
+        trace_path.write_text(
+            json.dumps(
+                {
+                    "trace": {
+                        "backend": "robinhood",
+                        "operation": "get",
+                        "key_repr": "'K1'",
+                        "found": True,
+                        "terminal": "match",
+                        "path": [
+                            {"step": 0, "slot": 3, "state": "occupied", "matches": True},
+                        ],
+                    },
+                    "snapshot": "snapshot.pkl",
+                    "seed_entries": ["A=1"],
+                    "export_json": str(trace_path),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        pane.load_trace(trace_path)
+
+        assert "Probe visualization" in pane._text.toPlainText()
+        assert "Seed entries" in pane._text.toPlainText()
+        assert trace_path.as_posix() in pane._info_label.text()
+
+
+    def test_probe_visualizer_handles_bad_json(tmp_path: Path, qt_app: QApplication) -> None:
+        pane = widgets.ProbeVisualizerPane()
+
+        bad_path = tmp_path / "bad.json"
+        bad_path.write_text("not-json", encoding="utf-8")
+
+        pane.load_trace(bad_path)
+
+        assert "Failed to load trace" in pane._info_label.text()
+        assert pane._text.toPlainText() == ""

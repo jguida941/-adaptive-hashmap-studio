@@ -29,7 +29,9 @@ jobs:
         run: ruff check .
       - name: Type check
         run: mypy .
-      - name: Unit tests
-        run: pytest -q
+      - name: Unit tests & coverage
+        run: |
+          coverage run -m pytest -q
+          coverage report
       - name: Smoke workload & schema validation
         run: make smoke

@@ -1,0 +1,53 @@
+version: "3.9"
+
+x-app-image: &app-image
+  context: .
+  dockerfile: Dockerfile
+
+services:
+  mission-control:
+    <<: *app-image
+    image: adaptive-hashmap-cli:local
+    restart: unless-stopped
+    environment:
+      ADHASH_METRICS_HOST: 0.0.0.0
+      ADHASH_METRICS_PORT: ${ADHASH_METRICS_PORT:-9090}
+      ADHASH_TOKEN: ${ADHASH_TOKEN:-}
+    ports:
+      - "${ADHASH_METRICS_PORT:-9090}:${ADHASH_METRICS_PORT:-9090}"
+    volumes:
+      - ./data:/data:ro
+      - ./snapshots:/snapshots
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${ADHASH_METRICS_PORT:-9090}/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    command: ["serve"]
+
+  workload-runner:
+    image: adaptive-hashmap-cli:local
+    depends_on:
+      mission-control:
+        condition: service_healthy
+    restart: on-failure
+    environment:
+      ADHASH_METRICS_PORT: ${ADHASH_METRICS_PORT:-9090}
+    volumes:
+      - ./data:/data:ro
+      - ./snapshots:/snapshots
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - run-csv
+      - --csv
+      - /data/workloads/demo.csv
+      - --metrics-port
+      - "${ADHASH_METRICS_PORT:-9090}"
+      - --metrics-host
+      - mission-control
+      - --metrics-out-dir
+      - /snapshots/metrics

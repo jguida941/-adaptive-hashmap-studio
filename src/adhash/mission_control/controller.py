@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from typing import Callable, Optional
@@ -20,6 +21,7 @@ from .widgets import (
     BenchmarkSuitePane,
     WorkloadDNAPane,
     SnapshotInspectorPane,
+    ProbeVisualizerPane,
 )
 
 try:  # pragma: no cover - only available when PyQt6 is installed
@@ -62,6 +64,7 @@ class MissionControlController:
         suite_manager: Optional[BenchmarkSuitePane] = None,
         dna_panel: Optional[WorkloadDNAPane] = None,
         snapshot_panel: Optional[SnapshotInspectorPane] = None,
+        probe_panel: Optional[ProbeVisualizerPane] = None,
         poll_interval: float = 2.0,
     ) -> None:
         self._connection = connection
@@ -71,6 +74,7 @@ class MissionControlController:
         self._suite_pane = suite_manager
         self._dna_pane = dna_panel
         self._snapshot_pane = snapshot_panel
+        self._probe_pane = probe_panel
         self._poll_interval = poll_interval
         self._poller: Optional[HttpPoller] = None
         self._process = ProcessManager(self._handle_process_output, self._handle_process_exit)
@@ -175,6 +179,27 @@ class MissionControlController:
 
     def _handle_process_output(self, line: str) -> None:
         self._ui.submit(self._run_control.append_log, line)
+        if self._probe_pane is not None:
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                return
+            if isinstance(data, dict) and isinstance(data.get("trace"), dict):
+                trace = data["trace"]
+                seeds = data.get("seed_entries") if isinstance(data.get("seed_entries"), list) else None
+                snapshot = data.get("snapshot") if isinstance(data.get("snapshot"), str) else None
+                export_path = data.get("export_json") if isinstance(data.get("export_json"), str) else None
+
+                def _update_probe() -> None:
+                    self._probe_pane.display_trace(
+                        trace,
+                        source=None,
+                        snapshot=snapshot,
+                        seeds=list(seeds) if isinstance(seeds, list) else None,
+                        export_path=Path(export_path) if isinstance(export_path, str) else None,
+                    )
+
+                self._ui.submit(_update_probe)
 
     def _handle_process_exit(self, code: int) -> None:
         def _update() -> None:

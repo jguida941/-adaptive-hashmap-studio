@@ -180,9 +180,11 @@ class Metrics:
                 inst = max(0.0, (ops - self._ops_prev) / dt)
 
         if inst is None:
-            inst_raw = tick.get("ops_per_second") or tick.get("throughput") or tick.get("ops_per_second_instant")
-            if isinstance(inst_raw, (int, float)):
-                inst = float(inst_raw)
+            for key in ("ops_per_second", "throughput", "ops_per_second_instant"):
+                inst_raw = tick.get(key)
+                if isinstance(inst_raw, (int, float)):
+                    inst = float(inst_raw)
+                    break
 
         if inst is not None:
             if self._t_prev is None or self._ops_prev is None:
@@ -193,7 +195,7 @@ class Metrics:
             self._last_instant = inst
             tick["ops_per_second_instant"] = inst
             tick["ops_per_second_ema"] = self._ema_ops
-        elif self._ema_ops:
+        elif self._ema_ops is not None:
             tick.setdefault("ops_per_second_ema", self._ema_ops)
 
         if ops is not None:
