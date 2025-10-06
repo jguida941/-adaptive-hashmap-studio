@@ -393,6 +393,8 @@ class BatchRunner:
                 body_lines.append(f"<h2>{escape(line[3:])}</h2>")
             elif line.startswith("### "):
                 body_lines.append(f"<h3>{escape(line[4:])}</h3>")
+            elif line.startswith("<") and line.endswith(">"):
+                body_lines.append(line)
             elif line:
                 body_lines.append(f"<p>{escape(line)}</p>")
 

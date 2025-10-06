@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
-from typing import cast
+from typing import List, cast
 
 import pytest
 
@@ -90,11 +91,87 @@ else:
         preset_path = preset_dir / "demo.toml"
         assert preset_path.exists()
         assert pane.preset_combo.findData("demo") >= 0  # type: ignore[attr-defined]
+
+
+    def test_run_control_builder_round_trip(qt_app: QApplication, tmp_path: Path) -> None:
+        pane = widgets.RunControlPane()
+
+        exec_path = tmp_path / "hashmap_cli.py"
+        config_path = tmp_path / "config.toml"
+        csv_path = tmp_path / "data.csv"
+
+        pane.exec_edit.setText(exec_path.as_posix())
+        pane.config_builder_edit.setText(config_path.as_posix())
+        pane.mode_edit.setText("adaptive")
+        pane.csv_edit.setText(csv_path.as_posix())
+        pane.metrics_port_edit.setText("1234")
+        pane.extra_args_edit.setText("--flag value")
+
+        pane._apply_builder_to_command()
+
+        command = pane.command_edit.text()
+        assert exec_path.as_posix() in command
+        assert config_path.as_posix() in command
+        assert csv_path.as_posix() in command
+        assert "--metrics-port 1234" in command
+        assert "--flag value" in command
+
+        # Mutate the command directly and ensure the builder fields stay in sync.
+        pane.command_edit.setText(
+            f"python alt_cli.py --config {config_path} run-csv --csv {csv_path} --mode chaining --metrics-port 4321"
+        )
+        pane._populate_builder_from_command()
+
+        assert pane.exec_edit.text() == "python alt_cli.py"
+        assert pane.config_builder_edit.text() == config_path.as_posix()
+        assert pane.mode_edit.text() == "chaining"
+        assert pane.metrics_port_edit.text() == "4321"
+
+
+    def test_benchmark_suite_cancel_discovery(
+        qt_app: QApplication,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pane = widgets.BenchmarkSuitePane()
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(
+            pane,
+            "_run_background",
+            lambda work, success, error: success(work()),
+        )
+
+        def slow_discover() -> List[Path]:
+            time.sleep(0.05)
+            return []
+
+        monkeypatch.setattr(pane, "_discover_specs", slow_discover)
+
+        pane.refresh_specs(select_first=False)
+        assert pane.cancel_discovery_button.isEnabled()
+
+        pane._cancel_discovery()
+        assert not pane.cancel_discovery_button.isEnabled()
+        assert pane.discover_button.isEnabled()
+
+        # Allow the worker thread to finish and ensure state remains idle.
+        timeout = time.monotonic() + 1.0
+        while pane._discovering_specs and time.monotonic() < timeout:
+            qt_app.processEvents()
+            time.sleep(0.01)
+
+        assert not pane._discovering_specs
+        assert "cancelled" in pane.status_label.text().lower()
     def test_benchmark_suite_pane_lifecycle(
         qt_app: QApplication,
         tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         pane = widgets.BenchmarkSuitePane()
+        monkeypatch.setattr(
+            pane,
+            "_run_background",
+            lambda work, success, error: success(work()),
+        )
         dna_pane = widgets.WorkloadDNAPane()
         pane.add_analysis_callback(lambda result, job, spec: dna_pane.set_primary_result(result, job.name, spec))
 
@@ -122,6 +199,12 @@ else:
         pane.spec_edit.setText(str(spec_path))
         pane._on_load_clicked()
 
+        timeout = time.monotonic() + 2.0
+        while pane._loading_spec and time.monotonic() < timeout:
+            qt_app.processEvents()
+            time.sleep(0.01)
+
+        assert not pane._loading_spec
         assert "1 jobs" in pane.summary_label.text()
         assert "demo" in pane.summary_view.toPlainText()
 

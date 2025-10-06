@@ -9,6 +9,7 @@ incrementally build the Mission Control experience. When PyQt6 is unavailable
 
 from __future__ import annotations
 
+from importlib import resources
 from typing import Optional, Sequence, Any, cast, TYPE_CHECKING
 
 from .builders import build_app as _build_app, build_controller, build_widgets, build_window
@@ -87,6 +88,13 @@ else:  # pragma: no cover - PyQt6 missing
     MissionControlWindow = cast(Any, object)
 
 
+def _load_stylesheet() -> str:
+    try:
+        return resources.files("adhash.mission_control.widgets").joinpath("styles.qss").read_text(encoding="utf-8")
+    except (FileNotFoundError, OSError):  # pragma: no cover - fallback in packaging scenarios
+        return ""
+
+
 def _require_qt() -> None:
     if _QT_IMPORT_ERROR is not None:
         raise RuntimeError(
@@ -134,12 +142,13 @@ def _apply_futuristic_theme(app: QApplication) -> None:
     palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, muted)
 
     app.setPalette(palette)
-    app.setStyleSheet(
-        """
+    stylesheet = _load_stylesheet()
+    if not stylesheet:
+        stylesheet = """
         QWidget {
             background-color: #121212;
             color: #EEEEEE;
-            font-family: 'Segoe UI', 'Inter', 'Helvetica Neue', sans-serif;
+            font-family: '-apple-system', 'Helvetica Neue', 'Arial', 'Inter', sans-serif;
             letter-spacing: 0.2px;
         }
         QMainWindow#missionWindow {
@@ -376,7 +385,7 @@ def _apply_futuristic_theme(app: QApplication) -> None:
             border: 1px solid #00FFAA;
         }
         """
-    )
+    app.setStyleSheet(stylesheet)
 
 
 def _create_window() -> QMainWindow:

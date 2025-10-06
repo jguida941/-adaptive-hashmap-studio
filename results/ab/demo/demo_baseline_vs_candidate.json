@@ -2,7 +2,7 @@
   "schema": "adhash.compare.v1",
   "metadata": {
     "csv": "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/data/workloads/demo.csv",
-    "generated_at": "2025-10-04T05:25:24Z",
+    "generated_at": "2025-10-05T06:29:23Z",
     "latency_sample_k": 1000,
     "latency_sample_every": 128
   },
@@ -11,32 +11,32 @@
     "mode": "adaptive",
     "config_path": "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/config.toml",
     "summary": {
-      "elapsed_seconds": 27.610581542016007,
+      "elapsed_seconds": 26.15454391698586,
       "total_ops": 80000,
-      "ops_per_second": 2897.4398774709307,
+      "ops_per_second": 3058.7419246888358,
       "final_backend": "chaining",
       "migrations_triggered": 0,
       "compactions_triggered": 0,
       "latency_ms": {
         "overall": {
-          "p50": 0.0007500057108700275,
-          "p90": 1.504957996075973,
-          "p99": 1.5630830021109432
+          "p50": 0.00104197533801198,
+          "p90": 1.4218750002328306,
+          "p99": 1.527417014585808
         },
         "put": {
-          "p50": 1.4794579765293747,
-          "p90": 1.5270000149030238,
-          "p99": 1.5828749747015536
+          "p50": 1.393542013829574,
+          "p90": 1.463458000216633,
+          "p99": 1.594500005012378
         },
         "get": {
-          "p50": 0.0006250047590583563,
-          "p90": 0.00100000761449337,
-          "p99": 0.0016660196706652641
+          "p50": 0.0007080088835209608,
+          "p90": 0.0012920063454657793,
+          "p99": 0.003167020622640848
         },
         "del": {
-          "p50": 1.493125018896535,
-          "p90": 1.530791021650657,
-          "p99": 1.600916002644226
+          "p50": 1.4079590036999434,
+          "p90": 1.4655419799964875,
+          "p99": 1.539333985419944
         }
       },
       "latency_sample": {
@@ -50,13 +50,13 @@
     "events": [
       {
         "type": "start",
-        "t": 0.00014512499910779297,
+        "t": 0.00016262498684227467,
         "backend": "chaining",
         "message": "workload started"
       },
       {
         "type": "complete",
-        "t": 27.60825837502489,
+        "t": 26.152117999998154,
         "backend": "chaining",
         "message": "workload completed"
       }
@@ -68,32 +68,32 @@
     "mode": "adaptive",
     "config_path": "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/config.experiment.toml",
     "summary": {
-      "elapsed_seconds": 27.82247112499317,
+      "elapsed_seconds": 26.413351541996235,
       "total_ops": 80000,
-      "ops_per_second": 2875.373637395396,
+      "ops_per_second": 3028.7712588386603,
       "final_backend": "chaining",
       "migrations_triggered": 0,
       "compactions_triggered": 0,
       "latency_ms": {
         "overall": {
-          "p50": 0.0007500057108700275,
-          "p90": 1.5121250180527568,
-          "p99": 1.6228750173468143
+          "p50": 0.0009170034900307655,
+          "p90": 1.4336669992189854,
+          "p99": 1.4912089973222464
         },
         "put": {
-          "p50": 1.4985410089138895,
-          "p90": 1.535042014438659,
-          "p99": 1.628790982067585
+          "p50": 1.3971669832244515,
+          "p90": 1.4500420074909925,
+          "p99": 1.5090829983819276
         },
         "get": {
-          "p50": 0.0006250047590583563,
-          "p90": 0.0010410149116069078,
-          "p99": 0.0014589750207960606
+          "p50": 0.000667001586407423,
+          "p90": 0.0012080126907676458,
+          "p99": 0.0017920101527124643
         },
         "del": {
-          "p50": 1.4825410034973174,
-          "p90": 1.5281249943654984,
-          "p99": 1.6585830016992986
+          "p50": 1.4158750127535313,
+          "p90": 1.451499992981553,
+          "p99": 1.4969579933676869
         }
       },
       "latency_sample": {
@@ -107,13 +107,13 @@
     "events": [
       {
         "type": "start",
-        "t": 0.00017658298020251095,
+        "t": 0.00019116699695587158,
         "backend": "chaining",
         "message": "workload started"
       },
       {
         "type": "complete",
-        "t": 27.820077541982755,
+        "t": 26.411073458992178,
         "backend": "chaining",
         "message": "workload completed"
       }
@@ -122,16 +122,16 @@
   },
   "diff": {
     "ops_per_second": {
-      "baseline": 2897.4398774709307,
-      "candidate": 2875.373637395396,
-      "delta": -22.06624007553455,
-      "percent": -0.7615771511640602
+      "baseline": 3058.7419246888358,
+      "candidate": 3028.7712588386603,
+      "delta": -29.970665850175465,
+      "percent": -0.9798363702496531
     },
     "elapsed_seconds": {
-      "baseline": 27.610581542016007,
-      "candidate": 27.82247112499317,
-      "delta": 0.21188958297716454,
-      "percent": 0.7674216591734028
+      "baseline": 26.15454391698586,
+      "candidate": 26.413351541996235,
+      "delta": 0.2588076250103768,
+      "percent": 0.989532166310483
     },
     "migrations": {
       "baseline": 0.0,
@@ -148,82 +148,82 @@
     "latency_ms": {
       "del": {
         "p50": {
-          "baseline": 1.493125018896535,
-          "candidate": 1.4825410034973174,
-          "delta": -0.010584015399217606,
-          "percent": -0.7088499131197679
+          "baseline": 1.4079590036999434,
+          "candidate": 1.4158750127535313,
+          "delta": 0.007916009053587914,
+          "percent": 0.5622329224633398
         },
         "p90": {
-          "baseline": 1.530791021650657,
-          "candidate": 1.5281249943654984,
-          "delta": -0.002666027285158634,
-          "percent": -0.1741601072551267
+          "baseline": 1.4655419799964875,
+          "candidate": 1.451499992981553,
+          "delta": -0.01404198701493442,
+          "percent": -0.9581429400588084
         },
         "p99": {
-          "baseline": 1.600916002644226,
-          "candidate": 1.6585830016992986,
-          "delta": 0.057666999055072665,
-          "percent": 3.602125218301543
+          "baseline": 1.539333985419944,
+          "candidate": 1.4969579933676869,
+          "delta": -0.04237599205225706,
+          "percent": -2.7528783521723206
         }
       },
       "get": {
         "p50": {
-          "baseline": 0.0006250047590583563,
-          "candidate": 0.0006250047590583563,
-          "delta": 0.0,
-          "percent": 0.0
+          "baseline": 0.0007080088835209608,
+          "candidate": 0.000667001586407423,
+          "delta": -4.100729711353779e-05,
+          "percent": -5.791918444526658
         },
         "p90": {
-          "baseline": 0.00100000761449337,
-          "candidate": 0.0010410149116069078,
-          "delta": 4.100729711353779e-05,
-          "percent": 4.10069848661234
+          "baseline": 0.0012920063454657793,
+          "candidate": 0.0012080126907676458,
+          "delta": -8.399365469813347e-05,
+          "percent": -6.501024936363842
         },
         "p99": {
-          "baseline": 0.0016660196706652641,
-          "candidate": 0.0014589750207960606,
-          "delta": -0.00020704464986920357,
-          "percent": -12.427503319125147
+          "baseline": 0.003167020622640848,
+          "candidate": 0.0017920101527124643,
+          "delta": -0.0013750104699283838,
+          "percent": -43.416530353434176
         }
       },
       "overall": {
         "p50": {
-          "baseline": 0.0007500057108700275,
-          "candidate": 0.0007500057108700275,
-          "delta": 0.0,
-          "percent": 0.0
+          "baseline": 0.00104197533801198,
+          "candidate": 0.0009170034900307655,
+          "delta": -0.00012497184798121452,
+          "percent": -11.993743366292387
         },
         "p90": {
-          "baseline": 1.504957996075973,
-          "candidate": 1.5121250180527568,
-          "delta": 0.007167021976783872,
-          "percent": 0.47622737614412913
+          "baseline": 1.4218750002328306,
+          "candidate": 1.4336669992189854,
+          "delta": 0.011791998986154795,
+          "percent": 0.829327401088272
         },
         "p99": {
-          "baseline": 1.5630830021109432,
-          "candidate": 1.6228750173468143,
-          "delta": 0.05979201523587108,
-          "percent": 3.825261688286673
+          "baseline": 1.527417014585808,
+          "candidate": 1.4912089973222464,
+          "delta": -0.03620801726356149,
+          "percent": -2.370539081193886
         }
       },
       "put": {
         "p50": {
-          "baseline": 1.4794579765293747,
-          "candidate": 1.4985410089138895,
-          "delta": 0.01908303238451481,
-          "percent": 1.289866470508425
+          "baseline": 1.393542013829574,
+          "candidate": 1.3971669832244515,
+          "delta": 0.003624969394877553,
+          "percent": 0.2601263082779846
         },
         "p90": {
-          "baseline": 1.5270000149030238,
-          "candidate": 1.535042014438659,
-          "delta": 0.008041999535635114,
-          "percent": 0.5266535335394769
+          "baseline": 1.463458000216633,
+          "candidate": 1.4500420074909925,
+          "delta": -0.013415992725640535,
+          "percent": -0.9167323369481454
         },
         "p99": {
-          "baseline": 1.5828749747015536,
-          "candidate": 1.628790982067585,
-          "delta": 0.04591600736603141,
-          "percent": 2.9007981110250816
+          "baseline": 1.594500005012378,
+          "candidate": 1.5090829983819276,
+          "delta": -0.08541700663045049,
+          "percent": -5.356977507804235
         }
       }
     }
@@ -231,8 +231,8 @@
   "timeline": [
     {
       "index": 0,
-      "baseline_t": 0.00023291702382266521,
-      "candidate_t": 0.00029545798315666616,
+      "baseline_t": 0.00023875001352280378,
+      "candidate_t": 0.00030058398260734975,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -254,8 +254,8 @@
     },
     {
       "index": 1,
-      "baseline_t": 0.018271250010002404,
-      "candidate_t": 0.019864041998516768,
+      "baseline_t": 0.016601999988779426,
+      "candidate_t": 0.019230833975598216,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -277,8 +277,8 @@
     },
     {
       "index": 2,
-      "baseline_t": 0.05503820802550763,
-      "candidate_t": 0.05728370798169635,
+      "baseline_t": 0.05066995898960158,
+      "candidate_t": 0.05521758398390375,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -300,8 +300,8 @@
     },
     {
       "index": 3,
-      "baseline_t": 0.1060885830083862,
-      "candidate_t": 0.10876866700709797,
+      "baseline_t": 0.09742254199227318,
+      "candidate_t": 0.10439995900378563,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -323,8 +323,8 @@
     },
     {
       "index": 4,
-      "baseline_t": 0.1653537500242237,
-      "candidate_t": 0.16933224999229424,
+      "baseline_t": 0.1527494170004502,
+      "candidate_t": 0.1620029589976184,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -346,8 +346,8 @@
     },
     {
       "index": 5,
-      "baseline_t": 0.25122229201951995,
-      "candidate_t": 0.25567374998354353,
+      "baseline_t": 0.23254537500906736,
+      "candidate_t": 0.24384308399748988,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -369,8 +369,8 @@
     },
     {
       "index": 6,
-      "baseline_t": 0.36812758300220594,
-      "candidate_t": 0.37401733300066553,
+      "baseline_t": 0.3416817919933237,
+      "candidate_t": 0.35755120898829773,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -392,8 +392,8 @@
     },
     {
       "index": 7,
-      "baseline_t": 0.4871003330044914,
-      "candidate_t": 0.4939760419947561,
+      "baseline_t": 0.4539502919942606,
+      "candidate_t": 0.47211179198347963,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -415,8 +415,8 @@
     },
     {
       "index": 8,
-      "baseline_t": 0.6019689170061611,
-      "candidate_t": 0.6107815830036998,
+      "baseline_t": 0.5631434170063585,
+      "candidate_t": 0.5835551249911077,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -438,8 +438,8 @@
     },
     {
       "index": 9,
-      "baseline_t": 0.7183655830158386,
-      "candidate_t": 0.7282311249873601,
+      "baseline_t": 0.6724933339864947,
+      "candidate_t": 0.6943066669919062,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -461,8 +461,8 @@
     },
     {
       "index": 10,
-      "baseline_t": 0.8417895419988781,
-      "candidate_t": 0.8541372919862624,
+      "baseline_t": 0.7901024169987068,
+      "candidate_t": 0.8144042920030188,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -484,8 +484,8 @@
     },
     {
       "index": 11,
-      "baseline_t": 0.9624469580012374,
-      "candidate_t": 0.9753636249806732,
+      "baseline_t": 0.9030925839906558,
+      "candidate_t": 0.9287349169899244,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -507,8 +507,8 @@
     },
     {
       "index": 12,
-      "baseline_t": 1.1516936250263825,
-      "candidate_t": 1.166665541997645,
+      "baseline_t": 1.083594791998621,
+      "candidate_t": 1.1122928339755163,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -530,8 +530,8 @@
     },
     {
       "index": 13,
-      "baseline_t": 1.3932307500217576,
-      "candidate_t": 1.4105849580082577,
+      "baseline_t": 1.31086412500008,
+      "candidate_t": 1.3456860419828445,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -553,8 +553,8 @@
     },
     {
       "index": 14,
-      "baseline_t": 1.6146025830239523,
-      "candidate_t": 1.6349338330037426,
+      "baseline_t": 1.5170767499948852,
+      "candidate_t": 1.5572235839790665,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -576,8 +576,8 @@
     },
     {
       "index": 15,
-      "baseline_t": 1.8648546670156065,
-      "candidate_t": 1.8864440000033937,
+      "baseline_t": 1.7551726670062635,
+      "candidate_t": 1.7959723339881748,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -599,8 +599,8 @@
     },
     {
       "index": 16,
-      "baseline_t": 2.113448292016983,
-      "candidate_t": 2.1378394170023967,
+      "baseline_t": 1.993586750002578,
+      "candidate_t": 2.0384368340019137,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -622,8 +622,8 @@
     },
     {
       "index": 17,
-      "baseline_t": 2.35839379200479,
-      "candidate_t": 2.3849777079885826,
+      "baseline_t": 2.223515541991219,
+      "candidate_t": 2.2781821669777855,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -645,8 +645,8 @@
     },
     {
       "index": 18,
-      "baseline_t": 2.6071119170228485,
-      "candidate_t": 2.634618291980587,
+      "baseline_t": 2.4596210840099957,
+      "candidate_t": 2.522707083990099,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -668,8 +668,8 @@
     },
     {
       "index": 19,
-      "baseline_t": 2.8206903750251513,
-      "candidate_t": 2.8492360420059413,
+      "baseline_t": 2.6628834170114715,
+      "candidate_t": 2.730175208998844,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -691,8 +691,8 @@
     },
     {
       "index": 20,
-      "baseline_t": 3.058314333000453,
-      "candidate_t": 3.087408916995628,
+      "baseline_t": 2.887078667001333,
+      "candidate_t": 2.955490374995861,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -714,8 +714,8 @@
     },
     {
       "index": 21,
-      "baseline_t": 3.27970529202139,
-      "candidate_t": 3.31096274999436,
+      "baseline_t": 3.102324875013437,
+      "candidate_t": 3.1671331669786014,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -737,8 +737,8 @@
     },
     {
       "index": 22,
-      "baseline_t": 3.5154321670124773,
-      "candidate_t": 3.5478153330041096,
+      "baseline_t": 3.3294211250031367,
+      "candidate_t": 3.3911454170010984,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -760,8 +760,8 @@
     },
     {
       "index": 23,
-      "baseline_t": 3.7643324170203414,
-      "candidate_t": 3.8000544579990674,
+      "baseline_t": 3.567788958986057,
+      "candidate_t": 3.628485624998575,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -783,8 +783,8 @@
     },
     {
       "index": 24,
-      "baseline_t": 3.9914466670015827,
-      "candidate_t": 4.02732795799966,
+      "baseline_t": 3.783282999997027,
+      "candidate_t": 3.8446237089810893,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -806,8 +806,8 @@
     },
     {
       "index": 25,
-      "baseline_t": 4.206025625026086,
-      "candidate_t": 4.244410957995569,
+      "baseline_t": 3.9878928340040147,
+      "candidate_t": 4.049119542003609,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -829,8 +829,8 @@
     },
     {
       "index": 26,
-      "baseline_t": 4.4445490000071,
-      "candidate_t": 4.485210582992295,
+      "baseline_t": 4.215406250004889,
+      "candidate_t": 4.277648166986182,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -852,8 +852,8 @@
     },
     {
       "index": 27,
-      "baseline_t": 4.6472996250086,
-      "candidate_t": 4.690250374987954,
+      "baseline_t": 4.409470167011023,
+      "candidate_t": 4.4711851669999305,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -875,8 +875,8 @@
     },
     {
       "index": 28,
-      "baseline_t": 4.874504167004488,
-      "candidate_t": 4.920242082996992,
+      "baseline_t": 4.626231000002008,
+      "candidate_t": 4.690308416989865,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -898,8 +898,8 @@
     },
     {
       "index": 29,
-      "baseline_t": 5.112510792008834,
-      "candidate_t": 5.160219082987169,
+      "baseline_t": 4.85312804201385,
+      "candidate_t": 4.919291458994849,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -921,8 +921,8 @@
     },
     {
       "index": 30,
-      "baseline_t": 5.353373000019928,
-      "candidate_t": 5.4047324580024,
+      "baseline_t": 5.0846964590018615,
+      "candidate_t": 5.15159674998722,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -944,8 +944,8 @@
     },
     {
       "index": 31,
-      "baseline_t": 5.631151208013762,
-      "candidate_t": 5.68495416699443,
+      "baseline_t": 5.345131667010719,
+      "candidate_t": 5.418192374985665,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -967,8 +967,8 @@
     },
     {
       "index": 32,
-      "baseline_t": 6.1234861250268295,
-      "candidate_t": 6.1794884169939905,
+      "baseline_t": 5.813170874986099,
+      "candidate_t": 5.888731958984863,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -990,8 +990,8 @@
     },
     {
       "index": 33,
-      "baseline_t": 6.586123792018043,
-      "candidate_t": 6.647518374986248,
+      "baseline_t": 6.250589750008658,
+      "candidate_t": 6.330319291999331,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1013,8 +1013,8 @@
     },
     {
       "index": 34,
-      "baseline_t": 7.036854125006357,
-      "candidate_t": 7.1026239579950925,
+      "baseline_t": 6.6766082090034615,
+      "candidate_t": 6.763145834003808,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1036,8 +1036,8 @@
     },
     {
       "index": 35,
-      "baseline_t": 7.4725241670093965,
-      "candidate_t": 7.543008457985707,
+      "baseline_t": 7.08638633400551,
+      "candidate_t": 7.180991208995692,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1059,8 +1059,8 @@
     },
     {
       "index": 36,
-      "baseline_t": 7.946549958025571,
-      "candidate_t": 8.020882916986011,
+      "baseline_t": 7.533901291986695,
+      "candidate_t": 7.634482166991802,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1082,8 +1082,8 @@
     },
     {
       "index": 37,
-      "baseline_t": 8.45544712501578,
-      "candidate_t": 8.536659207980847,
+      "baseline_t": 8.017297834012425,
+      "candidate_t": 8.122422499989625,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1105,8 +1105,8 @@
     },
     {
       "index": 38,
-      "baseline_t": 8.917710250010714,
-      "candidate_t": 9.003402625006856,
+      "baseline_t": 8.449875291989883,
+      "candidate_t": 8.565679958992405,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1128,8 +1128,8 @@
     },
     {
       "index": 39,
-      "baseline_t": 9.390963542013196,
-      "candidate_t": 9.477471833000891,
+      "baseline_t": 8.895847667008638,
+      "candidate_t": 9.018319124996196,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1151,8 +1151,8 @@
     },
     {
       "index": 40,
-      "baseline_t": 9.848943083023187,
-      "candidate_t": 9.938824707991444,
+      "baseline_t": 9.327732208999805,
+      "candidate_t": 9.45299133399385,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1174,8 +1174,8 @@
     },
     {
       "index": 41,
-      "baseline_t": 10.32566658302676,
-      "candidate_t": 10.419465541985119,
+      "baseline_t": 9.775282334012445,
+      "candidate_t": 9.908426291978685,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1197,8 +1197,8 @@
     },
     {
       "index": 42,
-      "baseline_t": 10.772927583020646,
-      "candidate_t": 10.875455542001873,
+      "baseline_t": 10.19832020899048,
+      "candidate_t": 10.337927166983718,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1220,8 +1220,8 @@
     },
     {
       "index": 43,
-      "baseline_t": 11.23697725002421,
-      "candidate_t": 11.342718832980609,
+      "baseline_t": 10.633899874985218,
+      "candidate_t": 10.783992208976997,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1243,8 +1243,8 @@
     },
     {
       "index": 44,
-      "baseline_t": 11.74063583300449,
-      "candidate_t": 11.847350500000175,
+      "baseline_t": 11.111977458989713,
+      "candidate_t": 11.26432395898155,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1266,8 +1266,8 @@
     },
     {
       "index": 45,
-      "baseline_t": 12.208046667015878,
-      "candidate_t": 12.318873082986102,
+      "baseline_t": 11.552789709006902,
+      "candidate_t": 11.711396749975393,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1289,8 +1289,8 @@
     },
     {
       "index": 46,
-      "baseline_t": 12.675557958020363,
-      "candidate_t": 12.792433291993802,
+      "baseline_t": 11.997450750001008,
+      "candidate_t": 12.15945466698031,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1312,8 +1312,8 @@
     },
     {
       "index": 47,
-      "baseline_t": 13.142231917008758,
-      "candidate_t": 13.261943707999308,
+      "baseline_t": 12.441093708999688,
+      "candidate_t": 12.606562834000215,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1335,8 +1335,8 @@
     },
     {
       "index": 48,
-      "baseline_t": 13.581808750022901,
-      "candidate_t": 13.705335542006651,
+      "baseline_t": 12.855226999992738,
+      "candidate_t": 13.0276552499854,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1358,8 +1358,8 @@
     },
     {
       "index": 49,
-      "baseline_t": 14.058680458023446,
-      "candidate_t": 14.184931791998679,
+      "baseline_t": 13.303798750013812,
+      "candidate_t": 13.48031416698359,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1381,8 +1381,8 @@
     },
     {
       "index": 50,
-      "baseline_t": 14.515945417020703,
-      "candidate_t": 14.642251999990549,
+      "baseline_t": 13.733190750004724,
+      "candidate_t": 13.914499291975517,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1404,8 +1404,8 @@
     },
     {
       "index": 51,
-      "baseline_t": 14.964224625000497,
-      "candidate_t": 15.094879707990913,
+      "baseline_t": 14.15840204199776,
+      "candidate_t": 14.342081541981315,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1427,8 +1427,8 @@
     },
     {
       "index": 52,
-      "baseline_t": 15.413226625008974,
-      "candidate_t": 15.549981999996817,
+      "baseline_t": 14.583559749997221,
+      "candidate_t": 14.771441458986374,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1450,8 +1450,8 @@
     },
     {
       "index": 53,
-      "baseline_t": 15.899530458002118,
-      "candidate_t": 16.041382833005628,
+      "baseline_t": 15.04116975000943,
+      "candidate_t": 15.238582083984511,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1473,8 +1473,8 @@
     },
     {
       "index": 54,
-      "baseline_t": 16.36832183302613,
-      "candidate_t": 16.511989457998425,
+      "baseline_t": 15.485765416990034,
+      "candidate_t": 15.685660624993034,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1496,8 +1496,8 @@
     },
     {
       "index": 55,
-      "baseline_t": 16.80767704200116,
-      "candidate_t": 16.956744416995207,
+      "baseline_t": 15.903720792004606,
+      "candidate_t": 16.104489666991867,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1519,8 +1519,8 @@
     },
     {
       "index": 56,
-      "baseline_t": 17.282983667013468,
-      "candidate_t": 17.43718845798867,
+      "baseline_t": 16.356845667003654,
+      "candidate_t": 16.557954083982622,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1542,8 +1542,8 @@
     },
     {
       "index": 57,
-      "baseline_t": 17.734613583015744,
-      "candidate_t": 17.896792207990075,
+      "baseline_t": 16.786880041996483,
+      "candidate_t": 16.983937541983323,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1565,8 +1565,8 @@
     },
     {
       "index": 58,
-      "baseline_t": 18.157260625011986,
-      "candidate_t": 18.32507195798098,
+      "baseline_t": 17.19308937501046,
+      "candidate_t": 17.387034666986438,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1588,8 +1588,8 @@
     },
     {
       "index": 59,
-      "baseline_t": 18.621905000007246,
-      "candidate_t": 18.795506833004765,
+      "baseline_t": 17.63555241699214,
+      "candidate_t": 17.83118379197549,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1611,8 +1611,8 @@
     },
     {
       "index": 60,
-      "baseline_t": 19.099282750015846,
-      "candidate_t": 19.27791912498651,
+      "baseline_t": 18.08912579200114,
+      "candidate_t": 18.28813829200226,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1634,8 +1634,8 @@
     },
     {
       "index": 61,
-      "baseline_t": 19.564323124999646,
-      "candidate_t": 19.75212270798511,
+      "baseline_t": 18.529067083989503,
+      "candidate_t": 18.731994333997136,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1657,8 +1657,8 @@
     },
     {
       "index": 62,
-      "baseline_t": 20.047879707999527,
-      "candidate_t": 20.237742416997207,
+      "baseline_t": 18.98581408400787,
+      "candidate_t": 19.19278216699604,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1680,8 +1680,8 @@
     },
     {
       "index": 63,
-      "baseline_t": 20.510998792015016,
-      "candidate_t": 20.704155582992826,
+      "baseline_t": 19.424889459012775,
+      "candidate_t": 19.640467291988898,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1703,8 +1703,8 @@
     },
     {
       "index": 64,
-      "baseline_t": 20.95827804200235,
-      "candidate_t": 21.151262667000992,
+      "baseline_t": 19.84692912499304,
+      "candidate_t": 20.068769167002756,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1726,8 +1726,8 @@
     },
     {
       "index": 65,
-      "baseline_t": 21.408231167006306,
-      "candidate_t": 21.605695167003432,
+      "baseline_t": 20.273956249991897,
+      "candidate_t": 20.501910374994623,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1749,8 +1749,8 @@
     },
     {
       "index": 66,
-      "baseline_t": 21.897656958026346,
-      "candidate_t": 22.09558716698666,
+      "baseline_t": 20.744843124994077,
+      "candidate_t": 20.96879887499381,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1772,8 +1772,8 @@
     },
     {
       "index": 67,
-      "baseline_t": 22.35256025000126,
-      "candidate_t": 22.55403191698133,
+      "baseline_t": 21.178215916996123,
+      "candidate_t": 21.402436584001407,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1795,8 +1795,8 @@
     },
     {
       "index": 68,
-      "baseline_t": 22.85508837501402,
-      "candidate_t": 23.058367707999423,
+      "baseline_t": 21.655808834009804,
+      "candidate_t": 21.880415624997113,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1818,8 +1818,8 @@
     },
     {
       "index": 69,
-      "baseline_t": 23.312747957999818,
-      "candidate_t": 23.520323957985966,
+      "baseline_t": 22.0995682089997,
+      "candidate_t": 22.31968337498256,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1841,8 +1841,8 @@
     },
     {
       "index": 70,
-      "baseline_t": 23.761951874999795,
-      "candidate_t": 23.97276329199667,
+      "baseline_t": 22.525317958992673,
+      "candidate_t": 22.750442708987975,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1864,8 +1864,8 @@
     },
     {
       "index": 71,
-      "baseline_t": 24.185173042002134,
-      "candidate_t": 24.398093416995835,
+      "baseline_t": 22.92250020900974,
+      "candidate_t": 23.153969916980714,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1887,8 +1887,8 @@
     },
     {
       "index": 72,
-      "baseline_t": 24.615949541999726,
-      "candidate_t": 24.826994667004328,
+      "baseline_t": 23.326909625000553,
+      "candidate_t": 23.562716249987716,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1910,8 +1910,8 @@
     },
     {
       "index": 73,
-      "baseline_t": 25.08662391701364,
-      "candidate_t": 25.298338499997044,
+      "baseline_t": 23.768727666989435,
+      "candidate_t": 24.013519999978598,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1933,8 +1933,8 @@
     },
     {
       "index": 74,
-      "baseline_t": 25.624732167023467,
-      "candidate_t": 25.830254917003913,
+      "baseline_t": 24.279432874987833,
+      "candidate_t": 24.519858291983837,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1956,8 +1956,8 @@
     },
     {
       "index": 75,
-      "baseline_t": 26.13959629202145,
-      "candidate_t": 26.34352866699919,
+      "baseline_t": 24.76308758399682,
+      "candidate_t": 25.00651774997823,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -1979,8 +1979,8 @@
     },
     {
       "index": 76,
-      "baseline_t": 26.644173000007868,
-      "candidate_t": 26.85435654199682,
+      "baseline_t": 25.242058125004405,
+      "candidate_t": 25.49243449998903,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -2002,8 +2002,8 @@
     },
     {
       "index": 77,
-      "baseline_t": 27.097523125004955,
-      "candidate_t": 27.3085547919909,
+      "baseline_t": 25.669928999996046,
+      "candidate_t": 25.9246839589905,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -2025,8 +2025,8 @@
     },
     {
       "index": 78,
-      "baseline_t": 27.555001958011417,
-      "candidate_t": 27.766884916985873,
+      "baseline_t": 26.101723583997227,
+      "candidate_t": 26.36055512499297,
       "ops": {
         "baseline": null,
         "candidate": null,
@@ -2048,8 +2048,8 @@
     },
     {
       "index": 79,
-      "baseline_t": 27.610484750010073,
-      "candidate_t": 27.82237254199572,
+      "baseline_t": 26.154420292004943,
+      "candidate_t": 26.413252124999417,
       "ops": {
         "baseline": null,
         "candidate": null,

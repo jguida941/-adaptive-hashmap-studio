@@ -1,0 +1,51 @@
+{
+  "python hashmap_cli.py generate-csv --outfile data/workloads/w_uniform.csv --ops 100000 --read-ratio 0.8 --key-skew 0.0 --key-space 20000 --seed 42": {
+    "timestamp": "2025-10-04T23:57:54",
+    "section": "audit.md, data_inventory.md",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "2025-10-04T23:57:54 [INFO] hashmap_cli: Wrote workload CSV: data/workloads/w_uniform.csv"
+  },
+  "python hashmap_cli.py generate-csv --outfile data/workloads/w_skew_adv.csv --ops 100000 --read-ratio 0.6 --key-skew 1.2 --key-space 20000 --seed 1337 \\\n    --adversarial-ratio 0.10 --adversarial-lowbits 8": {
+    "timestamp": "2025-10-04T23:57:54",
+    "section": "audit.md",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "2025-10-04T23:57:54 [INFO] hashmap_cli: Wrote workload CSV: data/workloads/w_skew_adv.csv"
+  },
+  "python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --metrics-port 9090": {
+    "timestamp": "2025-10-04T23:57:54",
+    "section": "audit.md, command_audit.md",
+    "exit_code": 4,
+    "stdout": "",
+    "stderr": "Unhandled CLI exception\nTraceback (most recent call last):\n  File \"/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/src/adhash/contracts/error.py\", line 91, in _wrapped\n    return fn(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/src/adhash/cli/commands.py\", line 246, in handler\n    result = ctx.run_csv(\n             ^^^^^^^^^^^^\n  File \"/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/hashmap_cli.py\", line 636, in run_csv\n    server, stop_server = start_metrics_server(metrics, metrics_port)\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/src/adhash/metrics/server.py\", line 403, in start_metrics_server\n    server = HTTPServer((host, port), Handler)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.11/3.11.13_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py\", line 456, in __init__\n    self.server_bind()\n  File \"/opt/homebrew/Cellar/python@3.11/3.11.13_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/http/server.py\", line 136, in server_bind\n    socketserver.TCPServer.server_bind(self)\n  File \"/opt/homebrew/Cellar/python@3.11/3.11.13_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/socketserver.py\", line 472, in server_bind\n    self.socket.bind(self.server_address)\nPermissionError: [Errno 1] Operation not permitted\n{\"error\": \"Unhandled\", \"detail\": \"PermissionError: [Errno 1] Operation not permitted\"}"
+  },
+  "python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv \\\n    --json-summary-out results/json/perf_uniform.json \\\n    --latency-sample-k 2000 --latency-sample-every 64": {
+    "timestamp": "2025-10-04T23:57:55",
+    "section": "audit.md",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "2025-10-04T23:57:55 [INFO] hashmap_cli: Adaptive map started on chaining\n2025-10-04T23:59:11 [INFO] hashmap_cli: run-csv finished in 75.958168 s, backend=chaining\n2025-10-04T23:59:11 [INFO] hashmap_cli: Wrote JSON summary: results/json/perf_uniform.json"
+  },
+  "python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_skew_adv.csv \\\n    --compact-interval 2.0 \\\n    --json-summary-out results/json/perf_skew_adv.json \\\n    --latency-sample-k 3000 --latency-sample-every 32": {
+    "timestamp": "2025-10-05T00:00:17",
+    "section": "audit.md",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "2025-10-05T00:00:17 [INFO] hashmap_cli: Adaptive map started on chaining\n2025-10-05T00:01:10 [INFO] hashmap_cli: run-csv finished in 52.459539 s, backend=chaining\n2025-10-05T00:01:10 [INFO] hashmap_cli: Wrote JSON summary: results/json/perf_skew_adv.json"
+  },
+  "python - <<'PY'\n  from pathlib import Path\n\n  src = Path(\"data/workloads/w_uniform.csv\").read_text().splitlines()\n  header, rows = src[0], src[1:]\n  midpoint = 50_000\n\n  Path(\"data/workloads/w_uniform_half.csv\").write_text(\"\\n\".join([header] + rows[:midpoint]) + \"\\n\")\n  Path(\"data/workloads/w_uniform_rest.csv\").write_text(\"\\n\".join([header] + rows[midpoint:]) + \"\\n\")\n  PY": {
+    "timestamp": "2025-10-05T00:01:10",
+    "section": "audit.md",
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "File \"<stdin>\", line 1\n    from pathlib import Path\nIndentationError: unexpected indent"
+  },
+  "python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform_half.csv \\\n    --snapshot-out snapshots/state.pkl.gz --compress": {
+    "timestamp": "2025-10-05T00:01:10",
+    "section": "audit.md",
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "2025-10-05T00:01:10 [INFO] hashmap_cli: Adaptive map started on chaining\n2025-10-05T00:01:30 [INFO] hashmap_cli: run-csv finished in 20.311701 s, backend=chaining\n2025-10-05T00:01:30 [INFO] hashmap_cli: Wrote snapshot to snapshots/state.pkl.gz (compress=True)"
+  }
+}

@@ -1,0 +1,99 @@
+2025-10-05T00:08:17Z	OK	python hashmap_cli.py generate-csv --outfile data/workloads/w_uniform.csv --ops 100000 --read-ratio 0.8 --key-skew 0.0 --key-space 20000 --seed 42
+2025-10-05T00:08:47Z	OK	python hashmap_cli.py generate-csv --outfile data/workloads/w_skew_adv.csv --ops 100000 --read-ratio 0.6 --key-skew 1.2 --key-space 20000 --seed 1337 --adversarial-ratio 0.10 --adversarial-lowbits 8
+2025-10-05T00:08:50Z	BLOCKED (PermissionError binding port 9090 in sandbox)	python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --metrics-port 9090
+2025-10-05T00:20:43Z	OK	python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --metrics-port 9090
+2025-10-05T00:27:46Z	OK	python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --json-summary-out results/json/perf_uniform.json --latency-sample-k 2000 --latency-sample-every 64 --metrics-port 9090
+2025-10-05T00:38:45Z	OK	python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_skew_adv.csv --compact-interval 2.0 --json-summary-out results/json/perf_skew_adv.json --latency-sample-k 3000 --latency-sample-every 32 --metrics-port 9090
+2025-10-05T00:38:59Z	OK	python - <<PY (split w_uniform into half/rest)
+2025-10-05T00:42:36Z	OK	python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform_half.csv --snapshot-out snapshots/state.pkl.gz --compress
+2025-10-05T00:49:04Z	OK	python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform_rest.csv --snapshot-in snapshots/state.pkl.gz --json-summary-out results/json/perf_rest.json
+2025-10-05T00:49:31Z	OK	python hashmap_cli.py --mode fast-lookup run-csv --csv data/workloads/w_skew_adv.csv --snapshot-out snapshots/rh_before.pkl.gz --compress
+2025-10-05T00:49:53Z	OK	python hashmap_cli.py compact-snapshot --in snapshots/rh_before.pkl.gz --out snapshots/rh_after.pkl.gz --compress
+2025-10-05T00:49:54Z	OK	python hashmap_cli.py verify-snapshot --in snapshots/rh_before.pkl.gz --repair --out snapshots/rh_fixed.pkl.gz --verbose
+2025-10-05T01:26:42Z	OK	python hashmap_cli.py generate-csv --outfile data/workloads/w_heavy_adv.csv --ops 200000 --read-ratio 0.4 --key-skew 1.4 --key-space 50000 --seed 777 --adversarial-ratio 0.25 --adversarial-lowbits 10
+2025-10-05T01:30:53Z	OK	python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_heavy_adv.csv --metrics-port 9100 --json-summary-out results/json/perf_heavy_adv.json --latency-sample-k 4000 --latency-sample-every 16
+2025-10-05T01:31:28Z	OK	python hashmap_cli.py --mode fast-insert run-csv --csv data/workloads/w_uniform.csv --snapshot-out snapshots/chain.pkl.gz --compress
+2025-10-05T01:31:58Z	OK	python hashmap_cli.py generate-csv --outfile data/workloads/demo.csv --ops 80000 --read-ratio 0.7 --key-skew 1.1 --key-space 15000 --seed 1 --adversarial-ratio 0.15 --adversarial-lowbits 7
+2025-10-05T02:11:54Z	OK	python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/demo.csv --metrics-port 9091 --json-summary-out results/json/demo_perf.json --latency-sample-k 1500 --latency-sample-every 40 --snapshot-out snapshots/demo.pkl.gz --compress
+2025-10-05T02:12:26Z	OK	python hashmap_cli.py verify-snapshot --in snapshots/demo.pkl.gz --repair --out snapshots/demo_fixed.pkl.gz --verbose
+2025-10-05T02:12:27Z	OK	python hashmap_cli.py -h
+2025-10-05T02:12:27Z	OK	python hashmap_cli.py --mode fast-insert put A 1
+2025-10-05T02:12:27Z	OK	python hashmap_cli.py --mode fast-lookup get A
+2025-10-05T02:24:02Z	OK	python hashmap_cli.py --mode adaptive items
+2025-10-05T02:24:25Z	OK	python hashmap_cli.py profile --csv data/workloads/w_uniform.csv
+2025-10-05T02:24:47Z	OK	python hashmap_cli.py profile --csv data/workloads/w_uniform.csv --then get A
+2025-10-05T02:25:00Z	OK	cat results/json/perf_uniform.json
+2025-10-05T02:25:32Z	OK	python hashmap_cli.py verify-snapshot --in snapshots/state.pkl.gz --verbose
+2025-10-05T02:25:44Z	OK	python hashmap_cli.py verify-snapshot --in snapshots/rh_after.pkl.gz --verbose
+2025-10-05T02:26:20Z	OK	python hashmap_cli.py profile --csv data/workloads/demo.csv
+2025-10-05T02:26:32Z	INTERACTIVE (requires TTY input)	python hashmap_cli.py config-wizard --outfile runs/tmp_config.toml
+2025-10-05T02:26:44Z	INTERACTIVE (requires TTY input)	python hashmap_cli.py config-edit --infile config.toml --outfile runs/tmp_config_edit.toml --save-preset demo --presets-dir runs/presets --force
+2025-10-05T02:29:23Z	OK	python hashmap_cli.py ab-compare --csv data/workloads/demo.csv --baseline-config config.toml --candidate-config config.experiment.toml --out-dir results/ab/demo
+2025-10-05T02:30:40Z	OK	python -m adhash.batch --spec docs/examples/batch_baseline.toml
+2025-10-05T02:30:41Z	FAIL (missing JSON summary path argument)	python hashmap_cli.py --config config.toml run-csv --csv data/workloads/w_uniform.csv --metrics-port 9092 --json
+2025-10-05T02:50:38Z	OK	python hashmap_cli.py --config config.toml run-csv --csv data/workloads/w_uniform.csv --metrics-port 9092 --json-summary-out results/json/config_uniform.json
+2025-10-05T02:51:02Z	OK	python hashmap_cli.py workload-dna --csv data/workloads/w_uniform.csv --top-keys 8 --pretty
+2025-10-05T02:51:35Z	FAIL (requires Python 3.11+ for tomllib)	pytest tests/test_config_wizard.py tests/test_mission_control_widgets_qt.py
+2025-10-05T02:51:52Z	FAIL (sandbox pip/network restriction while attempting Python 3.11 venv)	python - <<"PY" (attempt to create isolated venv for pytest)
+2025-10-05T03:02:10Z	FAIL (PyQt abort in sandbox)	python scripts/launch_mission_control.py -h
+2025-10-05T02:52:10Z	BLOCKED (requires live metrics stream; run aborted after timeout)	python scripts/launch_tui.py --metrics-endpoint http://127.0.0.1:9090/api/metrics
+2025-10-05T02:52:20Z	BLOCKED (no metrics server running; connection refused)	python scripts/query_metric_endpoint.py http://127.0.0.1:9090/api/metrics/histogram/latency operations.overall
+2025-10-05T02:52:21Z	BLOCKED (no metrics server running; connection refused)	python scripts/query_metric_endpoint.py http://127.0.0.1:9090/api/metrics/histogram/probe buckets
+2025-10-05T02:52:21Z	BLOCKED (no metrics server running; connection refused)	python scripts/query_metric_endpoint.py http://127.0.0.1:9090/api/metrics/heatmap
+2025-10-05T20:48:37Z	OK (server started; manual stop required)	python hashmap_cli.py serve --port 9090
+2025-10-05T21:05:22Z	OK (server started; manual stop required)	python hashmap_cli.py serve --source runs/metrics.ndjson --compare results/ab/demo/comparison.json --port 9093
+2025-10-05T21:10:15Z	OK	python hashmap_cli.py verify-snapshot --in snapshots/rh_before.pkl.gz --verbose
+2025-10-05T21:10:16Z	OK	python hashmap_cli.py verify-snapshot --in snapshots/chain.pkl.gz --verbose
+2025-10-05T21:10:17Z	OK	python hashmap_cli.py --mode fast-lookup put K2 V2
+2025-10-05T21:10:18Z	OK	python hashmap_cli.py --mode fast-lookup del K2
+2025-10-05T21:10:19Z	OK	python hashmap_cli.py --mode adaptive put K3 V3
+2025-10-05T21:10:20Z	OK	python hashmap_cli.py --mode adaptive put foo bar
+2025-10-05T21:10:21Z	OK	python hashmap_cli.py --mode adaptive put baz qux
+2025-10-05T21:10:22Z	OK	python hashmap_cli.py verify-snapshot --in snapshots/demo.pkl.gz --verbose
+2025-10-05T21:10:23Z	EXPECTED FAIL (chaining snapshot cannot be compacted)	python hashmap_cli.py compact-snapshot --in snapshots/demo.pkl.gz --out snapshots/demo_compacted.pkl.gz --compress
+2025-10-05T21:11:04Z	OK	python hashmap_cli.py profile --csv data/workloads/demo.csv --then get A
+2025-10-05T21:11:05Z	OK	python hashmap_cli.py verify-snapshot --in snapshots/rh_fixed.pkl.gz --verbose
+2025-10-05T21:11:52Z	OK	python hashmap_cli.py generate-csv --outfile workload.csv --ops 50000 --read-ratio 0.8
+2025-10-05T21:11:53Z	FAIL (missing JSON summary path)	python hashmap_cli.py --config config.toml run-csv --csv workload.csv --json
+2025-10-05T21:13:31Z	OK	python hashmap_cli.py --config config.toml run-csv --csv workload.csv --json-summary-out results/json/workload_config.json
+2025-10-05T21:15:13Z	OK	python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --snapshot-out runs/phase2/adaptive_snapshot.pkl.gz --compress --json-summary-out results/json/phase2_uniform_snapshot.json --latency-sample-k 500 --latency-sample-every 64
+2025-10-05T21:15:14Z	OK	python hashmap_cli.py verify-snapshot --in snapshots/rh_before.pkl.gz --repair --out runs/phase2/rh_repair_phase2.pkl.gz --verbose
+2025-10-05T21:15:15Z	OK	python hashmap_cli.py mission-control -h
+2025-10-05T21:15:16Z	FAIL (PyQt abort in headless environment)	python hashmap_cli.py mission-control
+2025-10-05T21:15:16Z	FAIL (PyQt abort in headless environment)	python -m adhash.mission_control
+2025-10-05T21:17:25Z	BLOCKED (requires live metrics stream; timed out)	python -m adhash.tui --metrics-endpoint http://127.0.0.1:9090/api/metrics
+2025-10-05T21:19:30Z	FAIL (ruff hits embedded test fixture files; see check/ directory)	make lint
+2025-10-05T21:20:01Z	FAIL (mypy missing Textual stubs + no-redef guard after benchmark invoker)	make type
+2025-10-05T21:20:02Z	FAIL (pytest requires Python 3.11+ and test fixture cleanup)	make test
+2025-10-05T21:24:31Z	OK	make smoke
+2025-10-06T01:27:27Z	OK	yes '' | head -n 200 | python hashmap_cli.py config-wizard --outfile runs/config_wizard_auto.toml
+2025-10-06T01:27:34Z	OK	yes '' | head -n 200 | python hashmap_cli.py config-edit --infile runs/config_wizard_auto.toml --outfile runs/config_edit_auto.toml --save-preset auto-preset --presets-dir runs/presets --force
+2025-10-06T01:30:19Z	TIMEOUT (offscreen launch hung; requires interactive GUI session)	QT_QPA_PLATFORM=offscreen python hashmap_cli.py mission-control
+2025-10-06T01:32:31Z	TIMEOUT (TUI waiting for metrics; requires interactive session)	python scripts/launch_tui.py --metrics-endpoint http://127.0.0.1:9090/api/metrics
+2025-10-06T01:32:57Z	FAIL (ruff error on check/ macOS resource files)	make lint
+2025-10-06T01:33:21Z	FAIL (mypy duplicate _MainThreadInvoker definition)	make type
+2025-10-06T01:33:28Z	FAIL (pytest collects duplicate modules from check/ fixture tree)	make test
+2025-10-06T01:35:54Z	OK	python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/demo.csv --metrics-out-dir runs/metrics_demo --metrics-max-ticks 64 --json-summary-out results/json/demo_metrics_session.json --latency-sample-k 200 --latency-sample-every 16
+2025-10-06T01:36:26Z	FAIL (PermissionError binding port 9090 under sandbox)	python hashmap_cli.py serve --port 9090 --source runs/metrics_demo/metrics.ndjson
+2025-10-06T01:36:32Z	FAIL (connection refused; metrics server unavailable)	curl --compressed http://127.0.0.1:9090/healthz > runs/metrics_demo/healthz.json
+2025-10-06T01:36:36Z	FAIL (connection refused; metrics server unavailable)	curl --compressed http://127.0.0.1:9090/api/metrics > runs/metrics_demo/metrics_summary.json
+2025-10-06T01:36:39Z	FAIL (connection refused; metrics server unavailable)	curl --compressed http://127.0.0.1:9090/api/metrics/histogram/latency > runs/metrics_demo/latency_hist.json
+2025-10-06T01:36:42Z	FAIL (connection refused; metrics server unavailable)	curl --compressed http://127.0.0.1:9090/api/metrics/histogram/probe > runs/metrics_demo/probe_hist.json
+2025-10-06T01:36:47Z	FAIL (connection refused; metrics server unavailable)	curl --compressed http://127.0.0.1:9090/api/metrics/heatmap > runs/metrics_demo/heatmap.json
+2025-10-06T01:36:51Z	FAIL (connection refused; metrics server unavailable)	curl --compressed http://127.0.0.1:9090/api/metrics/history.csv?limit=16 -o runs/metrics_demo/history.csv
+2025-10-06T01:36:54Z	FAIL (connection refused; metrics server unavailable)	curl -I --compressed http://127.0.0.1:9090/api/metrics > runs/metrics_demo/metrics_headers.txt
+2025-10-06T01:37:07Z	OK	python hashmap_cli.py workload-dna --csv data/workloads/w_skew_adv.csv --top-keys 8 --pretty --json-out results/json/workload_dna_skew_adv.json
+2025-10-06T01:37:14Z	OK	python hashmap_cli.py workload-dna --csv data/workloads/w_heavy_adv.csv --top-keys 10 --pretty --json-out results/json/workload_dna_heavy_adv.json
+2025-10-06T01:58:05Z	FAIL (PermissionError binding port 19090 under sandbox)	python hashmap_cli.py serve --port 19090 --source runs/metrics_demo/metrics.ndjson
+2025-10-06T01:58:14Z	FAIL (module lacks __main__ entry point)	python -m adhash.cli --help
+2025-10-06T01:58:21Z	OK	python -m adhash.batch --help
+2025-10-06T01:58:29Z	ABORT (Qt app exited with signal 6)	python -m adhash.mission_control --help
+2025-10-06T01:58:40Z	ABORT (Qt bootstrap signal 6; GUI unavailable)	python scripts/launch_mission_control.py --help
+2025-10-06T01:58:48Z	OK	python scripts/launch_tui.py --help
+2025-10-06T01:58:58Z	FAIL (seatbelt blocked HTTP request)	python scripts/query_metric_endpoint.py http://127.0.0.1:9090/api/metrics
+2025-10-06T01:59:05Z	OK	python scripts/validate_metrics_ndjson.py runs/metrics_demo/metrics.ndjson
+2025-10-06T02:01:23Z	FAIL (ruff flagged unused pathlib import in scripts/query_metric_endpoint.py)	make lint
+2025-10-06T02:01:31Z	FAIL (mypy duplicate _MainThreadInvoker definition remains)	make type
+2025-10-06T02:02:59Z	OK	make test
+2025-10-06T02:27:48Z	OK	make lint
+2025-10-06T02:29:02Z	OK	make type

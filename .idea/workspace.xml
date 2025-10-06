@@ -5,90 +5,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e6490e9f-c137-4747-85f8-29bac12e1181" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/audits/oct3_audit.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/config.toml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/workloads/demo_dashboard.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/workloads/slow_demo.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/examples/batch_compaction.toml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mypy.ini" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/reports/batch_compaction.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/reports/batch_compaction.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/results/json/config_wizard_run.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/results/json/demo_run.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/results/json/perf_uniform_auth.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/results/json/phase1_uniform.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/results/json/phase2_uniform_snapshot.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/results/json/tmp_mc.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/adhash/cli/commands.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/adhash/core/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/adhash/core/latency.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/adhash/core/maps.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/adhash/io/snapshot.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/adhash/metrics/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/adhash/metrics/constants.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/adhash/metrics/core.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/adhash/metrics/server.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/test_hybrid_capacity.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/test_mission_control_charts.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/test_mission_control_widgets_qt.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CONTRIBUTING.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/CONTRIBUTING.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SECURITY.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/SECURITY.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Screenshot 2025-10-02 at 9.57.36 PM.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Screenshot 2025-10-04 at 12.28.11 AM.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/audit.md" beforeDir="false" afterPath="$PROJECT_DIR$/audits/audit.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/batch_runner.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/batch_runner.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/serve_mode.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/serve_mode.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/geminioct4thaudit.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/hashmap_cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/hashmap_cli.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/oct1_audit.md" beforeDir="false" afterPath="$PROJECT_DIR$/audits/oct1_audit.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.toml" beforeDir="false" afterPath="$PROJECT_DIR$/config.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/reports/batch_baseline.html" beforeDir="false" afterPath="$PROJECT_DIR$/reports/batch_baseline.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/reports/batch_baseline.md" beforeDir="false" afterPath="$PROJECT_DIR$/reports/batch_baseline.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/batch_compaction.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/batch_compaction.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/reports/batch_compaction.html" beforeDir="false" afterPath="$PROJECT_DIR$/reports/batch_compaction.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/results/json/batch_uniform.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/batch_uniform.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/demo_perf.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/demo_perf.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/oct1_demo_perf.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/oct1_demo_perf.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/oct1_perf_heavy_adv.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/oct1_perf_heavy_adv.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/oct1_perf_rest.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/oct1_perf_rest.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/oct1_perf_skew_adv.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/oct1_perf_skew_adv.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/oct1_perf_uniform.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/oct1_perf_uniform.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/perf_heavy_adv.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_heavy_adv.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/perf_rest.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_rest.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/perf_skew_adv.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_skew_adv.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/results/json/perf_uniform.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/perf_uniform.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/run_hot.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/run_hot.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/run_hot_lowthresh.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/run_hot_lowthresh.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/run_hot_tiny.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/run_hot_tiny.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/run_stress.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/run_stress.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/results/json/run_stress_big_tuned.json" beforeDir="false" afterPath="$PROJECT_DIR$/results/json/run_stress_big_tuned.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/chain.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/chain.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/demo.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/demo.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/oct1_demo.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/oct1_demo.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/rh_after.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/rh_after.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/rh_before.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/rh_before.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/snapshots/rh_fixed.pkl.gz" beforeDir="false" afterPath="$PROJECT_DIR$/snapshots/rh_fixed.pkl.gz" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adaptive_hashmap_cli.egg-info/PKG-INFO" beforeDir="false" afterPath="$PROJECT_DIR$/src/adaptive_hashmap_cli.egg-info/PKG-INFO" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adaptive_hashmap_cli.egg-info/SOURCES.txt" beforeDir="false" afterPath="$PROJECT_DIR$/src/adaptive_hashmap_cli.egg-info/SOURCES.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/batch/__main__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/batch/__main__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/batch/runner.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/batch/runner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/config_toolkit.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/config_toolkit.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/io/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/io/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/builders.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/builders.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/layout.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/layout.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/metrics_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/metrics_client.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/process_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/process_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/widgets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/adhash/tui/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/tui/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_dashboard_assets.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_dashboard_assets.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_metrics_apply.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_metrics_apply.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_metrics_endpoints.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_metrics_endpoints.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_metrics_schema.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_metrics_schema.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_perf_smoke.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_perf_smoke.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/upgrade.md" beforeDir="false" afterPath="$PROJECT_DIR$/upgrade.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/adhash/mission_control/widgets.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/adhash/mission_control/widgets/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_mission_control_widgets_qt.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_mission_control_widgets_qt.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -140,10 +66,10 @@
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/check" />
       <recent name="$PROJECT_DIR$/audits" />
       <recent name="$PROJECT_DIR$/docs" />
       <recent name="$PROJECT_DIR$/.github" />
-      <recent name="$PROJECT_DIR$/fuck" />
     </key>
   </component>
   <component name="SharedIndexes">
@@ -171,7 +97,7 @@
       <workItem from="1759455508602" duration="8801000" />
       <workItem from="1759464328019" duration="10778000" />
       <workItem from="1759483291289" duration="34836000" />
-      <workItem from="1759550679556" duration="23645000" />
+      <workItem from="1759550679556" duration="34145000" />
     </task>
     <servers />
   </component>

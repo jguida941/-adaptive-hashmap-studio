@@ -75,12 +75,37 @@ def start_metrics_server(
             self._set_common_headers(content_type=content_type, length=len(body), gzip_enabled=gzip_enabled)
             self.end_headers()
             if self.command != "HEAD":
-                self.wfile.write(body)
+                try:
+                    self.wfile.write(body)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+
+        def _client_supports_gzip(self) -> bool:
+            header = self.headers.get("Accept-Encoding") or ""
+            encodings = [entry.strip() for entry in header.split(",") if entry.strip()]
+            for encoding in encodings:
+                parts = [part.strip() for part in encoding.split(";") if part.strip()]
+                if not parts:
+                    continue
+                name = parts[0].lower()
+                if name != "gzip":
+                    continue
+                q = 1.0
+                for param in parts[1:]:
+                    if param.lower().startswith("q="):
+                        try:
+                            q = float(param[2:])
+                        except ValueError:
+                            q = 0.0
+                if q > 0.0:
+                    return True
+            return False
 
         def _write_json(self, payload: Any, status: int = 200) -> None:
             raw = json.dumps(payload).encode("utf-8")
-            body = gzip.compress(raw)
-            self._write_body(body, JSON_CONTENT_TYPE, gzip_enabled=True, status=status)
+            gzip_enabled = self._client_supports_gzip()
+            body = gzip.compress(raw) if gzip_enabled else raw
+            self._write_body(body, JSON_CONTENT_TYPE, gzip_enabled=gzip_enabled, status=status)
 
         def _unauthorized(self) -> None:
             self._write_json(
@@ -281,6 +306,24 @@ def start_metrics_server(
             body = self._render_dashboard_html()
             self._write_body(body, "text/html; charset=utf-8")
 
+        def _serve_static_asset(self, path: str) -> None:
+            asset = path[len("/static/") :]
+            if not asset or "/" in asset or ".." in asset:
+                self._respond_not_found(path)
+                return
+            try:
+                data = resources.files("adhash.metrics.static").joinpath(asset).read_bytes()
+            except (FileNotFoundError, OSError):
+                self._respond_not_found(path)
+                return
+            if asset.endswith(".css"):
+                mime = "text/css; charset=utf-8"
+            elif asset.endswith(".js"):
+                mime = "application/javascript; charset=utf-8"
+            else:
+                mime = "application/octet-stream"
+            self._write_body(data, mime)
+
         def _respond_not_found(self, path: str) -> None:
             self._write_json(
                 {
@@ -338,6 +381,9 @@ def start_metrics_server(
                 return
             if path in {"/", "/index.html"}:
                 self._serve_dashboard(parsed)
+                return
+            if path.startswith("/static/"):
+                self._serve_static_asset(path)
                 return
             self._respond_not_found(path)
 

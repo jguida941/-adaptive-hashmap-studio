@@ -32,6 +32,10 @@ def wait_for_server(port: int, retries: int = 10, delay: float = 0.05, headers: 
             )
             with urlopen(request, timeout=0.1):
                 return
+        except HTTPError as exc:
+            if exc.code == 401:
+                return
+            time.sleep(delay)
         except Exception:
             time.sleep(delay)
     raise RuntimeError("metrics server did not start in time")
@@ -92,6 +96,49 @@ def test_histogram_endpoints_expose_json() -> None:
         assert heatmap["schema"] == KEY_HEATMAP_SCHEMA
         assert heatmap["total"] == 6
         assert heatmap["matrix"] == [[4, 2]]
+    finally:
+        stop_server()
+
+
+def test_metrics_summary_respects_accept_encoding() -> None:
+    metrics_payload: Dict[str, Any] = {
+        "schema": TICK_SCHEMA,
+        "t": 1.0,
+        "ops": 10,
+        "ops_by_type": {"put": 4, "get": 5, "del": 1},
+    }
+    metrics = Metrics()
+    metrics.latest_tick = metrics_payload
+
+    try:
+        server, stop_server = start_metrics_server(metrics, 0)
+    except PermissionError:
+        pytest.skip("network bindings not permitted in sandbox")
+    try:
+        port = server.server_address[1]
+        wait_for_server(port)
+
+        request_plain = Request(
+            f"http://127.0.0.1:{port}/api/metrics",
+            headers={"Accept": "application/json"},
+        )
+        with urlopen(request_plain, timeout=0.5) as response:
+            assert response.headers.get("Content-Encoding", "").lower() not in {"gzip", "x-gzip"}
+            data = json.loads(response.read().decode("utf-8"))
+        assert data["ops"] == 10
+
+        request_gzip = Request(
+            f"http://127.0.0.1:{port}/api/metrics",
+            headers={
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip, deflate",
+            },
+        )
+        with urlopen(request_gzip, timeout=0.5) as response:
+            assert response.headers.get("Content-Encoding", "").lower() == "gzip"
+            payload = gzip.decompress(response.read())
+            data = json.loads(payload.decode("utf-8"))
+        assert data["ops"] == 10
     finally:
         stop_server()
 
@@ -179,3 +226,27 @@ def test_dashboard_requires_token_and_embeds_meta(monkeypatch: pytest.MonkeyPatc
     finally:
         stop_server()
         monkeypatch.delenv("ADHASH_TOKEN", raising=False)
+
+
+def test_dashboard_serves_static_assets() -> None:
+    metrics = Metrics()
+
+    try:
+        server, stop_server = start_metrics_server(metrics, 0)
+    except PermissionError:
+        pytest.skip("network bindings not permitted in sandbox")
+    try:
+        port = server.server_address[1]
+        wait_for_server(port)
+
+        with urlopen(f"http://127.0.0.1:{port}/static/dashboard.css", timeout=0.5) as response:
+            assert response.status == 200
+            css = response.read().decode("utf-8")
+        assert ".charts" in css
+
+        with urlopen(f"http://127.0.0.1:{port}/static/dashboard.js", timeout=0.5) as response:
+            assert response.status == 200
+            js = response.read().decode("utf-8")
+        assert "function poll(" in js
+    finally:
+        stop_server()

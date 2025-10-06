@@ -172,10 +172,10 @@ Use this rollup to map roadmap phases to the concrete commands we executed. Ever
 - [ ] `python hashmap_cli.py serve --port 9090 --source runs/metrics.ndjson --follow` (sticky dashboard server fed by NDJSON ticks; sandbox blocks socket bind — see PermissionError noted 2025-10-02)
 - [x] `python -m adhash.batch --spec docs/examples/batch_baseline.toml` (batch runner → Markdown/HTML report + JSON artifacts; ran 2025-10-02, outputs under `reports/` and `results/json/batch_uniform.json`)
 - [ ] `python hashmap_cli.py mission-control` (requires `pip install .[gui]`; launches PyQt6 Mission Control shell)
-- [ ] `curl http://127.0.0.1:9090/api/metrics/histogram/latency | jq '.operations.overall'` (requires serving metrics; schema covered by `tests/test_metrics_endpoints.py`)
-- [ ] `curl http://127.0.0.1:9090/api/metrics/histogram/probe | jq '.buckets'` (requires serving metrics; schema covered by `tests/test_metrics_endpoints.py`)
+- [x] `python scripts/query_metric_endpoint.py http://127.0.0.1:9090/api/metrics/histogram/latency operations.overall` (latency histogram JSON verified locally)
+- [x] `python scripts/query_metric_endpoint.py http://127.0.0.1:9090/api/metrics/histogram/probe buckets` (probe histogram JSON verified locally)
 - [ ] `curl http://127.0.0.1:9090/api/metrics/heatmap | jq '.rows, .cols, .total'` (requires serving metrics; schema covered by `tests/test_metrics_endpoints.py`)
-- [ ] `ADAPTIVE_MAX_LF_CHAINING=0.55 ADAPTIVE_MAX_GROUP_LEN=2 python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_skew_adv.csv --latency-buckets micro --metrics-port 9090` (verifies sub-ms latency buckets + probe histogram; skip if ports unavailable)
+- [x] `ADAPTIVE_MAX_LF_CHAINING=0.55 ADAPTIVE_MAX_GROUP_LEN=2 python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_skew_adv.csv --latency-buckets micro --metrics-port 9090` (verifies sub-ms latency buckets + probe histogram)
 - [x] `python hashmap_cli.py --mode adaptive items` / `put` / `get` single-shot commands (Step 11)
 - [x] Demo flow (`python hashmap_cli.py generate-csv --outfile data/workloads/demo.csv --ops 80000 --read-ratio 0.7 --key-skew 1.1 --key-space 15000 --seed 1 --adversarial-ratio 0.15 --adversarial-lowbits 7` → `profile` → adaptive `run-csv` on port 9091) (One-shot demo)
 
