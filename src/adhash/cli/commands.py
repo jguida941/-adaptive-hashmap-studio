@@ -545,7 +545,7 @@ def _parse_literal(text: str) -> Any:
 def _configure_config_wizard(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
     parser.add_argument(
         "--outfile",
-        default="config.generated.toml",
+        default="config/config.generated.toml",
         help="Where to write the generated config (default: %(default)s)",
     )
 
@@ -564,13 +564,13 @@ def _configure_config_wizard(parser: argparse.ArgumentParser, ctx: CLIContext) -
 def _configure_config_edit(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
     parser.add_argument(
         "--infile",
-        default="config.toml",
+        default="config/config.toml",
         help="Existing config file to load (default: %(default)s)",
     )
     parser.add_argument(
         "--outfile",
         default=None,
-        help="Where to write the updated config (default: overwrite --infile or config.toml)",
+        help="Where to write the updated config (default: overwrite --infile or config/config.toml)",
     )
     parser.add_argument("--apply-preset", default=None, help="Optional preset name/path to use as the starting point")
     parser.add_argument("--save-preset", default=None, help="Optional preset name to save after editing")

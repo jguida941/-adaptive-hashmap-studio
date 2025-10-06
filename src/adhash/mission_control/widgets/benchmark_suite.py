@@ -458,7 +458,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
     def _format_spec_details(self, spec: BatchSpec) -> str:
         lines: List[str] = []
         lines.append(f"Working directory: {self._relativize(spec.working_dir)}")
-        lines.append(f"CLI path: {self._relativize(spec.hashmap_cli)}")
+        lines.append(f"CLI invocation: {' '.join(spec.hashmap_cli)}")
         lines.append(f"Report: {self._relativize(spec.report_path)}")
         if spec.html_report_path:
             lines.append(f"HTML report: {self._relativize(spec.html_report_path)}")

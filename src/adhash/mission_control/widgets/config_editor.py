@@ -65,7 +65,7 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
 
         path_row = QHBoxLayout()  # type: ignore[call-arg]
         path_label = QLabel("Path:")  # type: ignore[call-arg]
-        self.path_edit = QLineEdit("config.toml")  # type: ignore[call-arg]
+        self.path_edit = QLineEdit("config/config.toml")  # type: ignore[call-arg]
         self.path_edit.setObjectName("configPathEdit")
         self.load_button = QPushButton("Load")  # type: ignore[call-arg]
         self.save_button = QPushButton("Save")  # type: ignore[call-arg]
@@ -75,11 +75,11 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
         path_row.addWidget(self.save_button)
         layout.addLayout(path_row)
 
-        self.binding_label = QLabel("Config target: config.toml")  # type: ignore[call-arg]
+        self.binding_label = QLabel("Config target: config/config.toml")  # type: ignore[call-arg]
         self.binding_label.setObjectName("configBindingLabel")
         self.binding_label.setWordWrap(True)  # type: ignore[attr-defined]
         layout.addWidget(self.binding_label)
-        self._update_binding_label("config.toml")
+        self._update_binding_label("config/config.toml")
 
         self.form_layout = QFormLayout()  # type: ignore[call-arg]
         self.form_layout.setContentsMargins(4, 4, 4, 4)
@@ -314,7 +314,7 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
     def _get_config_path(self) -> Path:
         raw = self.path_edit.text().strip()
         if not raw:
-            raw = "config.toml"
+            raw = "config/config.toml"
         return Path(raw).expanduser()
 
     @staticmethod
@@ -379,4 +379,3 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
                 pass
         for callback in list(self._preset_saved_callbacks):
             callback(path)
-

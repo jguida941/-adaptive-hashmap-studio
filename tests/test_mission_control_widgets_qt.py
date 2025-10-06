@@ -206,14 +206,13 @@ else:
 
         repo_root = Path(__file__).resolve().parents[1]
         csv_path = repo_root / "data" / "workloads" / "w_uniform.csv"
-        hashmap_cli = repo_root / "hashmap_cli.py"
         report_path = tmp_path / "report.md"
         spec_path = tmp_path / "suite.toml"
         spec_path.write_text(
             "\n".join(
                 [
                     "[batch]",
-                    f"hashmap_cli = \"{hashmap_cli.as_posix()}\"",
+                    "hashmap_cli = \"-m hashmap_cli\"",
                     f"report = \"{report_path.name}\"",
                     "",
                     "[[batch.jobs]]",

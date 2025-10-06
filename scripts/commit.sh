@@ -12,17 +12,14 @@ case "$ans" in
       README.md \
       LICENSE \
       NOTICE \
-      audit.md \
-      upgrade.md \
-      pyproject.toml \
-      hashmap_cli.py \
-      src \
-      tests \
+      audits \
+      config \
       docs \
       docker \
-      Dockerfile \
-      Dockerfile.dev \
-      docker-compose.yml \
+      pyproject.toml \
+      scripts \
+      src \
+      tests \
       Makefile
     git status -sb
     read -r -p "Commit now? [y/N] " commit_ans

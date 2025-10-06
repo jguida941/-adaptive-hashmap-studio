@@ -267,8 +267,8 @@ if _TEXTUAL_ERR is None:
                 self._status.update(message)
                 if initial:
                     self._status.update(
-                        f"Waiting for metrics at {self.metrics_endpoint}. Launch `hashmap_cli.py` with"
-                        " `--metrics-port` to start streaming."
+                        f"Waiting for metrics at {self.metrics_endpoint}. Launch `python -m hashmap_cli`"
+                        " with `--metrics-port` to start streaming."
                     )
 
         async def _fetch_tick_and_history(

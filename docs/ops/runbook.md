@@ -30,7 +30,7 @@ Additional ad-hoc checks:
 
 ## 3. Mission Control Deployment
 
-1. Launch the metrics server: `python hashmap_cli.py serve --host 0.0.0.0 --port $ADHASH_METRICS_PORT`
+1. Launch the metrics server: `python -m hashmap_cli serve --host 0.0.0.0 --port $ADHASH_METRICS_PORT`
 2. Start Mission Control: `python -m adhash.mission_control.app`
 3. Verify tabs:
    - Metrics pane updating live ticks
@@ -49,7 +49,7 @@ Additional ad-hoc checks:
 
 1. Bump the version in `pyproject.toml`, add a Towncrier fragment under `newsfragments/`, and update roadmap docs as needed.
 2. Run `make release` locally. The target will:
-   - Build `CHANGELOG.md` from Towncrier fragments, skipping the step if no fragment exists.
+   - Build `docs/CHANGELOG.md` from Towncrier fragments, skipping the step if no fragment exists.
    - Generate sdists/wheels plus `SHA256SUMS.txt` and `source-sbom.spdx.json` under `dist/`.
    - Execute `twine check` against the artifacts.
    Validate locally before tagging:
@@ -70,10 +70,10 @@ Additional ad-hoc checks:
 
 ## 6. Incident Response
 
-- **Metrics server down**: restart the `hashmap_cli.py serve` process and review logs under `~/.cache/adhash/metrics.log`
+- **Metrics server down**: restart the `hashmap-cli serve` process and review logs under `~/.cache/adhash/metrics.log`
 - **Mission Control freeze**: restart the Qt application; if reproducible, capture the `mission_control.log` and a screen recording.
 - **Probe trace errors**: ensure trace JSON matches `format_trace_lines` expectations (`schema`, `trace`, `seed_entries` fields) and re-export from the CLI.
-- **Snapshot failures**: run `python hashmap_cli.py verify-snapshot --in SNAPSHOT.pkl.gz --json` and examine the error envelope (`BadInput` vs `Invariant`).
+- **Snapshot failures**: run `python -m hashmap_cli verify-snapshot --in SNAPSHOT.pkl.gz --json` and examine the error envelope (`BadInput` vs `Invariant`).
 
 ## 7. Service Levels
 

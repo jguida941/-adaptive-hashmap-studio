@@ -7,7 +7,7 @@ Phase 4 introduces a probe-path tracing tool so you can inspect how individual 
 Visualise a GET against a snapshot:
 
 ```bash
-python hashmap_cli.py --mode fast-lookup probe-visualize \
+python -m hashmap_cli --mode fast-lookup probe-visualize \
   --operation get \
   --key K42 \
   --snapshot snapshots/uniform.pkl.gz
@@ -16,7 +16,7 @@ python hashmap_cli.py --mode fast-lookup probe-visualize \
 Seed an ad-hoc map and trace a PUT without touching disk:
 
 ```bash
-python hashmap_cli.py --mode fast-lookup probe-visualize \
+python -m hashmap_cli --mode fast-lookup probe-visualize \
   --operation put \
   --key K1 --value V1 \
   --seed A=alpha --seed B=beta

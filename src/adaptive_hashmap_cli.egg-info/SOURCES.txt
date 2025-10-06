@@ -12,6 +12,7 @@ src/adhash/__init__.py
 src/adhash/config.py
 src/adhash/config_models.py
 src/adhash/config_toolkit.py
+src/adhash/hashmap_cli.py
 src/adhash/py.typed
 src/adhash/analysis/__init__.py
 src/adhash/analysis/probe.py
@@ -59,6 +60,8 @@ src/adhash/tui/__main__.py
 src/adhash/tui/app.py
 src/adhash/workloads/__init__.py
 src/adhash/workloads/dna.py
+src/hashmap_cli/__init__.py
+src/hashmap_cli/__main__.py
 tests/test_ab_compare.py
 tests/test_batch_runner.py
 tests/test_cli_contracts.py

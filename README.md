@@ -7,6 +7,8 @@
 
 > **Work in progress**: Phase 0–2 are complete and thoroughly audited; Phase 3 (deployment & integration) is underway. Expect frequent updates as we continue hardening the platform.
 
+![Adaptive Hash Map Studio logo](docs/images/logo.png)
+
 **Key capabilities include:**
 
 - Three map backends (two-level chaining, Robin Hood, adaptive hybrid) with live migration and guardrails.
@@ -37,7 +39,7 @@ python -m pip install -U pip
 python -m pip install -e .[dev,gui,ui]
 ```
 
-The editable install registers a `hashmap-cli` entry point, so you can replace `python hashmap_cli.py …` with `hashmap-cli …` anywhere in this README.
+The editable install registers a `hashmap-cli` entry point, and you can also invoke the CLI via `python -m hashmap_cli …` if you prefer module execution.
 
 
 
@@ -46,19 +48,19 @@ The editable install registers a `hashmap-cli` entry point, so you can replace `
 1. **Generate a config** (TOML is the canonical format):
 
    ```bash
-   python hashmap_cli.py config-wizard --outfile config.toml
+   python -m hashmap_cli config-wizard --outfile config/config.toml
    ```
 
 2. **Dry-run a workload** to catch CSV issues without executing it:
 
    ```bash
-   python hashmap_cli.py run-csv --csv data/workloads/demo.csv --dry-run
+   python -m hashmap_cli run-csv --csv data/workloads/demo.csv --dry-run
    ```
 
 3. **Replay with metrics + JSON summary**:
 
    ```bash
-   python hashmap_cli.py --config config.toml run-csv \
+   python -m hashmap_cli --config config/config.toml run-csv \
      --csv data/workloads/demo.csv \
      --json-summary-out results/json/demo_metrics_session.json \
      --metrics-out-dir runs/metrics_demo
@@ -67,19 +69,19 @@ The editable install registers a `hashmap-cli` entry point, so you can replace `
 4. **Launch Mission Control** to inspect metrics, snapshots, and configs:
 
    ```bash
-   python hashmap_cli.py mission-control
+   python -m hashmap_cli mission-control
    ```
 
 5. **Sanity-check snapshots** from the CLI or GUI:
 
    ```bash
-   python hashmap_cli.py inspect-snapshot --in snapshots/uniform.pkl.gz --limit 10
+   python -m hashmap_cli inspect-snapshot --in snapshots/uniform.pkl.gz --limit 10
    ```
 
 6. **Visualise probe paths** to understand collision behaviour:
 
    ```bash
-   python hashmap_cli.py --mode fast-lookup probe-visualize \
+   python -m hashmap_cli --mode fast-lookup probe-visualize \
      --operation get --key K1 \
      --snapshot snapshots/uniform.pkl.gz
    ```
@@ -100,7 +102,7 @@ All three commands are logged in `reports/command_run_log.tsv` along with the fu
 
 ## Mission Control (PyQt6)
 
-`python hashmap_cli.py mission-control`
+`python -m hashmap_cli mission-control`
 
 Major panels:
 
@@ -136,7 +138,7 @@ This view shows real-time throughput, latency, and probe distribution analytics 
 ## Config Editor Panel
 
 **The Config Editor** provides a live, schema-driven interface for adjusting backend parameters, saving configuration presets, and synchronizing values with the CLI and TOML configuration files.
-It eliminates the need to manually edit config.toml and ensures all key-value pairs are validated before runtime.
+It eliminates the need to manually edit `config/config.toml` and ensures all key-value pairs are validated before runtime.
 
 
 <img width="1283" height="940" alt="Screenshot 2025-10-06 at 1 22 32 AM" src="https://github.com/user-attachments/assets/48c6378a-069b-4e8a-ae66-b2560d69096d" />
@@ -199,7 +201,7 @@ It translates raw workload CSV statistics into color-coded histograms that revea
   ```
 
 - Compose stack (metrics + workload runner): `docker compose up --build` (defaults expect `data/workloads/demo.csv`).
-- Developer-friendly image: `make docker-build-dev` or `docker build -f Dockerfile.dev` for an editable environment with `.[dev]` installed.
+- Developer-friendly image: `make docker-build-dev` or `docker build -f docker/Dockerfile.dev` for an editable environment with `.[dev]` installed.
 - Need a random high port? Set `--metrics-port auto` (or `ADHASH_METRICS_PORT=auto`) and the CLI will log the bound port after startup.
 
 See [`docs/containers/README.md`](docs/containers/README.md) for environment variables, health checks, and release automation hooks.
@@ -213,27 +215,27 @@ The following mini-tour lets you experience every major feature with real comman
 
 ```bash
 # Step 1A: create a config and adjust thresholds quickly
-python hashmap_cli.py config-wizard --outfile runs/demo_config.toml
+python -m hashmap_cli config-wizard --outfile runs/demo_config.toml
 
 # Step 1B: generate workloads with different access patterns
 mkdir -p runs/workloads
-python hashmap_cli.py generate-csv --outfile runs/workloads/w_uniform.csv --ops 50000 --read-ratio 0.8 --seed 7
-python hashmap_cli.py generate-csv --outfile runs/workloads/w_skew_adv.csv --ops 50000 --read-ratio 0.6 --key-skew 1.2 --adversarial-ratio 0.15
+python -m hashmap_cli generate-csv --outfile runs/workloads/w_uniform.csv --ops 50000 --read-ratio 0.8 --seed 7
+python -m hashmap_cli generate-csv --outfile runs/workloads/w_skew_adv.csv --ops 50000 --read-ratio 0.6 --key-skew 1.2 --adversarial-ratio 0.15
 
 # Step 1C: profile to see which backend is recommended
-python hashmap_cli.py profile --csv runs/workloads/w_uniform.csv
-python hashmap_cli.py profile --csv runs/workloads/w_skew_adv.csv --then get HOTKEY
+python -m hashmap_cli profile --csv runs/workloads/w_uniform.csv
+python -m hashmap_cli profile --csv runs/workloads/w_skew_adv.csv --then get HOTKEY
 ```
 
 ### 2. Replay workloads with metrics + snapshots
 
 ```bash
 # Step 2A: dry-run for validation first
-python hashmap_cli.py run-csv --csv runs/workloads/w_uniform.csv --dry-run
+python -m hashmap_cli run-csv --csv runs/workloads/w_uniform.csv --dry-run
 
 # Step 2B: run with metrics streaming + JSON summary + snapshot
 mkdir -p runs/metrics_uniform results/json snapshots
-python hashmap_cli.py --config runs/demo_config.toml run-csv \
+python -m hashmap_cli --config runs/demo_config.toml run-csv \
   --csv runs/workloads/w_uniform.csv \
   --metrics-port 9090 \
   --metrics-out-dir runs/metrics_uniform \
@@ -241,10 +243,10 @@ python hashmap_cli.py --config runs/demo_config.toml run-csv \
   --snapshot-out snapshots/uniform.pkl.gz --compress
 
 # Step 2C: view metrics in Mission Control (new snapshot inspector + history controls)
-python hashmap_cli.py mission-control
+python -m hashmap_cli mission-control
 
 # Step 2D: confirm snapshot metadata from the CLI as well
-python hashmap_cli.py inspect-snapshot --in snapshots/uniform.pkl.gz --limit 15 --key "'K1'"
+python -m hashmap_cli inspect-snapshot --in snapshots/uniform.pkl.gz --limit 15 --key "'K1'"
 ```
 
 ### 3. Explore guardrails and migrations
@@ -252,7 +254,7 @@ python hashmap_cli.py inspect-snapshot --in snapshots/uniform.pkl.gz --limit 15 
 ```bash
 # Step 3A: run a skewed workload to force Robin Hood migration + compaction
 mkdir -p runs/metrics_skew
-python hashmap_cli.py --mode adaptive run-csv \
+python -m hashmap_cli --mode adaptive run-csv \
   --csv runs/workloads/w_skew_adv.csv \
   --json-summary-out results/json/skew_summary.json \
   --metrics-out-dir runs/metrics_skew \
@@ -262,24 +264,24 @@ python hashmap_cli.py --mode adaptive run-csv \
 python scripts/launch_tui.py --metrics-endpoint http://127.0.0.1:9090/api/metrics
 
 # Step 3C: offline compact the Robin Hood snapshot then verify & repair
-python hashmap_cli.py compact-snapshot --in snapshots/skew.pkl.gz --out snapshots/skew_compacted.pkl.gz --compress
-python hashmap_cli.py verify-snapshot --in snapshots/skew_compacted.pkl.gz --repair --out snapshots/skew_repaired.pkl.gz --verbose
+python -m hashmap_cli compact-snapshot --in snapshots/skew.pkl.gz --out snapshots/skew_compacted.pkl.gz --compress
+python -m hashmap_cli verify-snapshot --in snapshots/skew_compacted.pkl.gz --repair --out snapshots/skew_repaired.pkl.gz --verbose
 ```
 
 ### 4. Compare configurations (A/B harness)
 
 ```bash
 # Step 4A: create an alternate config (copy + tweak a field)
-python hashmap_cli.py config-edit --infile runs/demo_config.toml --outfile runs/demo_config_candidate.toml --apply-preset default
+python -m hashmap_cli config-edit --infile runs/demo_config.toml --outfile runs/demo_config_candidate.toml --apply-preset default
 
 # Step 4B: run paired benchmarks and collect comparison artifacts
-python hashmap_cli.py ab-compare --csv runs/workloads/w_uniform.csv \
+python -m hashmap_cli ab-compare --csv runs/workloads/w_uniform.csv \
   --baseline-config runs/demo_config.toml \
   --candidate-config runs/demo_config_candidate.toml \
   --out-dir results/ab/uniform_demo
 
 # Step 4C: surface throughput/latency deltas in the dashboard
-python hashmap_cli.py serve --source results/ab/uniform_demo/artifacts/baseline/metrics/metrics.ndjson \
+python -m hashmap_cli serve --source results/ab/uniform_demo/artifacts/baseline/metrics/metrics.ndjson \
   --compare results/ab/uniform_demo/uniform_demo_baseline_vs_candidate.json
 ```
 
@@ -290,7 +292,7 @@ python hashmap_cli.py serve --source results/ab/uniform_demo/artifacts/baseline/
 python -m adhash.batch --spec docs/examples/batch_baseline.toml
 
 # Step 5B: load the suite in Mission Control (Benchmark tab) to see log streaming and Workload DNA results
-python hashmap_cli.py mission-control
+python -m hashmap_cli mission-control
 ```
 
 By the end of this walkthrough you will have exercised config wizards, workload generation, live metrics (Mission Control + TUI), snapshot verification/repair, A/B comparisons, and batch reporting—the same flows covered in the automated audit.
@@ -308,7 +310,7 @@ By the end of this walkthrough you will have exercised config wizards, workload 
 | Snapshots | `compact-snapshot`, `verify-snapshot` | Offline compaction/repair for RobinHood maps with checksum verification. |
 | Observability | `serve`, `mission-control`, `scripts/launch_tui.py` | Dashboard server, desktop UI, and terminal UI. |
 
-Run `python hashmap_cli.py -h` for the full command list with flags.
+Run `python -m hashmap_cli -h` for the full command list with flags.
 
 #### JSON Envelopes & Exit Codes
 
@@ -326,12 +328,12 @@ Run `python hashmap_cli.py -h` for the full command list with flags.
 **Typical flows:**
 
 ```bash
-python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_heavy_adv.csv \
+python -m hashmap_cli --mode adaptive run-csv --csv data/workloads/w_heavy_adv.csv \
   --snapshot-out snapshots/adaptive.pkl.gz --compress
 
-python hashmap_cli.py inspect-snapshot --in snapshots/adaptive.pkl.gz --key "'K1'" --limit 5
+python -m hashmap_cli inspect-snapshot --in snapshots/adaptive.pkl.gz --key "'K1'" --limit 5
 
-python hashmap_cli.py verify-snapshot --in snapshots/adaptive.pkl.gz --repair \
+python -m hashmap_cli verify-snapshot --in snapshots/adaptive.pkl.gz --repair \
   --out snapshots/adaptive_repaired.pkl.gz --verbose
 ```
 
@@ -360,7 +362,7 @@ See [`docs/batch_runner.md`](docs/batch_runner.md) for spec syntax and report de
 
 ## Observability & Metrics API
 
-`python hashmap_cli.py serve --port 9090 --source runs/metrics_demo/metrics.ndjson --follow`
+`python -m hashmap_cli serve --port 9090 --source runs/metrics_demo/metrics.ndjson --follow`
 
 - Serves `/api/metrics`, `/api/metrics/histogram/{latency,probe}`, `/api/metrics/heatmap`, `/api/metrics/history`, and `/api/events` in JSON.
 - Optional Prometheus text output at `/metrics` (`docs/prometheus_grafana.md` has scrape configs, dashboards, alert examples).
@@ -398,8 +400,8 @@ make lint   # ruff
 make type   # mypy
 make test   # pytest (90 passed / 7 skipped as of Oct 10 2025)
 # Docker smoke (pending manual run):
-#   docker build -t adaptive-hashmap-cli:local .
-#   docker-compose up --build
+#   docker build -t adaptive-hashmap-cli:local -f docker/Dockerfile .
+#   docker compose -f docker/docker-compose.yml up --build
 # Start Docker Desktop first (or another daemon) before running the commands above.
 ```
 
@@ -407,41 +409,56 @@ make test   # pytest (90 passed / 7 skipped as of Oct 10 2025)
 
 - `make smoke` – generates a 2k-op workload and validates metrics output.
 - `python scripts/validate_metrics_ndjson.py runs/metrics_demo/metrics.ndjson` – asserts schema compliance (`metrics.v1`).
-- Capture release notes with Towncrier: add a fragment under `newsfragments/` (e.g., `feature/1234.add-probe-panel.rst`) and run `make release` before tagging to update `CHANGELOG.md`.
+- Capture release notes with Towncrier: add a fragment under `newsfragments/` (e.g., `feature/1234.add-probe-panel.rst`) and run `make release` before tagging to update `docs/CHANGELOG.md`.
 
-Comprehensive command transcripts live in [`audit.md`](audit.md) and `reports/`. `reports/command_run_log.tsv` captures every automated/manual invocation with timestamps and status codes.
+Comprehensive command transcripts live in [`audits/audit.md`](audits/audit.md) and `reports/`. `reports/command_run_log.tsv` captures every automated/manual invocation with timestamps and status codes.
 
 
 
 ## Repository Map
 
 ```
-├── Dockerfile                     # production container (multi-stage, health-checked)
-├── Dockerfile.dev                 # editable dev container with `.[dev]` installed
-├── docker-compose.yml             # demo stack wiring dashboard + workload runner
-├── docker/                        # container helpers (entrypoint, future scripts)
-│   └── entrypoint.sh              # injects default flags from ADHASH_* env vars
-├── hashmap_cli.py                 # main CLI + data structures + metrics server
-├── src/adhash/                    # packaged modules (config, workloads, mission_control, tui, etc.)
-├── scripts/                       # helper launchers (Mission Control, TUI, metrics query)
-├── tests/                         # pytest + Qt/Textual smoke tests + CLI contract checks
-├── docs/                          # configuration, metrics schema, containers, integrations
-│   └── containers/README.md       # detailed container & release guidance
-├── data/                          # sample workloads/config presets referenced by docs
-├── audit.md                       # manual verification transcripts (latest + historical)
-├── upgrade.md                     # phased roadmap (Phase 0–4)
-├── results/                       # JSON summaries, A/B comparisons, HTML reports
-├── runs/                          # Generated artifacts during audits (metrics.ndjson, presets, suites)
-├── snapshots/                     # Example snapshots used across walkthroughs/audits
-├── reports/                       # Command logs, command inventory, full audit results
-└── README.md                      # this guide (kept in sync with audit results)
+├── README.md                      # this guide (kept in sync with audits)
+├── pyproject.toml                 # project metadata, dependencies, console scripts
+├── Makefile                       # lint/type/test/build shortcuts
+├── LICENSE                        # Apache 2.0 license text
+├── NOTICE                         # third-party attributions
+├── mypy.ini                       # static type checker configuration
+├── config/                        # generated configs captured in docs and audits
+├── data/                          # sample workloads and config fixtures
+├── docker/                        # container definitions, compose file, entrypoint
+├── docs/                          # documentation, guides, release notes
+│   ├── containers/README.md       # container and deployment reference
+│   ├── examples/                  # batch runner specs used across walkthroughs
+│   ├── ops/runbook.md             # operations playbook for releases
+│   └── upgrade.md                 # roadmap and phased milestones
+├── audits/                        # narrative audit logs and external reviews
+├── reports/                       # command transcripts, HTML/Markdown audit outputs
+├── results/                       # JSON summaries, A/B comparisons, dashboards
+├── runs/                          # generated artifacts (metrics, snapshots, configs)
+├── snapshots/                     # sample serialized maps for demos/tests
+├── scripts/                       # helper launchers and tooling (Mission Control, TUI, metrics)
+├── newsfragments/                 # Towncrier release note fragments
+├── build/                         # local build artifacts (wheel/lib staging)
+├── dist/                          # distributable archives produced by builds
+├── src/                           # source packages
+│   ├── adhash/                    # core package (CLI, data structures, UIs)
+│   │   ├── cli/                   # CLI command wiring and orchestration
+│   │   ├── core/                  # hashmap algorithms and utilities
+│   │   ├── metrics/               # metrics server and schema helpers
+│   │   ├── mission_control/       # PyQt6 desktop application
+│   │   ├── tui/                   # Textual terminal UI
+│   │   ├── workloads/             # workload generation and profiling tools
+│   │   └── hashmap_cli.py         # console entry point for `hashmap-cli`
+│   └── hashmap_cli/__init__.py    # namespace marker used by console scripts
+└── tests/                         # pytest suite (CLI, GUI, metrics, snapshots)
 ```
 
 
 
 ## Documentation & Audits
 
-- [`audit.md`](audit.md) – authoritative verification log (12 sections + demo), refreshed Oct 2025.
+- [`audits/audit.md`](audits/audit.md) – authoritative verification log (12 sections + demo), refreshed Oct 2025.
 - [`docs/config.md`](docs/config.md) – configuration schema and overrides.
 - [`docs/metrics_schema.md`](docs/metrics_schema.md) – JSON shapes for ticks, histograms, heatmaps, events.
 - [`docs/prometheus_grafana.md`](docs/prometheus_grafana.md) – integration guide for metrics exporters.
@@ -455,8 +472,8 @@ Comprehensive command transcripts live in [`audit.md`](audit.md) and `reports/`.
 ## Contributing / Next Steps
 
 1. Keep lint/type/test spotless; add new tests alongside features (UI widgets have Qt smoke tests under `tests/`).
-2. Update `audit.md` and `reports/command_run_log.tsv` when adding major commands or artifacts.
-3. Phase 3 work (deployment & integration) is tracked in [`upgrade.md`](upgrade.md): Docker packaging, release automation, Helm/Compose templates, etc.
+2. Update `audits/audit.md` and `reports/command_run_log.tsv` when adding major commands or artifacts.
+3. Phase 3 work (deployment & integration) is tracked in [`docs/upgrade.md`](docs/upgrade.md): Docker packaging, release automation, Helm/Compose templates, etc.
 
 **Questions or patches?** 
 - Just open an issue or PR, just include the commands/tests you ran and highlight any schema or snapshot changes.

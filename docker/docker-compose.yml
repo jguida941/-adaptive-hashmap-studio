@@ -1,8 +1,8 @@
 version: "3.9"
 
 x-app-image: &app-image
-  context: .
-  dockerfile: Dockerfile
+  context: ..
+  dockerfile: docker/Dockerfile
 
 services:
   mission-control:
@@ -16,8 +16,8 @@ services:
     ports:
       - "${ADHASH_METRICS_PORT:-9090}:${ADHASH_METRICS_PORT:-9090}"
     volumes:
-      - ./data:/data:ro
-      - ./snapshots:/snapshots
+      - ../data:/data:ro
+      - ../snapshots:/snapshots
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -37,8 +37,8 @@ services:
     environment:
       ADHASH_METRICS_PORT: ${ADHASH_METRICS_PORT:-9090}
     volumes:
-      - ./data:/data:ro
-      - ./snapshots:/snapshots
+      - ../data:/data:ro
+      - ../snapshots:/snapshots
     security_opt:
       - no-new-privileges:true
     command:
@@ -48,6 +48,6 @@ services:
       - --metrics-port
       - "${ADHASH_METRICS_PORT:-9090}"
       - --metrics-host
-      - mission-control
+      - 0.0.0.0
       - --metrics-out-dir
       - /snapshots/metrics

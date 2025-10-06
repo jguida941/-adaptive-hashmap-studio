@@ -6,8 +6,8 @@ This project now ships with container images and supporting automation so the CL
 
 | Dockerfile | Purpose | Notes |
 | --- | --- | --- |
-| `Dockerfile` | Production image with non-root user, curl-based health check, and configurable ports. | Built via `make docker-build` and used by CI release workflows. |
-| `Dockerfile.dev` | Developer image with `.[dev]` extras installed for lint/type/test loops. | Ideal for VS Code Dev Containers or remote runners. |
+| `docker/Dockerfile` | Production image with non-root user, curl-based health check, and configurable ports. | Built via `make docker-build` and used by CI release workflows. |
+| `docker/Dockerfile.dev` | Developer image with `.[dev]` extras installed for lint/type/test loops. | Ideal for VS Code Dev Containers or remote runners. |
 
 Both images honour the entrypoint script at `docker/entrypoint.sh`, which injects sensible defaults for `serve` and `run-csv` when `ADHASH_METRICS_HOST` / `ADHASH_METRICS_PORT` are set.
 
@@ -39,7 +39,7 @@ docker run --rm \
 
 ## docker-compose
 
-`docker-compose.yml` wires two services together:
+`docker/docker-compose.yml` wires two services together:
 
 - `mission-control`: long-running metrics/dashboard endpoint with health check.
 - `workload-runner`: one-shot replay that pushes ticks to the mission-control service and drops NDJSON under `./snapshots`.
@@ -47,7 +47,7 @@ docker run --rm \
 Bring the stack up with:
 
 ```bash
-docker compose up --build
+docker compose -f docker/docker-compose.yml up --build
 ```
 
 Override workload paths or ports by exporting `ADHASH_METRICS_PORT`, `ADHASH_TOKEN`, or editing the command array.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shlex
 import subprocess
 import sys
 import time
@@ -39,7 +40,7 @@ class BatchSpec:
     jobs: List[JobSpec]
     report_path: Path
     working_dir: Path
-    hashmap_cli: Path
+    hashmap_cli: List[str]
     html_report_path: Optional[Path] = None
 
 
@@ -54,12 +55,18 @@ def load_spec(path: Path) -> BatchSpec:
     html_report_value = batch.get("html_report")
     html_report_path = (path.parent / html_report_value).resolve() if html_report_value else None
     hashmap_cli_value = batch.get("hashmap_cli")
+    hashmap_cli_parts: List[str]
     if hashmap_cli_value:
-        hashmap_cli_path = (path.parent / hashmap_cli_value).resolve()
+        candidate_str = str(hashmap_cli_value)
+        candidate_path = (path.parent / candidate_str).resolve()
+        if candidate_path.exists():
+            hashmap_cli_parts = [str(candidate_path)]
+        elif candidate_str.endswith(".py"):
+            raise ValueError(f"hashmap_cli.py not found at {candidate_path}")
+        else:
+            hashmap_cli_parts = shlex.split(candidate_str)
     else:
-        hashmap_cli_path = (path.parent / "hashmap_cli.py").resolve()
-    if not hashmap_cli_path.exists():
-        raise ValueError(f"hashmap_cli.py not found at {hashmap_cli_path}")
+        hashmap_cli_parts = ["-m", "hashmap_cli"]
 
     jobs_data = batch.get("jobs")
     if not isinstance(jobs_data, list) or not jobs_data:
@@ -104,7 +111,7 @@ def load_spec(path: Path) -> BatchSpec:
         jobs=jobs,
         report_path=report_path,
         working_dir=path.parent.resolve(),
-        hashmap_cli=hashmap_cli_path,
+        hashmap_cli=hashmap_cli_parts,
         html_report_path=html_report_path,
     )
 
@@ -200,7 +207,7 @@ class BatchRunner:
         )
 
     def _build_command(self, job: JobSpec) -> List[str]:
-        cli = [self.python, str(self.spec.hashmap_cli)]
+        cli = [self.python, *self.spec.hashmap_cli]
         if job.command == "profile":
             cli.extend([
                 "profile",

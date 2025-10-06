@@ -1,6 +1,6 @@
 # Sticky Serve Mode
 
-`hashmap_cli.py serve` keeps the dashboard and `/metrics` endpoint available without
+`hashmap-cli serve` keeps the dashboard and `/metrics` endpoint available without
 running a workload inside the same process. Point it at an NDJSON source
 (`metrics.v1` schema) to preload or tail historical ticks.
 
@@ -8,10 +8,10 @@ running a workload inside the same process. Point it at an NDJSON source
 
 ```bash
 # Terminal 1 – launch server and follow an NDJSON file
-python hashmap_cli.py serve --port 9090 --source runs/metrics.ndjson --follow
+python -m hashmap_cli serve --port 9090 --source runs/metrics.ndjson --follow
 
 # Terminal 2 – run workloads that write NDJSON ticks
-python hashmap_cli.py --mode adaptive run-csv \
+python -m hashmap_cli --mode adaptive run-csv \
   --csv data/workloads/w_uniform.csv \
   --metrics-out-dir runs
 ```

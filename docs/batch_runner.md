@@ -1,7 +1,7 @@
 # Batch Benchmark Runner
 
-The batch runner executes a suite of `hashmap_cli.py` commands from a single TOML
-specification and produces a Markdown report with results and command output
+The batch runner executes a suite of CLI commands (`hashmap-cli …`/`python -m hashmap_cli …`)
+defined in a single TOML specification and produces a Markdown report with results and command output
 snippets. Use it to replay a consistent set of workloads across backends and
 capture summary metrics without hand-running each CLI invocation. Mission
 Control now exposes this workflow through the **Benchmark Suites** tab,
@@ -14,8 +14,8 @@ skew before you hit “Run”.
 
 Create a TOML file with a top-level `[batch]` table. Fields:
 
-- `hashmap_cli` *(optional)* – path to `hashmap_cli.py`. Defaults to a file named
-  `hashmap_cli.py` in the same directory as the spec.
+- `hashmap_cli` *(optional)* – CLI invocation override appended after the Python
+  executable. Defaults to `-m hashmap_cli`.
 - `report` *(optional)* – path for the generated Markdown report
   (default `reports/batch_report.md`).
 - `html_report` *(optional)* – path for an accompanying HTML report.
@@ -33,7 +33,6 @@ Example (`docs/examples/batch_baseline.toml`):
 
 ```toml
 [batch]
-hashmap_cli = "../../hashmap_cli.py"
 report = "../../reports/batch_baseline.md"
 html_report = "../../reports/batch_baseline.html"
 

@@ -41,7 +41,7 @@ ui = [
 
 [tool.towncrier]
 package = "adaptive_hashmap_cli"
-filename = "CHANGELOG.md"
+filename = "docs/CHANGELOG.md"
 directory = "newsfragments"
 title_format = "## Version {version} ({project_date})"
 issue_format = "#{issue}"
@@ -82,7 +82,7 @@ target-version = "py311"
 
 [tool.coverage.run]
 branch = true
-source = ["hashmap_cli", "src/adhash"]
+source = ["adhash", "hashmap_cli"]
 
 [tool.coverage.report]
 fail_under = 50
@@ -99,9 +99,6 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = "pyqtgraph"
 ignore_missing_imports = true
-
-[tool.setuptools]
-py-modules = ["hashmap_cli"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

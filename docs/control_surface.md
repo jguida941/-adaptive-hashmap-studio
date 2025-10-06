@@ -75,7 +75,7 @@ Provide a thin Python interface so orchestrators can embed the control surface w
 from adhash.service.jobs import JobManager
 
 manager = JobManager(base_dir=Path("runs/jobs"))
-job = manager.run_csv(csv="data/demo.csv", config="config.toml", metrics_port="auto")
+job = manager.run_csv(csv="data/demo.csv", config="config/config.toml", metrics_port="auto")
 while not job.is_finished:
     job.poll()
 summary = job.read_summary()

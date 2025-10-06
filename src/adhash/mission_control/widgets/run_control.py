@@ -55,7 +55,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         self._set_config_label(None)
 
         self.command_edit = QLineEdit(
-            "python hashmap_cli.py --mode adaptive run-csv --csv data/workloads/w_uniform.csv --metrics-port 9090"
+            "python -m hashmap_cli --mode adaptive run-csv --csv data/workloads/w_uniform.csv --metrics-port 9090"
         )  # type: ignore[call-arg]
         self.start_button = QPushButton("Start run-csv")  # type: ignore[call-arg]
         self.start_button.setObjectName("startButton")
@@ -92,7 +92,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
 
         builder_form = QFormLayout()  # type: ignore[call-arg]
         builder_form.setContentsMargins(4, 4, 4, 4)
-        self.exec_edit = QLineEdit("python hashmap_cli.py")  # type: ignore[call-arg]
+        self.exec_edit = QLineEdit("python -m hashmap_cli")  # type: ignore[call-arg]
         self.config_builder_edit = QLineEdit()  # type: ignore[call-arg]
         self.mode_edit = QLineEdit("adaptive")  # type: ignore[call-arg]
         self.csv_edit = QLineEdit("data/workloads/w_uniform.csv")  # type: ignore[call-arg]
@@ -204,7 +204,8 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         if not text:
             default_command = [
                 "python",
-                "hashmap_cli.py",
+                "-m",
+                "hashmap_cli",
                 "--config",
                 resolved,
                 "run-csv",
@@ -223,7 +224,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
             return
 
         if not args:
-            args = ["python", "hashmap_cli.py"]
+            args = ["python", "-m", "hashmap_cli"]
 
         if "--config" in args:
             idx = args.index("--config")
@@ -232,12 +233,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
             else:
                 args[idx + 1] = resolved
         else:
-            insert_at = len(args)
-            for index, arg in enumerate(args):
-                if arg.endswith("hashmap_cli.py") or arg.endswith("hashmap_cli.pyc"):
-                    insert_at = index + 1
-                    break
-            args[insert_at:insert_at] = ["--config", resolved]
+            args.extend(["--config", resolved])
 
         rebuilt = " ".join(shlex.quote(part) for part in args)
         self.command_edit.setText(rebuilt)
@@ -327,7 +323,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
 
     def _apply_builder_to_command(self) -> None:
         exec_text = self.exec_edit.text().strip()
-        exec_tokens = shlex.split(exec_text) if exec_text else ["python", "hashmap_cli.py"]
+        exec_tokens = shlex.split(exec_text) if exec_text else ["python", "-m", "hashmap_cli"]
 
         config_value = self.config_builder_edit.text().strip()
         mode_value = self.mode_edit.text().strip()

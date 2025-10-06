@@ -20,7 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--python",
         default=None,
-        help="Optional python executable to use when invoking hashmap_cli.py (defaults to current interpreter).",
+        help="Optional python executable to use when invoking `python -m hashmap_cli` (defaults to current interpreter).",
     )
     return parser
 

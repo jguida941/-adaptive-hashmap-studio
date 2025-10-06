@@ -45,7 +45,7 @@ from pathlib import Path
 from typing import Any, Callable, Deque, Dict, List, Optional, Tuple, cast
 
 ROOT_DIR = Path(__file__).resolve().parent
-SRC_DIR = ROOT_DIR / "src"
+SRC_DIR = ROOT_DIR.parent
 
 try:  # pragma: no cover - executed only during development
     from adhash.config import AppConfig, load_app_config  # noqa: F401
@@ -286,7 +286,7 @@ def run_config_editor(
 
     cfg = prompt_for_config(base_cfg, input_fn=input_fn, print_fn=print_fn)
 
-    target = outfile or infile or "config.toml"
+    target = outfile or infile or "config/config.toml"
     out_path = _write_config_file(cfg, target)
     print_fn("")
     print_fn(f"Configuration written to {out_path}")

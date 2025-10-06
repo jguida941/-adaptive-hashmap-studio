@@ -67,7 +67,7 @@ def _make_cli_context(captured: Dict[str, Any]) -> CLIContext:
         profile_csv=lambda *a, **k: "adaptive",
         run_csv=run_csv_stub,
         generate_csv=lambda *a, **k: None,
-        run_config_wizard=lambda *a, **k: Path("config.toml"),
+        run_config_wizard=lambda *a, **k: Path("config/config.toml"),
         run_config_editor=lambda *a, **k: {},
         run_ab_compare=lambda *a, **k: {},
         verify_snapshot=lambda *a, **k: 0,

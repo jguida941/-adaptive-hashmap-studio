@@ -1,5 +1,6 @@
 PY ?= python
 PKG ?= src/adhash
+CLI ?= $(PY) -m hashmap_cli
 
 .PHONY: setup lint type test cov smoke validate precommit fmt release \
 	publish-testpypi publish-pypi \
@@ -24,8 +25,8 @@ cov:
 
 smoke:
 	mkdir -p runs
-	$(PY) hashmap_cli.py generate-csv --outfile runs/smoke.csv --ops 2000 --read-ratio 0.7 --key-skew 0.2 --key-space 500 --seed 7
-	$(PY) hashmap_cli.py --mode adaptive run-csv --csv runs/smoke.csv --metrics-out-dir runs
+	$(CLI) generate-csv --outfile runs/smoke.csv --ops 2000 --read-ratio 0.7 --key-skew 0.2 --key-space 500 --seed 7
+	$(CLI) --mode adaptive run-csv --csv runs/smoke.csv --metrics-out-dir runs
 	$(PY) scripts/validate_metrics_ndjson.py runs/metrics.ndjson
 
 validate:
@@ -60,10 +61,10 @@ publish-pypi: release
 	$(PY) -m twine upload dist/*
 
 docker-build:
-	docker build -t adaptive-hashmap-cli:local -f Dockerfile .
+	docker build -t adaptive-hashmap-cli:local -f docker/Dockerfile .
 
 docker-build-dev:
-	docker build -t adaptive-hashmap-cli:dev -f Dockerfile.dev .
+	docker build -t adaptive-hashmap-cli:dev -f docker/Dockerfile.dev .
 
 docker-run:
 	docker run --rm \
@@ -72,7 +73,7 @@ docker-run:
 		adaptive-hashmap-cli:local serve --host 0.0.0.0 --port ${ADHASH_METRICS_PORT:-9090}
 
 docker-compose-up:
-	docker compose up --build
+	docker compose -f docker/docker-compose.yml up --build
 
 docker-compose-down:
-	docker compose down
+	docker compose -f docker/docker-compose.yml down

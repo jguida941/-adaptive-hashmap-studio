@@ -1,12 +1,12 @@
 # Configuration (TOML)
 
 Adaptive Hash Map CLI can load runtime policy from a TOML file instead of relying on
-environment variables. Pass `--config path/to/config.toml` to `hashmap_cli.py` (or set the
+environment variables. Pass `--config path/to/config.toml` to `python -m hashmap_cli` (or set the
 `ADHASH_CONFIG` environment variable) and the loader will apply the settings below. Prefer
-an interactive workflow? Run `python hashmap_cli.py config-wizard --outfile config.toml` and
+an interactive workflow? Run `python -m hashmap_cli config-wizard --outfile config/config.toml` and
 follow the prompts to generate a ready-to-use file.
 
-Prefer to start from an existing file? `python hashmap_cli.py config-edit --infile config.toml`
+Prefer to start from an existing file? `python -m hashmap_cli config-edit --infile config/config.toml`
 reuses the same schema as the wizard, pre-populating each prompt with the current values.
 While editing you can:
 

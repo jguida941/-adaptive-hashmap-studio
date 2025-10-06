@@ -19,7 +19,7 @@ def spec_file(tmp_path: Path) -> Path:
     spec.write_text(
         """
         [batch]
-        hashmap_cli = "{hashmap_cli}"
+        hashmap_cli = "-m hashmap_cli"
         report = "report.md"
         html_report = "report.html"
 
@@ -35,7 +35,7 @@ def spec_file(tmp_path: Path) -> Path:
         json_summary = "uniform.json"
         latency_sample_k = 128
         latency_sample_every = 16
-        """.format(hashmap_cli=repo_root / "hashmap_cli.py", csv=csv)
+        """.format(csv=csv)
     )
     return spec
 
@@ -71,7 +71,7 @@ def test_write_report_escapes_html(tmp_path: Path) -> None:
         jobs=[],
         report_path=tmp_path / "report.md",
         working_dir=tmp_path,
-        hashmap_cli=Path("hashmap_cli.py"),
+        hashmap_cli=["-m", "hashmap_cli"],
         html_report_path=tmp_path / "report.html",
     )
     runner = BatchRunner(spec)
@@ -105,7 +105,7 @@ def test_metrics_summary_is_capped(tmp_path: Path) -> None:
         jobs=[],
         report_path=tmp_path / "report.md",
         working_dir=tmp_path,
-        hashmap_cli=Path("hashmap_cli.py"),
+        hashmap_cli=["-m", "hashmap_cli"],
         html_report_path=tmp_path / "report.html",
     )
     runner = BatchRunner(spec)
@@ -156,7 +156,7 @@ def test_run_job_handles_launch_failures(monkeypatch: pytest.MonkeyPatch, tmp_pa
         jobs=[job_spec],
         report_path=tmp_path / "report.md",
         working_dir=tmp_path,
-        hashmap_cli=Path("hashmap_cli.py"),
+        hashmap_cli=["-m", "hashmap_cli"],
     )
     runner = BatchRunner(spec)
 

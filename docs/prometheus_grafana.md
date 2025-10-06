@@ -7,7 +7,7 @@ This guide explains how to scrape the CLI’s metrics with Prometheus and visual
 Expose the built-in `/metrics` and dashboard API while running a workload:
 
 ```bash
-python hashmap_cli.py --mode adaptive run-csv \
+python -m hashmap_cli --mode adaptive run-csv \
   --csv data/workloads/w_uniform.csv \
   --metrics-port 9090 \
   --metrics-out-dir runs/metrics \

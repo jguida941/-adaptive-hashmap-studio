@@ -1,5 +1,4 @@
 [batch]
-hashmap_cli = "../../hashmap_cli.py"
 report = "../../reports/batch_compaction.md"
 html_report = "../../reports/batch_compaction.html"
 

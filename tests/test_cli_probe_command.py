@@ -8,7 +8,7 @@ from pathlib import Path
 from adhash.core.maps import RobinHoodMap
 from adhash.io.snapshot import save_snapshot_any
 
-CLI = [sys.executable, "hashmap_cli.py"]
+CLI = [sys.executable, "-m", "hashmap_cli"]
 
 
 def run_cli(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-CLI = [sys.executable, "hashmap_cli.py"]
+CLI = [sys.executable, "-m", "hashmap_cli"]
 
 
 def run_cli(cmd: str, cwd: Path | None = None):

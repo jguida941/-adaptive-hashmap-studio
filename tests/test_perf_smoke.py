@@ -6,7 +6,7 @@ from pathlib import Path
 from adhash.metrics import TICK_SCHEMA
 
 
-CLI = [sys.executable, "hashmap_cli.py"]
+CLI = [sys.executable, "-m", "hashmap_cli"]
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:

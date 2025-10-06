@@ -13,7 +13,6 @@ RUN apt-get update \
 
 COPY pyproject.toml README.md ./
 COPY src ./src
-COPY hashmap_cli.py ./
 
 RUN python -m pip install --upgrade pip build \
     && python -m build --wheel --outdir /dist
