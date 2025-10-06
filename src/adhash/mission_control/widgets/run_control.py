@@ -261,6 +261,12 @@ class RunControlPane(QWidget):  # type: ignore[misc]
     def _inject_config_option(args: List[str], config_path: str) -> None:
         """Ensure ``--config`` appears before the CLI subcommand."""
 
+        RunControlPane._ensure_config_option(args, config_path, allow_wrapped=True)
+
+    @staticmethod
+    def _ensure_config_option(args: List[str], config_path: str, *, allow_wrapped: bool) -> None:
+        """Internal helper that optionally rewrites wrapped commands."""
+
         # Remove any existing --config occurrences to avoid duplicates.
         i = 0
         while i < len(args):
@@ -276,7 +282,60 @@ class RunControlPane(QWidget):  # type: ignore[misc]
 
         scan_start = RunControlPane._locate_cli_scan_start(args)
         insert_idx = RunControlPane._find_config_insert_index(args, scan_start)
+
+        if scan_start >= len(args):
+            if allow_wrapped and RunControlPane._inject_into_wrapped_command(args, config_path):
+                return
+            # Fall back to appending when we cannot rewrite a wrapped command.
+            args.extend(["--config", config_path])
+            return
+
         args[insert_idx:insert_idx] = ["--config", config_path]
+
+    @staticmethod
+    def _inject_into_wrapped_command(args: List[str], config_path: str) -> bool:
+        """Try to inject the config option into a wrapped shell command."""
+
+        wrappers = {"bash", "sh", "zsh", "ksh", "fish"}
+
+        for idx, token in enumerate(args):
+            basename = os.path.basename(token)
+            if basename not in wrappers:
+                continue
+
+            cmd_idx = RunControlPane._locate_shell_command_argument(args, idx + 1)
+            if cmd_idx is None or cmd_idx >= len(args):
+                continue
+
+            command = args[cmd_idx]
+            try:
+                inner_args = shlex.split(command)
+            except ValueError:
+                continue
+
+            RunControlPane._ensure_config_option(inner_args, config_path, allow_wrapped=False)
+            args[cmd_idx] = shlex.join(inner_args)
+            return True
+
+        return False
+
+    @staticmethod
+    def _locate_shell_command_argument(args: List[str], start_idx: int) -> Optional[int]:
+        """Locate the shell command string for wrappers like ``bash -lc``."""
+
+        command_flags = {"-c", "-lc"}
+        i = start_idx
+        while i < len(args):
+            option = args[i]
+            if not option.startswith("-"):
+                return i
+            if option in command_flags:
+                return i + 1 if i + 1 < len(args) else None
+            if option == "--":
+                return i + 1 if i + 1 < len(args) else None
+            i += 1
+
+        return None
 
     @staticmethod
     def _locate_cli_scan_start(args: List[str]) -> int:
@@ -298,7 +357,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
             if path.name == "hashmap_cli.py" or path.name == "__main__.py" and path.parent.name == "hashmap_cli":
                 return idx + 1
 
-        return 0
+        return len(args)
 
     @staticmethod
     def _find_config_insert_index(args: List[str], start_idx: int) -> int:
