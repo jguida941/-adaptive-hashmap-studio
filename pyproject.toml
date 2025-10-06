@@ -33,6 +33,7 @@ dev = [
 
 gui = [
   "PyQt6>=6.7",
+  "pyqtgraph>=0.13",
 ]
 
 ui = [
