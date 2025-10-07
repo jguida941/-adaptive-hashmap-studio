@@ -1,10 +1,11 @@
 import logging
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, Dict, cast
 
 import pytest
 
-from adhash.batch.runner import JobResult
+from adhash.batch.runner import JobResult, JobSpec
 from adhash.service.jobs import JobManager, _serialize_batch_result
 from adhash.service.models import BatchRequest, ProfileRequest, RunCsvRequest
 
@@ -49,7 +50,7 @@ def test_append_log_and_capture_output(job_manager: JobManager):
 
 
 def test_execute_run_csv_resolves_artifacts(job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    outputs = {}
+    outputs: Dict[str, Any] = {}
 
     def fake_run_csv(csv_path: str, mode: str, **kwargs):
         outputs["csv"] = csv_path
@@ -74,7 +75,8 @@ def test_execute_run_csv_resolves_artifacts(job_manager: JobManager, tmp_path: P
     assert artifacts["snapshot_out"].endswith("snapshots/out.snapshot")
     assert artifacts["json_summary_out"].endswith("summary.json")
     assert artifacts["metrics_out_dir"].endswith("metrics")
-    assert outputs["kwargs"]["metrics_host"] == "127.0.0.1"
+    kwargs = cast(Dict[str, Any], outputs["kwargs"])
+    assert kwargs["metrics_host"] == "127.0.0.1"
 
 
 def test_execute_profile_returns_summary(job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -98,7 +100,7 @@ def test_execute_batch_serializes_results(job_manager: JobManager, tmp_path: Pat
 
     run_results = [
         JobResult(
-            spec=spec_obj,
+            spec=cast(JobSpec, spec_obj),
             exit_code=0,
             duration_seconds=1.5,
             stdout="out",

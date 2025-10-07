@@ -6,6 +6,9 @@ from typing import Dict, Iterable, Iterator, List, Optional
 
 import pytest
 from fastapi.testclient import TestClient
+from typing import cast
+
+from adhash.service.jobs import JobManager
 
 from adhash.service.api import create_app
 from adhash.service.models import (
@@ -106,7 +109,7 @@ class _StubManager:
 
 @pytest.fixture
 def auth_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    manager = _StubManager()
+    manager = cast(JobManager, _StubManager())
     monkeypatch.setenv("ADHASH_TOKEN", "secret")
     app = create_app(manager)
     client = TestClient(app)

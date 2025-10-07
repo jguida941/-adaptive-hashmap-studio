@@ -125,10 +125,10 @@ def test_poll_and_render_updates_widgets(monkeypatch: pytest.MonkeyPatch) -> Non
     status = DummyWidget()
     history = DummyWidget()
     alerts = DummyWidget()
-    app._summary = summary  # type: ignore[attr-defined]
-    app._status = status  # type: ignore[attr-defined]
-    app._history = history  # type: ignore[attr-defined]
-    app._alerts = alerts  # type: ignore[attr-defined]
+    setattr(app, "_summary", summary)
+    setattr(app, "_status", status)
+    setattr(app, "_history", history)
+    setattr(app, "_alerts", alerts)
 
     monkeypatch.setattr(
         tui_app,
@@ -169,10 +169,10 @@ def test_poll_and_render_handles_missing_tick(monkeypatch: pytest.MonkeyPatch) -
     status = DummyWidget()
     history = DummyWidget()
     alerts = DummyWidget()
-    app._summary = summary  # type: ignore[attr-defined]
-    app._status = status  # type: ignore[attr-defined]
-    app._history = history  # type: ignore[attr-defined]
-    app._alerts = alerts  # type: ignore[attr-defined]
+    setattr(app, "_summary", summary)
+    setattr(app, "_status", status)
+    setattr(app, "_history", history)
+    setattr(app, "_alerts", alerts)
 
     monkeypatch.setattr(tui_app, "fetch_metrics", lambda endpoint, timeout: None)
     asyncio.run(app._poll_and_render(initial=True))

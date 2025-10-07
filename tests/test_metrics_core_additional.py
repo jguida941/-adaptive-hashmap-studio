@@ -1,6 +1,7 @@
 import json
 import math
 import time
+from collections import deque
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -61,7 +62,7 @@ def test_resolve_ema_alpha_clamps_values(monkeypatch: pytest.MonkeyPatch):
 
 def test_apply_tick_updates_metrics_and_render(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     metrics = Metrics()
-    metrics.history_buffer = []
+    metrics.history_buffer = deque()
     first_tick = _make_tick()
     apply_tick_to_metrics(metrics, first_tick)
 
