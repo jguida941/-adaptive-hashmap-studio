@@ -31,10 +31,7 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
     FastAPI = fastapi_mod.FastAPI
     Depends = fastapi_mod.Depends
     HTTPException = fastapi_mod.HTTPException
-    Header = fastapi_mod.Header
-    Request = fastapi_mod.Request
     status = fastapi_mod.status
-    PlainTextResponse = responses_mod.PlainTextResponse
     Response = responses_mod.Response
     StreamingResponse = responses_mod.StreamingResponse
 
