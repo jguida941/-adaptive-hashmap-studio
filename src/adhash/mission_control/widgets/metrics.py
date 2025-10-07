@@ -110,7 +110,7 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         self._load_curve = None
         self._latency_bars = None
         self._probe_bars = None
-        self._heatmap_item = None
+        self._heatmap_item: Optional[Any] = None
         self._ops_x: list[float] = []
         self._ops_y: list[float] = []
         self._load_x: list[float] = []
@@ -119,19 +119,19 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         self._last_time: Optional[float] = None
         self._last_throughput: Optional[float] = None
         self._last_wall_time: Optional[float] = None
-        self._latency_plot = None
-        self._probe_plot = None
-        self._heatmap_plot = None
-        self._latency_status = None
-        self._probe_status = None
-        self._heatmap_status = None
-        self._heatmap_gradient = None
-        self._scatter_plot = None
-        self._scatter_item = None
-        self._fft_plot = None
-        self._fft_curve = None
-        self._fft_status = None
-        self._analytics_tabs = None
+        self._latency_plot: Optional[Any] = None
+        self._probe_plot: Optional[Any] = None
+        self._heatmap_plot: Optional[Any] = None
+        self._latency_status: Optional[QLabel] = None
+        self._probe_status: Optional[QLabel] = None
+        self._heatmap_status: Optional[QLabel] = None
+        self._heatmap_gradient: Optional[Any] = None
+        self._scatter_plot: Optional[Any] = None
+        self._scatter_item: Optional[Any] = None
+        self._fft_plot: Optional[Any] = None
+        self._fft_curve: Optional[Any] = None
+        self._fft_status: Optional[QLabel] = None
+        self._analytics_tabs: Optional[Any] = None
         if self._supports_charts:
             tabs = QTabWidget(self) if Qt is not None and QTabWidget is not None else None  # type: ignore[call-arg]
             if tabs is not None:
