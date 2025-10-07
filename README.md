@@ -51,6 +51,13 @@ python -m pip install -U pip
 python -m pip install -e .[dev,gui,ui]
 ```
 
+To capture subprocess coverage locally, export the helper path before running `coverage`:
+
+```bash
+export PYTHONPATH="tools/coverage:$PYTHONPATH"
+export COVERAGE_PROCESS_START=.coveragerc
+```
+
 The editable install registers a `hashmap-cli` entry point, and you can also invoke the CLI via `python -m hashmap_cli …` if you prefer module execution.
 
 

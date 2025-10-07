@@ -1,18 +1,35 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import json
-import subprocess
-import sys
+import os
+import types
 from pathlib import Path
 
 from adhash.core.maps import RobinHoodMap
 from adhash.io.snapshot import save_snapshot_any
 
-CLI = [sys.executable, "-m", "hashmap_cli"]
+import hashmap_cli
 
 
-def run_cli(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(CLI + args, text=True, capture_output=True, cwd=cwd)
+def run_cli(args: list[str], cwd: Path | None = None):
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    prev_dir = Path.cwd()
+    if cwd is not None:
+        os.chdir(cwd)
+    try:
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            try:
+                code = hashmap_cli.main(args)
+            except SystemExit as exc:
+                code = int(exc.code)
+    finally:
+        hashmap_cli.OUTPUT_JSON = False
+        if cwd is not None:
+            os.chdir(prev_dir)
+    return types.SimpleNamespace(returncode=code, stdout=stdout.getvalue(), stderr=stderr.getvalue())
 
 
 def test_probe_visualize_text(tmp_path: Path) -> None:

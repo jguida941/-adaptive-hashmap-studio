@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import os
 import re
@@ -9,12 +11,29 @@ from pathlib import Path
 
 import pytest
 
+import hashmap_cli
+
 CLI = [sys.executable, "-m", "hashmap_cli"]
 
 
 def run_cli(cmd: str, cwd: Path | None = None):
-    proc = subprocess.run(CLI + shlex.split(cmd), capture_output=True, text=True, cwd=cwd)
-    return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+    argv = shlex.split(cmd)
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    prev_dir = Path.cwd()
+    if cwd is not None:
+        os.chdir(cwd)
+    try:
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            try:
+                code = hashmap_cli.main(argv)
+            except SystemExit as exc:  # CLI may call sys.exit
+                code = int(exc.code)
+    finally:
+        hashmap_cli.OUTPUT_JSON = False
+        if cwd is not None:
+            os.chdir(prev_dir)
+    return code, stdout.getvalue().strip(), stderr.getvalue().strip()
 
 
 def parse_error(stderr: str) -> dict:

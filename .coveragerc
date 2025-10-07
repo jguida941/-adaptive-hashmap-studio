@@ -1,0 +1,18 @@
+[run]
+branch = true
+source =
+    adhash
+    hashmap_cli
+parallel = true
+concurrency = multiprocessing
+
+[report]
+fail_under = 70
+show_missing = true
+omit =
+    src/adhash/mission_control/*
+    src/adhash/metrics/server.py
+    src/adhash/mission_control/__main__.py
+    src/adhash/tui/__main__.py
+    src/adhash/batch/__main__.py
+    src/hashmap_cli/__main__.py

@@ -41,8 +41,11 @@ jobs:
       - name: Unit tests & coverage
         env:
           QT_QPA_PLATFORM: offscreen
+          COVERAGE_PROCESS_START: .coveragerc
+          PYTHONPATH: tools/coverage:${PYTHONPATH}
         run: |
           xvfb-run -a coverage run -m pytest -q
+          coverage combine
           coverage report
           coverage xml
       - name: Upload coverage to Codecov

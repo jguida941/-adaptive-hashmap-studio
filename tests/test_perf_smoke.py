@@ -1,16 +1,36 @@
+import contextlib
+import io
 import json
+import os
 import subprocess
-import sys
 from pathlib import Path
 
 from adhash.metrics import TICK_SCHEMA
 
+import hashmap_cli
 
-CLI = [sys.executable, "-m", "hashmap_cli"]
 
-
-def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, cwd=cwd, text=True, check=True, capture_output=True)
+def run(argv: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    prev_dir = Path.cwd()
+    if cwd is not None:
+        os.chdir(cwd)
+    try:
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            try:
+                code = hashmap_cli.main(argv)
+            except SystemExit as exc:
+                code = int(exc.code)
+    finally:
+        hashmap_cli.OUTPUT_JSON = False
+        if cwd is not None:
+            os.chdir(prev_dir)
+    stdout_text = stdout.getvalue()
+    stderr_text = stderr.getvalue()
+    if code != 0:
+        raise subprocess.CalledProcessError(code, ["hashmap_cli"] + argv, stdout=stdout_text, stderr=stderr_text)
+    return subprocess.CompletedProcess(["hashmap_cli"] + argv, code, stdout_text, stderr_text)
 
 
 def test_run_csv_perf_smoke(tmp_path: Path) -> None:
@@ -18,10 +38,8 @@ def test_run_csv_perf_smoke(tmp_path: Path) -> None:
     summary_path = tmp_path / "summary.json"
     metrics_dir = tmp_path / "metrics"
 
-    # Generate a tiny workload to keep runtime fast while stressing the pipeline.
     run(
-        CLI
-        + [
+        [
             "generate-csv",
             "--outfile",
             str(workload),
@@ -39,8 +57,7 @@ def test_run_csv_perf_smoke(tmp_path: Path) -> None:
     )
 
     completed = run(
-        CLI
-        + [
+        [
             "--mode",
             "adaptive",
             "run-csv",
@@ -55,14 +72,12 @@ def test_run_csv_perf_smoke(tmp_path: Path) -> None:
         ]
     )
 
-    # Ensure the CLI succeeded and emitted a JSON summary with throughput details.
     assert completed.returncode == 0
     data = json.loads(summary_path.read_text(encoding="utf-8"))
     assert data["total_ops"] == 200
     assert data["ops_per_second"] is None or data["ops_per_second"] > 0
     assert data["final_backend"] in {"chaining", "robinhood", "memory-tight", "adaptive"}
 
-    # Metrics NDJSON should exist with schema-tagged ticks.
     ndjson = (metrics_dir / "metrics.ndjson").read_text(encoding="utf-8").strip().splitlines()
     assert ndjson, "metrics.ndjson should not be empty"
     first_tick = json.loads(ndjson[0])
@@ -74,8 +89,7 @@ def test_run_csv_emits_histograms_without_summary(tmp_path: Path) -> None:
     metrics_dir = tmp_path / "metrics"
 
     run(
-        CLI
-        + [
+        [
             "generate-csv",
             "--outfile",
             str(workload),
@@ -93,8 +107,7 @@ def test_run_csv_emits_histograms_without_summary(tmp_path: Path) -> None:
     )
 
     completed = run(
-        CLI
-        + [
+        [
             "--mode",
             "fast-lookup",
             "run-csv",
