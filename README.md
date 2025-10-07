@@ -2,23 +2,13 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](#requirements) [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](#validation) [![codecov](https://codecov.io/gh/jguida941/adaptive-hashmap-studio/branch/main/graph/badge.svg)](https://codecov.io/gh/jguida941/adaptive-hashmap-studio) [![Docs](https://img.shields.io/badge/docs-updated-blueviolet)](#documentation)
 [![Mission Control](https://img.shields.io/badge/mission_control-PyQt6-orange)](#mission-control-pyqt6) [![Terminal TUI](https://img.shields.io/badge/terminal_tui-Textual-ff69b4)](#textual-tui-terminal) [![Snapshots](https://img.shields.io/badge/snapshots-versioned%20%2B%20checksummed-success)](#snapshots--configuration)
 
-<table>
-  <tr>
-    <td width="300" valign="top" align="left">
-      <img src="docs/images/logo.png" alt="Adaptive Hash Map Studio logo" width="300">
-    </td>
-    <td valign="top">
-<br>
 
+**Adaptive HashMap Studio** is an end-to-end playground for modern hash map design. It packages production-ready data structures, CSV-driven workload tooling, automated benchmarks, and rich UIs (PyQt6 Mission Control + Textual TUI) into a single repository. Every feature is exercised through lint/type/test gates and captured in reproducible audits.
 
-**Adaptive Hash Map Studio** is an end-to-end playground for modern hash-map design.
+> **Work in progress**: Phase 0–2 are complete and thoroughly audited; Phase 3 (deployment & integration) is underway. Expect frequent updates as we continue hardening the platform.
 
-It packages production-ready data structures, CSV-driven workload tooling, automated benchmarks, and rich UIs (*PyQt6 Mission Control* + *Textual TUI*) into a single repository.
+![Adaptive Hash Map Studio logo](docs/images/logo.png)
 
-Every feature is exercised through lint/type/test gates and captured in reproducible audits.
-  </td>
-  </tr>
-</table>
 
 
 #### Key capabilities include:
