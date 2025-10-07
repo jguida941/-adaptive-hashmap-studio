@@ -21,7 +21,7 @@ def run(argv: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess
             try:
                 code = hashmap_cli.main(argv)
             except SystemExit as exc:
-                code = int(exc.code)
+                code = exc.code if isinstance(exc.code, int) else 1
     finally:
         hashmap_cli.OUTPUT_JSON = False
         if cwd is not None:
@@ -29,7 +29,7 @@ def run(argv: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess
     stdout_text = stdout.getvalue()
     stderr_text = stderr.getvalue()
     if code != 0:
-        raise subprocess.CalledProcessError(code, ["hashmap_cli"] + argv, stdout=stdout_text, stderr=stderr_text)
+        raise subprocess.CalledProcessError(code, ["hashmap_cli"] + argv, output=stdout_text, stderr=stderr_text)
     return subprocess.CompletedProcess(["hashmap_cli"] + argv, code, stdout_text, stderr_text)
 
 

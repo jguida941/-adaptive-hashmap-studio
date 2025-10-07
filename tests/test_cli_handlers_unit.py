@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -9,6 +10,8 @@ import pytest
 
 from adhash.cli.commands import CLIContext, register_subcommands
 from adhash.contracts.error import BadInputError
+from adhash.core.maps import RobinHoodMap
+from adhash.workloads.dna import WorkloadDNAResult
 
 
 @dataclass
@@ -48,6 +51,35 @@ class Recorder:
         return 0
 
 
+def _dummy_dna() -> WorkloadDNAResult:
+    return WorkloadDNAResult(
+        schema="adhash.dna.test",
+        csv_path="/tmp/dummy.csv",
+        file_size_bytes=None,
+        total_rows=0,
+        op_counts={},
+        op_mix={},
+        mutation_fraction=0.0,
+        unique_keys_estimated=0,
+        key_space_depth=0.0,
+        key_length_stats={},
+        value_size_stats={},
+        key_entropy_bits=0.0,
+        key_entropy_normalised=0.0,
+        hot_keys=(),
+        coverage_targets={},
+        numeric_key_fraction=0.0,
+        sequential_numeric_step_fraction=0.0,
+        adjacent_duplicate_fraction=0.0,
+        hash_collision_hotspots={},
+        bucket_counts=(),
+        bucket_percentiles={},
+        collision_depth_histogram={},
+        non_empty_buckets=0,
+        max_bucket_depth=0,
+    )
+
+
 @pytest.fixture()
 def cli_parser(tmp_path: Path) -> Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]]:
     def factory(argv: List[str]) -> tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]:
@@ -68,11 +100,11 @@ def cli_parser(tmp_path: Path) -> Callable[[List[str]], tuple[Callable[[argparse
             run_config_editor=recorder.run_config_editor,
             run_ab_compare=recorder.run_ab_compare,
             verify_snapshot=recorder.verify_snapshot,
-            analyze_workload=lambda path, top, max_tracked: None,
+            analyze_workload=lambda path, top, max_tracked: _dummy_dna(),
             invoke_main=lambda argv_inner: 0,
-            logger=None,  # type: ignore[arg-type]
+            logger=logging.getLogger("test-cli"),
             json_enabled=lambda: False,
-            robinhood_cls=None,  # type: ignore[arg-type]
+            robinhood_cls=RobinHoodMap,
             guard=lambda fn: fn,
             latency_bucket_choices=["default", "tight"],
         )

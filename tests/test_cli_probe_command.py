@@ -24,7 +24,7 @@ def run_cli(args: list[str], cwd: Path | None = None):
             try:
                 code = hashmap_cli.main(args)
             except SystemExit as exc:
-                code = int(exc.code)
+                code = exc.code if isinstance(exc.code, int) else 1
     finally:
         hashmap_cli.OUTPUT_JSON = False
         if cwd is not None:
