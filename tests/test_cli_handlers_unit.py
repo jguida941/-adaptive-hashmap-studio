@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import argparse
 import logging
 from dataclasses import dataclass, field

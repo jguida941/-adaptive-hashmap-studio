@@ -6,7 +6,7 @@ import pytest
 
 from adhash.batch.runner import JobResult
 from adhash.service.jobs import JobManager, _serialize_batch_result
-from adhash.service.models import BatchRequest, JobState, ProfileRequest, RunCsvRequest
+from adhash.service.models import BatchRequest, ProfileRequest, RunCsvRequest
 
 
 @pytest.fixture
