@@ -1,2 +1,0 @@
-adhash
-hashmap_cli

@@ -1,2 +1,0 @@
-[console_scripts]
-hashmap-cli = hashmap_cli:console_main

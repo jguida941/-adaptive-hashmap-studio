@@ -115,9 +115,13 @@ Goal: make the project consumable in production pipelines and external systems.
 - [x] Provide Helm chart or Compose file for running long-lived services (metrics server + workload runner).
 - [x] Package library to PyPI (and optionally Homebrew) with semantic versioning and changelog automation (`towncrier` or similar). *(Release workflow now uploads to TestPyPI/PyPI when API tokens are provided; runbook documents the manual Homebrew bump workflow while we wire automation.)*
 - [x] Integrate Prometheus exporters, Grafana dashboards, and alert rules; document setup. *(Prometheus exporter exercised in `tests/test_metrics_endpoints.py`; setup captured in `docs/prometheus_grafana.md` with dashboard JSON and sample alerts.)*
-- [ ] Add REST/GRPC API or Python bindings so other services can run workloads programmatically. *(Architectural plan captured in `docs/control_surface.md`; waiting on implementation milestone and security review.)*
+- [x] Add REST API + Python bindings so other services can run workloads programmatically. *(Oct 2025: `adhash.service` package ships FastAPI endpoints, `JobManager` bindings, and `python -m adhash.service` launcher; `docs/control_surface.md` updated with implementation notes.)*
 - [x] Automate release builds with tagged CI workflows producing artifacts (Docker images, wheels, tarballs) and verifying checksums/signatures.
 - [x] Document operational runbooks (log locations, snapshot management, troubleshooting) and SLOs. *(Oct 2025: `docs/ops/runbook.md` covers smoke checks, logs, incident response, release verification.)*
+- **Production polish before Phase 4**:
+  - Codify the control-surface infrastructure in CI (unit tests, `httpx` integration coverage) and ensure lint/mypy/pytest gates include the new package.
+  - Extend automated smoke coverage for Mission Control (PyQt auto-quit harness) and the Textual TUI so manual ✅ notes are no longer required.
+  - Once the control surface ships, update this roadmap and the operational runbook to reflect Phase 4 priorities and new API workflows.
 
 ### Phase 4 – Advanced Analytics & Stretch Goals
 Goal: leverage the richer platform for research and teaching value.

@@ -7,6 +7,8 @@
 - Expose job status, logs, metrics endpoints, and artifacts (snapshots, JSON summaries) via HTTP APIs guarded by the same auth story as Mission Control (`ADHASH_TOKEN`).
 - Keep the implementation modular so both REST requests and in-process Python callers share the same orchestration layer.
 
+> **Implementation status (Oct 2025):** Delivered via the `adhash.service` package (`python -m adhash.service`), FastAPI app (`adhash.service.api.create_app`), and the shared `JobManager` bindings.
+
 ## Chosen Approach
 
 We will build a lightweight REST service backed by FastAPI/uvicorn. REST is preferred over gRPC for the first iteration because:
@@ -34,7 +36,7 @@ A thin CLI entry point (`python -m adhash.service`) will start the server and ex
 2. `jobs.JobManager` validates the request, creates a job record, and enqueues work on a thread/async worker.
 3. `worker.JobWorker` executes the job via in-process functions (prefer `adhash.batch.runner` and `hashmap_cli` helpers) and captures stdout/stderr incrementally.
 4. Job state transitions through `pending → running → completed/failed`. Artifacts (JSON summaries, NDJSON, snapshots) are registered in the job record.
-5. REST clients poll `GET /api/jobs/{job_id}` or subscribe to `GET /api/jobs/{job_id}/events` (Server-Sent Events) for progress. Metrics streams continue to go through the existing metrics server.
+5. REST clients poll `GET /api/jobs/{job_id}` or stream `GET /api/jobs/{job_id}/logs` (NDJSON) for progress. Metrics streams continue to go through the existing metrics server.
 
 ## API Surface (v0)
 

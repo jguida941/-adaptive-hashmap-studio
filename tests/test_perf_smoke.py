@@ -21,7 +21,12 @@ def run(argv: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess
             try:
                 code = hashmap_cli.main(argv)
             except SystemExit as exc:
-                code = exc.code if isinstance(exc.code, int) else 1
+                if isinstance(exc.code, int):
+                    code = exc.code
+                elif exc.code is None:
+                    code = 0
+                else:
+                    code = 1
     finally:
         hashmap_cli.OUTPUT_JSON = False
         if cwd is not None:

@@ -14,3 +14,9 @@ fixes.md
 .coverage_startup.log
 .coverage_startup_error.log
 docs/fixes.md
+
+# IDE settings
+.idea/
+
+# Python build artifacts
+*.egg-info/

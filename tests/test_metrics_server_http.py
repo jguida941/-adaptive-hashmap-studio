@@ -12,7 +12,7 @@ from adhash.metrics.core import Metrics, apply_tick_to_metrics
 from adhash.metrics.server import start_metrics_server
 
 
-@pytest.mark.parametrize("path", ["/metrics/summary.json", "/metrics/history.json?limit=1"])
+@pytest.mark.parametrize("path", ["/api/metrics", "/api/metrics/history?limit=1"])
 def test_metrics_server_serves_json(path: str) -> None:
     metrics = Metrics()
     metrics.history_buffer = deque(maxlen=16)
