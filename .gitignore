@@ -25,3 +25,7 @@ docs/fixes.md
 .coverage
 coverage.xml
 .coverage.*
+.mutmut-cache/
+.hypothesis/
+mutants/
+.hypothesis/
