@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import argparse
 import logging
+import sys
+import types
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -81,9 +83,12 @@ def _dummy_dna() -> WorkloadDNAResult:
     )
 
 
+CLIParserFactory = Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder, CLIContext]]
+
+
 @pytest.fixture()
-def cli_parser(tmp_path: Path) -> Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]]:
-    def factory(argv: List[str]) -> tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]:
+def cli_parser(tmp_path: Path) -> CLIParserFactory:
+    def factory(argv: List[str]) -> tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder, CLIContext]:
         recorder = Recorder()
         parser = argparse.ArgumentParser()
         parser.add_argument("--mode", default="adaptive")
@@ -113,13 +118,13 @@ def cli_parser(tmp_path: Path) -> Callable[[List[str]], tuple[Callable[[argparse
         handlers = register_subcommands(subparsers, ctx)
         args = parser.parse_args(argv)
         handler = handlers[args.cmd]
-        return handler, args, recorder
+        return handler, args, recorder, ctx
 
     return factory
 
 
-def test_run_csv_handler_uses_env_port(monkeypatch: pytest.MonkeyPatch, cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]], tmp_path: Path) -> None:
-    handler, args, recorder = cli_parser([
+def test_run_csv_handler_uses_env_port(monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory, tmp_path: Path) -> None:
+    handler, args, recorder, _ = cli_parser([
         "run-csv",
         "--csv",
         str(tmp_path / "input.csv"),
@@ -131,8 +136,8 @@ def test_run_csv_handler_uses_env_port(monkeypatch: pytest.MonkeyPatch, cli_pars
     assert call["kwargs"]["metrics_host"] == "127.0.0.1"
 
 
-def test_run_csv_handler_invalid_port(cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]]) -> None:
-    handler, args, _ = cli_parser([
+def test_run_csv_handler_invalid_port(cli_parser: CLIParserFactory) -> None:
+    handler, args, _, _ = cli_parser([
         "run-csv",
         "--csv",
         "work.csv",
@@ -143,11 +148,11 @@ def test_run_csv_handler_invalid_port(cli_parser: Callable[[List[str]], tuple[Ca
         handler(args)
 
 
-def test_config_edit_lists_presets(monkeypatch: pytest.MonkeyPatch, cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]], tmp_path: Path) -> None:
+def test_config_edit_lists_presets(monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory, tmp_path: Path) -> None:
     preset_dir = tmp_path / "presets"
     preset_dir.mkdir()
     (preset_dir / "demo.toml").write_text("mode = \"adaptive\"\n", encoding="utf-8")
-    handler, args, recorder = cli_parser([
+    handler, args, recorder, _ = cli_parser([
         "config-edit",
         "--list-presets",
         "--presets-dir",
@@ -160,9 +165,9 @@ def test_config_edit_lists_presets(monkeypatch: pytest.MonkeyPatch, cli_parser: 
     assert "demo" in payload["data"].get("presets", [])
 
 
-def test_config_wizard_invokes_runner(cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]], tmp_path: Path) -> None:
+def test_config_wizard_invokes_runner(cli_parser: CLIParserFactory, tmp_path: Path) -> None:
     outfile = tmp_path / "generated.toml"
-    handler, args, recorder = cli_parser([
+    handler, args, recorder, _ = cli_parser([
         "config-wizard",
         "--outfile",
         str(outfile),
@@ -173,10 +178,10 @@ def test_config_wizard_invokes_runner(cli_parser: Callable[[List[str]], tuple[Ca
     assert recorder.successes[-1]["command"] == "config-wizard"
 
 
-def test_ab_compare_handler_respects_no_artifacts(cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]], tmp_path: Path) -> None:
+def test_ab_compare_handler_respects_no_artifacts(cli_parser: CLIParserFactory, tmp_path: Path) -> None:
     csv_path = tmp_path / "work.csv"
     csv_path.write_text("op,key,value\nput,K,1\n", encoding="utf-8")
-    handler, args, recorder = cli_parser([
+    handler, args, recorder, _ = cli_parser([
         "ab-compare",
         "--csv",
         str(csv_path),
@@ -193,8 +198,8 @@ def test_ab_compare_handler_respects_no_artifacts(cli_parser: Callable[[List[str
     assert recorder.successes[-1]["command"] == "ab-compare"
 
 
-def test_probe_visualize_put_requires_value(cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]]) -> None:
-    handler, args, _ = cli_parser([
+def test_probe_visualize_put_requires_value(cli_parser: CLIParserFactory) -> None:
+    handler, args, _, _ = cli_parser([
         "probe-visualize",
         "--operation",
         "put",
@@ -205,8 +210,8 @@ def test_probe_visualize_put_requires_value(cli_parser: Callable[[List[str]], tu
         handler(args)
 
 
-def test_run_csv_handler_metrics_host_env(monkeypatch: pytest.MonkeyPatch, cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]]) -> None:
-    handler, args, recorder = cli_parser([
+def test_run_csv_handler_metrics_host_env(monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory) -> None:
+    handler, args, recorder, _ = cli_parser([
         "run-csv",
         "--csv",
         "work.csv",
@@ -219,8 +224,8 @@ def test_run_csv_handler_metrics_host_env(monkeypatch: pytest.MonkeyPatch, cli_p
     assert call["kwargs"]["metrics_port"] == 8088
 
 
-def test_run_csv_handler_env_port_invalid(monkeypatch: pytest.MonkeyPatch, cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]]) -> None:
-    handler, args, _ = cli_parser([
+def test_run_csv_handler_env_port_invalid(monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory) -> None:
+    handler, args, _, _ = cli_parser([
         "run-csv",
         "--csv",
         "work.csv",
@@ -230,7 +235,7 @@ def test_run_csv_handler_env_port_invalid(monkeypatch: pytest.MonkeyPatch, cli_p
         handler(args)
 
 
-def test_serve_handler_with_compare_and_source(monkeypatch: pytest.MonkeyPatch, cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]], tmp_path: Path) -> None:
+def test_serve_handler_with_compare_and_source(monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory, tmp_path: Path) -> None:
     compare_path = tmp_path / "comparison.json"
     compare_payload = {"summary": {"ops": 10}}
     compare_path.write_text(json.dumps(compare_payload), encoding="utf-8")
@@ -282,7 +287,7 @@ def test_serve_handler_with_compare_and_source(monkeypatch: pytest.MonkeyPatch, 
     monkeypatch.setattr("adhash.cli.commands.stream_metrics_file", fake_stream)
     monkeypatch.setattr("adhash.cli.commands.time.sleep", fake_sleep)
 
-    handler, args, _ = cli_parser([
+    handler, args, _, ctx = cli_parser([
         "serve",
         "--host",
         "0.0.0.0",
@@ -308,8 +313,8 @@ def test_serve_handler_with_compare_and_source(monkeypatch: pytest.MonkeyPatch, 
     assert thread_targets, "streaming thread should be created"
 
 
-def test_serve_handler_compare_missing(cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]], tmp_path: Path) -> None:
-    handler, args, _ = cli_parser([
+def test_serve_handler_compare_missing(cli_parser: CLIParserFactory, tmp_path: Path) -> None:
+    handler, args, _, _ = cli_parser([
         "serve",
         "--compare",
         str(tmp_path / "missing.json"),
@@ -318,13 +323,117 @@ def test_serve_handler_compare_missing(cli_parser: Callable[[List[str]], tuple[C
         handler(args)
 
 
-def test_serve_handler_invalid_compare_json(cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]], tmp_path: Path) -> None:
+def test_serve_handler_invalid_compare_json(cli_parser: CLIParserFactory, tmp_path: Path) -> None:
     bad_compare = tmp_path / "bad.json"
     bad_compare.write_text("{not json}", encoding="utf-8")
-    handler, args, _ = cli_parser([
+    handler, args, _, _ = cli_parser([
         "serve",
         "--compare",
         str(bad_compare),
     ])
     with pytest.raises(IOErrorEnvelope, match="Failed to parse comparison JSON"):
         handler(args)
+
+
+def test_config_edit_apply_and_save(monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory, tmp_path: Path) -> None:
+    preset_dir = tmp_path / "presets"
+    preset_dir.mkdir()
+    handler, args, recorder, _ = cli_parser([
+        "config-edit",
+        "--infile",
+        str(tmp_path / "in.toml"),
+        "--outfile",
+        str(tmp_path / "out.toml"),
+        "--apply-preset",
+        "baseline",
+        "--save-preset",
+        "new-preset",
+        "--presets-dir",
+        str(preset_dir),
+        "--force",
+    ])
+    handler(args)
+    call = recorder.run_config_editor_calls[-1]
+    assert call["infile"] == str(tmp_path / "in.toml")
+    assert call["outfile"] == str(tmp_path / "out.toml")
+    assert call["apply_preset"] == "baseline"
+    assert call["save_preset_name"] == "new-preset"
+    assert call["presets_dir"] == str(preset_dir)
+    assert call["force"] is True
+    assert recorder.successes[-1]["command"] == "config-edit"
+
+
+def test_mission_control_launches(monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory) -> None:
+    fake_module = types.ModuleType("adhash.mission_control.app")
+    called: Dict[str, Any] = {}
+
+    def fake_run(args: List[str]) -> int:
+        called["args"] = args
+        return 0
+
+    fake_module.run_mission_control = fake_run  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "adhash.mission_control.app", fake_module)
+    handler, args, _, _ = cli_parser(["mission-control"])
+    rc = handler(args)
+    assert rc == 0
+    assert called.get("args") == []
+
+
+def test_compact_snapshot_uses_robinhood_class(monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory, tmp_path: Path) -> None:
+    input_path = tmp_path / "map.snapshot"
+    input_path.write_bytes(b"snapshot")
+    output_path = tmp_path / "out.snapshot"
+
+    class FakeRobinHood:
+        def __init__(self) -> None:
+            self._cap = 8
+            self._size = 4
+            self._tombstones = 0.25
+            self._loaded: Optional[str] = None
+
+        @classmethod
+        def load(cls, path: str) -> "FakeRobinHood":
+            instance = cls()
+            instance._loaded = path
+            return instance
+
+        def __len__(self) -> int:
+            return self._size
+
+        def tombstone_ratio(self) -> float:
+            return self._tombstones
+
+        def compact(self) -> None:
+            self._size = 2
+            self._tombstones = 0.1
+
+    saved: Dict[str, Any] = {}
+
+    def fake_atomic_save(map_obj: FakeRobinHood, path: Path, *, compress: bool) -> None:
+        saved["path"] = path
+        saved["compress"] = compress
+        saved["cap"] = map_obj._cap
+        saved["size"] = len(map_obj)
+        saved["tombstones"] = map_obj.tombstone_ratio()
+
+    monkeypatch.setattr("adhash.cli.commands.atomic_map_save", fake_atomic_save)
+    handler, args, recorder, ctx = cli_parser([
+        "compact-snapshot",
+        "--in",
+        str(input_path),
+        "--out",
+        str(output_path),
+        "--compress",
+    ])
+    object.__setattr__(ctx, "robinhood_cls", FakeRobinHood)
+    rc = handler(args)
+    assert rc == 0
+    assert saved["path"] == output_path
+    assert saved["compress"] is True
+    payload = recorder.successes[-1]
+    assert payload["command"] == "compact-snapshot"
+    data = payload["data"]
+    assert data["infile"] == str(input_path)
+    assert data["outfile"] == str(output_path)
+    assert data["before"]["size"] == 4
+    assert data["after"]["size"] == 2
