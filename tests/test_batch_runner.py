@@ -11,10 +11,24 @@ import pytest
 from adhash.batch.runner import BatchRunner, BatchSpec, JobResult, JobSpec, load_spec
 
 
+def _locate_workload(name: str) -> Path:
+    """Find a workload CSV even when tests run from a mutated copy of the repo."""
+    seen: set[Path] = set()
+    for candidate in (Path.cwd(), *Path(__file__).resolve().parents):
+        root = candidate.resolve()
+        if root in seen:
+            continue
+        seen.add(root)
+        csv_path = (root / "data" / "workloads" / name).resolve()
+        if csv_path.exists():
+            return csv_path
+
+    raise RuntimeError(f"Unable to locate workload CSV: {name}")
+
+
 @pytest.fixture()
 def spec_file(tmp_path: Path) -> Path:
-    repo_root = Path.cwd()
-    csv = repo_root / "data/workloads/w_uniform.csv"
+    csv = _locate_workload("w_uniform.csv")
     spec = tmp_path / "batch.toml"
     spec.write_text(
         """

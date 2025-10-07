@@ -151,3 +151,8 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "adhash" = ["py.typed", "metrics/static/*.html", "metrics/static/*.css", "metrics/static/*.js"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+norecursedirs = [".*", "build", "dist", "mutants", "results", "runs", "tmp"]
