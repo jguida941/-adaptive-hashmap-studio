@@ -24,3 +24,4 @@ docs/fixes.md
 # Coverage reports
 .coverage
 coverage.xml
+.coverage.*
