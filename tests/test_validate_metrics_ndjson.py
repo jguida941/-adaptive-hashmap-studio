@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCRIPT = [sys.executable, "scripts/validate_metrics_ndjson.py"]
+SCRIPT = [sys.executable, "-m", "hashmap_cli.validate_metrics_ndjson"]
 
 
 def run_validator(path: Path) -> subprocess.CompletedProcess[str]:

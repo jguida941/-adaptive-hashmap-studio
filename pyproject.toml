@@ -85,6 +85,7 @@ showcontent = true
 
 [project.scripts]
 hashmap-cli = "hashmap_cli:console_main"
+validate-metrics-ndjson = "hashmap_cli.validate_metrics_ndjson:console_main"
 
 [tool.ruff]
 line-length = 100
@@ -150,7 +151,7 @@ ignore_missing_imports = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-"adhash" = ["py.typed", "metrics/static/*.html", "metrics/static/*.css", "metrics/static/*.js"]
+"adhash" = ["py.typed", "metrics/static/*.html", "metrics/static/*.css", "metrics/static/*.js", "contracts/*.json"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"
