@@ -1,9 +1,25 @@
 from __future__ import annotations
 
+import asyncio
+import json
+import os
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
-from adhash.tui.app import _format_history, _format_summary, fetch_history, fetch_metrics
+import pytest
+
+from adhash.tui import app as tui_app
+from adhash.tui.app import (
+    SUMMARY_SCHEMA,
+    AdaptiveMetricsApp,
+    _TEXTUAL_ERR,
+    _build_headers,
+    _format_alerts,
+    _format_history,
+    _format_summary,
+    fetch_history,
+    fetch_metrics,
+)
 
 
 class DummyResponse:
@@ -18,6 +34,14 @@ class DummyResponse:
 
     def read(self) -> bytes:
         return self._payload
+
+
+class DummyWidget:
+    def __init__(self) -> None:
+        self.value = ""
+
+    def update(self, message: str) -> None:
+        self.value = message
 
 
 def test_fetch_metrics_returns_none_on_bad_payload() -> None:
@@ -57,3 +81,113 @@ def test_format_history_reports_trends() -> None:
     text = _format_history(history)
     assert "Load factor trend" in text
     assert "Migrations so far: 1" in text
+
+
+def test_format_alerts_formats_messages() -> None:
+    alerts = [
+        {"severity": "warning", "message": "High load"},
+        {"severity": "info", "metric": "avg_probe"},
+    ]
+    output = _format_alerts(alerts)
+    assert "🚩 High load" in output
+    assert "Guardrail" in output
+
+
+def test_build_headers_includes_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ADHASH_TOKEN", "secret-token")
+    headers = _build_headers("application/json")
+    assert headers["Accept"] == "application/json"
+    assert headers["Authorization"] == "Bearer secret-token"
+
+
+def test_fetch_metrics_returns_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = json.dumps({"ops": 10}).encode("utf-8")
+    monkeypatch.setattr("adhash.tui.app.urlopen", MagicMock(return_value=DummyResponse(payload)))
+    data = fetch_metrics("http://localhost/api/metrics")
+    assert data == {"ops": 10}
+
+
+def test_fetch_history_returns_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = json.dumps([{"ops": 1}]).encode("utf-8")
+    monkeypatch.setattr("adhash.tui.app.urlopen", MagicMock(return_value=DummyResponse(payload)))
+    data = fetch_history("http://localhost/api/metrics/history")
+    assert data == [{"ops": 1}]
+
+
+def test_poll_and_render_updates_widgets(monkeypatch: pytest.MonkeyPatch) -> None:
+    if _TEXTUAL_ERR is not None:
+        pytest.skip("Textual not available")
+
+    app = AdaptiveMetricsApp(
+        metrics_endpoint="http://127.0.0.1:9090/api/metrics",
+        poll_interval=0.1,
+    )
+    summary = DummyWidget()
+    status = DummyWidget()
+    history = DummyWidget()
+    alerts = DummyWidget()
+    app._summary = summary  # type: ignore[attr-defined]
+    app._status = status  # type: ignore[attr-defined]
+    app._history = history  # type: ignore[attr-defined]
+    app._alerts = alerts  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(
+        tui_app,
+        "fetch_metrics",
+        lambda endpoint, timeout: {
+            "schema": SUMMARY_SCHEMA,
+            "backend": "adaptive",
+            "ops": 1,
+            "ops_by_type": {"put": 1},
+            "alerts": [],
+        },
+    )
+    monkeypatch.setattr(
+        tui_app,
+        "fetch_history",
+        lambda endpoint, timeout: [
+            {"t": 0.0, "ops": 0, "load_factor": 0.1},
+            {"t": 1.0, "ops": 1, "load_factor": 0.2},
+        ],
+    )
+
+    async def runner() -> None:
+        await app._poll_and_render(initial=True)
+
+    asyncio.run(runner())
+    assert "Backend: adaptive" in summary.value
+    assert "Last update" in status.value
+    assert "Load factor trend" in history.value
+    assert alerts.value == "No active alerts."
+
+
+def test_poll_and_render_handles_missing_tick(monkeypatch: pytest.MonkeyPatch) -> None:
+    if _TEXTUAL_ERR is not None:
+        pytest.skip("Textual not available")
+
+    app = AdaptiveMetricsApp(metrics_endpoint="http://127.0.0.1:9090/api/metrics")
+    summary = DummyWidget()
+    status = DummyWidget()
+    history = DummyWidget()
+    alerts = DummyWidget()
+    app._summary = summary  # type: ignore[attr-defined]
+    app._status = status  # type: ignore[attr-defined]
+    app._history = history  # type: ignore[attr-defined]
+    app._alerts = alerts  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(tui_app, "fetch_metrics", lambda endpoint, timeout: None)
+    asyncio.run(app._poll_and_render(initial=True))
+    assert "Waiting for metrics" in summary.value
+    assert "Waiting for metrics" in status.value
+
+
+def test_fetch_tick_and_history_rejects_unknown_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    if _TEXTUAL_ERR is not None:
+        pytest.skip("Textual not available")
+
+    app = AdaptiveMetricsApp(metrics_endpoint="http://127.0.0.1:9090/api/metrics")
+    monkeypatch.setattr(tui_app, "fetch_metrics", lambda endpoint, timeout: {"schema": "mystery"})
+    tick, history, error = asyncio.run(app._fetch_tick_and_history())
+    assert tick is None
+    assert history is None
+    assert error == "Unsupported schema: mystery"

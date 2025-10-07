@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 import argparse
 import logging
 from dataclasses import dataclass, field
@@ -9,7 +11,7 @@ from typing import Any, Callable, Dict, List, Optional
 import pytest
 
 from adhash.cli.commands import CLIContext, register_subcommands
-from adhash.contracts.error import BadInputError
+from adhash.contracts.error import BadInputError, IOErrorEnvelope
 from adhash.core.maps import RobinHoodMap
 from adhash.workloads.dna import WorkloadDNAResult
 
@@ -201,4 +203,129 @@ def test_probe_visualize_put_requires_value(cli_parser: Callable[[List[str]], tu
         "K1",
     ])
     with pytest.raises(BadInputError):
+        handler(args)
+
+
+def test_run_csv_handler_metrics_host_env(monkeypatch: pytest.MonkeyPatch, cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]]) -> None:
+    handler, args, recorder = cli_parser([
+        "run-csv",
+        "--csv",
+        "work.csv",
+    ])
+    monkeypatch.setenv("ADHASH_METRICS_HOST", "0.0.0.0")
+    monkeypatch.setenv("ADHASH_METRICS_PORT", "8088")
+    handler(args)
+    call = recorder.run_csv_calls[-1]
+    assert call["kwargs"]["metrics_host"] == "0.0.0.0"
+    assert call["kwargs"]["metrics_port"] == 8088
+
+
+def test_run_csv_handler_env_port_invalid(monkeypatch: pytest.MonkeyPatch, cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]]) -> None:
+    handler, args, _ = cli_parser([
+        "run-csv",
+        "--csv",
+        "work.csv",
+    ])
+    monkeypatch.setenv("ADHASH_METRICS_PORT", "invalid")
+    with pytest.raises(BadInputError, match="ADHASH_METRICS_PORT"):
+        handler(args)
+
+
+def test_serve_handler_with_compare_and_source(monkeypatch: pytest.MonkeyPatch, cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]], tmp_path: Path) -> None:
+    compare_path = tmp_path / "comparison.json"
+    compare_payload = {"summary": {"ops": 10}}
+    compare_path.write_text(json.dumps(compare_payload), encoding="utf-8")
+    source_path = tmp_path / "metrics.ndjson"
+    source_path.write_text("{}", encoding="utf-8")
+
+    start_calls: Dict[str, Any] = {}
+    stop_called = {"value": False}
+
+    class DummyServer:
+        server_port = 4321
+
+    def fake_start(metrics: Any, port: int, *, host: str, comparison: Optional[Dict[str, Any]]) -> tuple[DummyServer, Callable[[], None]]:
+        start_calls["port"] = port
+        start_calls["host"] = host
+        start_calls["comparison"] = comparison
+
+        def stop() -> None:
+            stop_called["value"] = True
+
+        return DummyServer(), stop
+
+    thread_targets: List[Callable[[], None]] = []
+
+    class DummyThread:
+        def __init__(self, target: Callable[[], None], daemon: bool) -> None:
+            self._target = target
+            self.daemon = daemon
+            thread_targets.append(target)
+
+        def start(self) -> None:
+            self._target()
+
+    stream_calls: List[Dict[str, Any]] = []
+
+    def fake_stream(path: Path, *, follow: bool, callback: Callable[[Dict[str, Any]], None], poll_interval: float) -> None:
+        stream_calls.append({
+            "path": path,
+            "follow": follow,
+            "poll_interval": poll_interval,
+        })
+
+    def fake_sleep(_: float) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setenv("ADHASH_METRICS_PORT", "")
+    monkeypatch.setattr("adhash.cli.commands.start_metrics_server", fake_start)
+    monkeypatch.setattr("adhash.cli.commands.threading.Thread", DummyThread)
+    monkeypatch.setattr("adhash.cli.commands.stream_metrics_file", fake_stream)
+    monkeypatch.setattr("adhash.cli.commands.time.sleep", fake_sleep)
+
+    handler, args, _ = cli_parser([
+        "serve",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "auto",
+        "--source",
+        str(source_path),
+        "--follow",
+        "--compare",
+        str(compare_path),
+        "--poll-interval",
+        "0.25",
+    ])
+
+    rc = handler(args)
+    assert rc == 0
+    assert start_calls["port"] == 0
+    assert start_calls["host"] == "0.0.0.0"
+    assert start_calls["comparison"] == compare_payload
+    assert stop_called["value"] is True
+    assert stream_calls and stream_calls[0]["path"] == source_path.resolve()
+    assert stream_calls[0]["follow"] is True
+    assert thread_targets, "streaming thread should be created"
+
+
+def test_serve_handler_compare_missing(cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]], tmp_path: Path) -> None:
+    handler, args, _ = cli_parser([
+        "serve",
+        "--compare",
+        str(tmp_path / "missing.json"),
+    ])
+    with pytest.raises(IOErrorEnvelope, match="Comparison file not found"):
+        handler(args)
+
+
+def test_serve_handler_invalid_compare_json(cli_parser: Callable[[List[str]], tuple[Callable[[argparse.Namespace], int], argparse.Namespace, Recorder]], tmp_path: Path) -> None:
+    bad_compare = tmp_path / "bad.json"
+    bad_compare.write_text("{not json}", encoding="utf-8")
+    handler, args, _ = cli_parser([
+        "serve",
+        "--compare",
+        str(bad_compare),
+    ])
+    with pytest.raises(IOErrorEnvelope, match="Failed to parse comparison JSON"):
         handler(args)

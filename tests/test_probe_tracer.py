@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from adhash.analysis.probe import format_trace_lines, trace_probe_get, trace_probe_put
+from adhash.analysis.probe import (
+    _json_friendly,
+    format_trace_lines,
+    trace_probe_get,
+    trace_probe_put,
+)
 from adhash.core.maps import HybridAdaptiveHashMap, RobinHoodMap, TwoLevelChainingMap
 
 
@@ -23,6 +28,18 @@ def test_trace_robinhood_get_absent() -> None:
     assert trace["terminal"] in {"empty", "tombstone"}
 
 
+def test_trace_robinhood_get_handles_tombstone() -> None:
+    m = RobinHoodMap(initial_capacity=4)
+    m.put("A", 1)
+    m.put("B", 2)
+    assert m.delete("A") is True
+
+    trace = trace_probe_get(m, "A")
+    states = [step.get("state") for step in trace["path"]]
+    assert "tombstone" in states
+    assert trace["found"] is False
+
+
 def test_trace_robinhood_put_reports_swap() -> None:
     m = RobinHoodMap(initial_capacity=4)
     # Craft a collision scenario
@@ -31,6 +48,23 @@ def test_trace_robinhood_put_reports_swap() -> None:
     trace = trace_probe_put(m, "C", 3)
     assert trace["operation"] == "put"
     assert any("action" in step for step in trace["path"])
+
+
+def test_trace_robinhood_put_updates_existing_key() -> None:
+    m = RobinHoodMap(initial_capacity=4)
+    m.put("A", 1)
+    trace = trace_probe_put(m, "A", 5)
+    assert trace["terminal"] == "update"
+    assert any(step.get("action") == "update" for step in trace["path"])
+
+
+def test_trace_robinhood_put_reuses_tombstone() -> None:
+    m = RobinHoodMap(initial_capacity=4)
+    m.put("A", 1)
+    assert m.delete("A") is True
+    trace = trace_probe_put(m, "A", 2)
+    assert trace["terminal"] == "reuse-tombstone"
+    assert any(step.get("state") == "tombstone" for step in trace["path"])
 
 
 def test_trace_robinhood_put_accounts_for_resize() -> None:
@@ -81,3 +115,12 @@ def test_format_trace_lines_includes_steps() -> None:
     assert "Snapshot: foo" in joined
     assert "Seed entries" in joined
     assert "trace.json" in joined
+
+
+def test_json_friendly_falls_back_to_repr() -> None:
+    class NonSerializable:
+        def __repr__(self) -> str:
+            return "<non-serialisable>"
+
+    value = NonSerializable()
+    assert _json_friendly(value) == "<non-serialisable>"
