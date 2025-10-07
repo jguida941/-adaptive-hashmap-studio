@@ -5,9 +5,20 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   mutmut:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      QT_QPA_PLATFORM: offscreen
+      QT_OPENGL: software
+      QT_QUICK_BACKEND: software
+      QTWEBENGINE_DISABLE_SANDBOX: "1"
+      HYPOTHESIS_PROFILE: ci
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -17,18 +28,173 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-mutation-${{ hashFiles('pyproject.toml') }}
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install .[dev] mutmut
 
-      - name: Run mutation tests
+      - name: Tool versions
         run: |
-          mutmut run
-          mutmut results > mutmut_report.txt
-          cat mutmut_report.txt
-          if grep -q "Survived (0)" mutmut_report.txt; then
-            exit 0
+          mkdir -p .mutmut-ci
+          python -V
+          pip -V
+          mutmut --version
+          pytest --version
+          pip freeze > .mutmut-ci/pip-freeze.txt
+
+      - name: Install X/GL libs for headless Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libxkbcommon0 libxcb-xinerama0 libxcb-cursor0
+
+      - name: Cache mutation state
+        uses: actions/cache@v4
+        with:
+          path: |
+            .mutmut-cache
+            .hypothesis
+          key: ${{ runner.os }}-mutmut-state-${{ hashFiles('mutmut.ini', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-mutmut-state-
+
+      - name: Run mutation tests (do not fail early)
+        id: run_mutmut
+        timeout-minutes: 330
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p .mutmut-ci
+          set +e
+          xvfb-run -s "-screen 0 1920x1080x24" -a bash -lc 'mutmut run --max-children 2' | tee .mutmut-ci/mutmut_run.log
+          exit_code=${PIPESTATUS[0]}
+          set -e
+          mutmut results > .mutmut-ci/mutmut_results.txt || echo "::warning::mutmut results failed"
+          {
+            echo "exit_code=$exit_code"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Summarize mutation survivors
+        if: always()
+        continue-on-error: true
+        env:
+          FETCH_ARTIFACT: "0"
+          REPORT_DEST: "file"
+          TOPN: "50"
+          SKIP_MUTMUT_INSTALL: "1"
+          HYPOTHESIS_PROFILE: ci
+        run: |
+          if [ -f tools/mutants_report.sh ]; then
+            tools/mutants_report.sh || true
+          else
+            echo "report script missing; skipping"
           fi
-          echo "Mutation survivors detected."
-          exit 1
+
+      - name: Prepare artifacts
+        if: always()
+        run: |
+          mkdir -p .mutmut-ci
+          if [ -f .mutmut-ci/summary.txt ]; then
+            cp .mutmut-ci/summary.txt mutmut_results.txt
+          fi
+          if [ -f .mutmut-ci/github_step_summary.md ]; then
+            cp .mutmut-ci/github_step_summary.md survivors_summary.md
+          fi
+          if [ -f .mutmut-ci/mutmut_results.txt ] && [ ! -f mutmut_results.txt ]; then
+            cp .mutmut-ci/mutmut_results.txt mutmut_results.txt
+          fi
+
+      - name: Append summary to job summary
+        if: always()
+        run: |
+          if [ -f .mutmut-ci/github_step_summary.md ]; then
+            cat .mutmut-ci/github_step_summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## MutMut summary" >> "$GITHUB_STEP_SUMMARY"
+            if [ -f .mutmut-ci/mutmut_results.txt ]; then
+              grep -Ei "Survived|Killed|Skipped|Timeout|Suspicious|suppressions" .mutmut-ci/mutmut_results.txt >> "$GITHUB_STEP_SUMMARY" || true
+            fi
+            if [ -f .mutmut-ci/mutmut_run.log ]; then
+              grep -E "🎉|🫥|🙁|⏰" .mutmut-ci/mutmut_run.log >> "$GITHUB_STEP_SUMMARY" || true
+            fi
+            if [ ! -f .mutmut-ci/mutmut_results.txt ] && [ ! -f .mutmut-ci/mutmut_run.log ]; then
+              echo "_no results file found_" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
+      - name: Kill ratio summary
+        if: always()
+        run: |
+          results_file=".mutmut-ci/mutmut_results.txt"
+          if [ -f "$results_file" ]; then
+            killed="$(grep -Eio 'Killed[^0-9]*([0-9]+)' "$results_file" | grep -Eo '[0-9]+' | tail -n1 || echo 0)"
+            survived="$(grep -Eio 'Survived[^0-9]*([0-9]+)' "$results_file" | grep -Eo '[0-9]+' | tail -n1 || echo 0)"
+          else
+            killed=0
+            survived=0
+          fi
+          total=$((killed + survived))
+          {
+            echo "Killed: $killed  Survived: $survived"
+            if [ "$total" -gt 0 ]; then
+              kill_ratio=$(awk "BEGIN{printf \"%.1f\", ($killed*100)/$total}")
+              echo "Kill ratio: ${kill_ratio}% (killed/(killed+survived))"
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutmut-run-log
+          path: .mutmut-ci/mutmut_run.log
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload mutation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutmut-results
+          path: |
+            mutmut_results.txt
+            survivors_summary.md
+            .mutmut-ci/
+            .mutmut-cache/
+            mutants/
+          retention-days: 7
+          include-hidden-files: true
+          compression-level: 1
+          if-no-files-found: warn
+
+      - name: Fail if survivors remain
+        if: always()
+        env:
+          MUTMUT_EXIT_CODE: ${{ steps.run_mutmut.outputs.exit_code }}
+        run: |
+          set -eo pipefail
+          if [ -f .mutmut-ci/mutmut_results.txt ]; then
+            summary="$(cat .mutmut-ci/mutmut_results.txt)"
+          else
+            summary="$(mutmut results || true)"
+          fi
+          printf '%s\n' "$summary"
+          survived="$(printf '%s\n' "$summary" | grep -Eo 'Survived[^0-9]*([0-9]+)' | grep -Eo '[0-9]+' | tail -n1 || echo 0)"
+          echo "Mutation survivors detected: $survived"
+          exit_code="${MUTMUT_EXIT_CODE:-0}"
+          if [ "$exit_code" -ne 0 ]; then
+            echo "mutmut run exited with code $exit_code"
+          fi
+          if [ "$survived" -gt 0 ]; then
+            echo "Mutation survivors present; failing job."
+            exit 1
+          fi
+          if [ "$exit_code" -ne 0 ]; then
+            echo "Failing job due to non-zero mutmut exit."
+            exit "$exit_code"
+          fi

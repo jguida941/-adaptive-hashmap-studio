@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
-from typing import Any, Iterator, List, Optional
+from typing import Any, Iterable, Iterator, List, Optional, Protocol, cast
 
 from starlette.requests import Request as StarletteRequest
 
@@ -22,7 +22,34 @@ from .models import (
 )
 
 
-def create_app(manager: Optional[JobManager] = None) -> Any:
+class JobLogEntryLike(Protocol):
+    def to_model(self) -> JobLogEntryModel: ...
+
+
+class JobRecordLike(Protocol):
+    id: str
+    status: JobState
+
+    def to_detail(self) -> JobDetail: ...
+
+
+class JobManagerProtocol(Protocol):
+    def list(self) -> Iterable[JobRecordLike]: ...
+
+    def run_csv(self, request: RunCsvRequest) -> JobRecordLike: ...
+
+    def profile(self, request: ProfileRequest) -> JobRecordLike: ...
+
+    def batch(self, request: BatchRequest) -> JobRecordLike: ...
+
+    def get(self, job_id: str) -> JobRecordLike: ...
+
+    def iter_logs(self, job_id: str) -> Iterable[JobLogEntryLike]: ...
+
+    def cancel(self, job_id: str) -> bool: ...
+
+
+def create_app(manager: Optional[JobManagerProtocol] = None) -> Any:
     """Create a FastAPI application wired to the given job manager."""
 
     fastapi_mod = importlib.import_module("fastapi")
@@ -35,7 +62,11 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
     Response = responses_mod.Response
     StreamingResponse = responses_mod.StreamingResponse
 
-    job_manager = manager or JobManager()
+    job_manager: JobManagerProtocol
+    if manager is None:
+        job_manager = JobManager()
+    else:
+        job_manager = manager
     app = FastAPI(title="Adaptive Hash Map Control Surface", version="0.1.0")
     app.state.job_manager = job_manager
 
@@ -51,8 +82,8 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
             return
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-    def get_manager() -> JobManager:
-        return app.state.job_manager  # type: ignore[return-value]
+    def get_manager() -> JobManagerProtocol:
+        return cast(JobManagerProtocol, app.state.job_manager)
 
     @app.get("/healthz", response_model=dict)
     def health() -> dict:
@@ -63,7 +94,7 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
         return {"status": "ok"}
 
     @app.get("/api/jobs", response_model=JobStatusResponse, dependencies=[Depends(require_token)])
-    def list_jobs(manager: JobManager = Depends(get_manager)) -> JobStatusResponse:
+    def list_jobs(manager: JobManagerProtocol = Depends(get_manager)) -> JobStatusResponse:
         jobs = [record.to_detail() for record in manager.list()]
         return JobStatusResponse(jobs=jobs)
 
@@ -73,7 +104,9 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
         status_code=status.HTTP_202_ACCEPTED,
         dependencies=[Depends(require_token)],
     )
-    def run_csv_endpoint(request: RunCsvRequest, manager: JobManager = Depends(get_manager)) -> JobCreated:
+    def run_csv_endpoint(
+        request: RunCsvRequest, manager: JobManagerProtocol = Depends(get_manager)
+    ) -> JobCreated:
         try:
             record = manager.run_csv(request)
         except ValueError as exc:
@@ -86,7 +119,9 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
         status_code=status.HTTP_202_ACCEPTED,
         dependencies=[Depends(require_token)],
     )
-    def profile_endpoint(request: ProfileRequest, manager: JobManager = Depends(get_manager)) -> JobCreated:
+    def profile_endpoint(
+        request: ProfileRequest, manager: JobManagerProtocol = Depends(get_manager)
+    ) -> JobCreated:
         try:
             record = manager.profile(request)
         except ValueError as exc:
@@ -99,7 +134,9 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
         status_code=status.HTTP_202_ACCEPTED,
         dependencies=[Depends(require_token)],
     )
-    def batch_endpoint(request: BatchRequest, manager: JobManager = Depends(get_manager)) -> JobCreated:
+    def batch_endpoint(
+        request: BatchRequest, manager: JobManagerProtocol = Depends(get_manager)
+    ) -> JobCreated:
         try:
             record = manager.batch(request)
         except ValueError as exc:
@@ -111,7 +148,7 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
         response_model=JobDetail,
         dependencies=[Depends(require_token)],
     )
-    def job_detail(job_id: str, manager: JobManager = Depends(get_manager)) -> JobDetail:
+    def job_detail(job_id: str, manager: JobManagerProtocol = Depends(get_manager)) -> JobDetail:
         try:
             record = manager.get(job_id)
         except KeyError as exc:  # pragma: no cover - defensive guard
@@ -122,7 +159,7 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
         "/api/jobs/{job_id}/logs",
         dependencies=[Depends(require_token)],
     )
-    def job_logs(job_id: str, manager: JobManager = Depends(get_manager)) -> Any:
+    def job_logs(job_id: str, manager: JobManagerProtocol = Depends(get_manager)) -> Any:
         try:
             logs = manager.iter_logs(job_id)
         except KeyError as exc:
@@ -143,7 +180,7 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
         response_model=None,
         dependencies=[Depends(require_token)],
     )
-    def cancel_job(job_id: str, manager: JobManager = Depends(get_manager)) -> Any:
+    def cancel_job(job_id: str, manager: JobManagerProtocol = Depends(get_manager)) -> Any:
         try:
             record = manager.get(job_id)
         except KeyError as exc:
@@ -159,4 +196,4 @@ def create_app(manager: Optional[JobManager] = None) -> Any:
     return app
 
 
-__all__ = ["create_app"]
+__all__ = ["create_app", "JobManagerProtocol"]

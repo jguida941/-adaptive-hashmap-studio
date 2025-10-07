@@ -89,3 +89,16 @@ def test_robinhood_map_behaves_like_dict(operations: list[Tuple[str, Any | None,
     map_impl.compact()
     assert _items_to_dict(map_impl.items()) == model
     assert len(map_impl) == len(model)
+
+
+def test_robinhood_put_reuses_tombstone_without_duplicates() -> None:
+    map_impl = RobinHoodMap(initial_capacity=8)
+    map_impl.put("a", 1)
+    map_impl.put("b", 2)
+    assert len(map_impl) == 2
+    assert map_impl.delete("a") is True
+    map_impl.put("b", 3)
+    items = list(map_impl.items())
+    assert items.count(("b", 3)) == 1
+    assert all(key != "a" for key, _ in items)
+    assert len(map_impl) == 1

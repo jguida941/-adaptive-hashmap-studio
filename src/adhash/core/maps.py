@@ -190,25 +190,47 @@ class RobinHoodMap:
         h = hash(key)
         idx = self._idx(h)
         cur = _RHEntry(key, value)
+        inserted_new = False
         dist = 0
+        first_tombstone: Optional[int] = None
         while True:
             slot = self._table[idx]
             if slot is None:
-                self._table[idx] = cur
-                self._size += 1
+                target = first_tombstone if first_tombstone is not None else idx
+                self._table[target] = cur
+                if not inserted_new:
+                    self._size += 1
+                    inserted_new = True
+                if first_tombstone is not None:
+                    self._tombstones -= 1
                 return
             if slot is _TOMBSTONE:
-                self._table[idx] = cur
-                self._size += 1
-                self._tombstones -= 1
-                return
+                if first_tombstone is None:
+                    first_tombstone = idx
+                idx = (idx + 1) & self._mask
+                dist += 1
+                continue
             if slot.key == key:
                 slot.value = value
                 return
             ideal = self._idx(hash(slot.key))
             slot_dist = self._probe_distance(ideal, idx)
             if slot_dist < dist:
-                self._table[idx], cur = cur, slot
+                if first_tombstone is not None:
+                    if not inserted_new:
+                        self._size += 1
+                        inserted_new = True
+                    self._table[first_tombstone] = cur
+                    self._tombstones -= 1
+                    cur = slot
+                    self._table[idx] = _TOMBSTONE
+                    self._tombstones += 1
+                    first_tombstone = idx
+                else:
+                    self._table[idx], cur = cur, slot
+                    if not inserted_new:
+                        self._size += 1
+                        inserted_new = True
                 dist = slot_dist
             idx = (idx + 1) & self._mask
             dist += 1
@@ -319,6 +341,8 @@ class HybridAdaptiveHashMap:
         logger.info("Adaptive map started on %s", self._name)
 
     def __len__(self) -> int:
+        while self._migrating_to:
+            self._drain_migration()
         return len(self._backend)
 
     def backend_name(self) -> str:
@@ -411,7 +435,7 @@ class HybridAdaptiveHashMap:
             ap = self._backend.avg_probe_estimate()
             if ap > self.cfg.max_avg_probe_robinhood:
                 self._begin_migration("chaining")
-            elif self._backend.tombstone_ratio() > self.cfg.max_tombstone_ratio:
+            elif self._backend.tombstone_ratio() >= self.cfg.max_tombstone_ratio:
                 logger.info("Auto-compacting RobinHoodMap (tombstone_ratio=%.3f)", self._backend.tombstone_ratio())
                 self._backend.compact()
                 if self.cfg.on_compaction:

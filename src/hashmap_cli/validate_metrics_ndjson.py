@@ -9,7 +9,7 @@ from importlib import resources
 from pathlib import Path
 
 try:
-    from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
+    from jsonschema import Draft202012Validator
 except Exception as exc:  # pragma: no cover
     print("jsonschema not installed; install dev extras to validate.", file=sys.stderr)
     raise SystemExit(2) from exc

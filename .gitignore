@@ -26,6 +26,10 @@ docs/fixes.md
 coverage.xml
 .coverage.*
 .mutmut-cache/
+.mutmut-ci/
+survivors*.md
 .hypothesis/
 mutants/
 .hypothesis/
+worktrees/
+tests/mutation_todos/

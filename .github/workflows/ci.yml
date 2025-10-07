@@ -5,6 +5,10 @@ on:
     branches: ["main"]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,6 +38,16 @@ jobs:
         run: |
           python -m pip install -U pip
           python -m pip install -e '.[dev,gui]'
+
+      - name: Cache pytest state
+        uses: actions/cache@v4
+        with:
+          path: |
+            .hypothesis
+            .pytest_cache
+          key: ${{ runner.os }}-pytest-state-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pytest-state-${{ matrix.python-version }}-
       - name: Lint
         run: ruff check .
       - name: Type check
@@ -43,11 +57,64 @@ jobs:
           QT_QPA_PLATFORM: offscreen
           COVERAGE_PROCESS_START: .coveragerc
           PYTHONPATH: tools/coverage:${PYTHONPATH}
+          HYPOTHESIS_PROFILE: ci
         run: |
-          xvfb-run -a coverage run -m pytest -q
+          set -o pipefail
+          xvfb-run -a coverage run -m pytest --durations=15 -q | tee pytest-output.txt
           coverage combine
           coverage report
           coverage xml
+
+      - name: Record slowest pytest durations
+        if: always()
+        run: |
+          python - <<'PY'
+import os
+import pathlib
+
+output_path = pathlib.Path("pytest-output.txt")
+if not output_path.exists():
+    raise SystemExit(0)
+
+lines = output_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+durations: list[str] = []
+capture = False
+
+for line in lines:
+    stripped = line.strip()
+    if not capture:
+        if "slowest" in stripped and "durations" in stripped:
+            capture = True
+        continue
+    if not stripped:
+        if durations:
+            break
+        continue
+    if stripped.startswith("="):
+        continue
+    durations.append(stripped)
+
+if not durations:
+    raise SystemExit(0)
+
+top = durations[:10]
+summary_lines = ["## Slowest pytest durations", ""] + [f"- {entry}" for entry in top]
+text = "\n".join(summary_lines) + "\n"
+
+summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+if summary_file:
+    with open(summary_file, "a", encoding="utf-8") as handle:
+        handle.write("\n" + text)
+
+pathlib.Path("pytest-slowest.md").write_text(text, encoding="utf-8")
+PY
+
+      - name: Upload slowest-test summary
+        if: always() && hashFiles('pytest-slowest.md') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-slowest
+          path: pytest-slowest.md
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

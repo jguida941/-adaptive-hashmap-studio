@@ -99,6 +99,9 @@ source = ["adhash", "hashmap_cli"]
 fail_under = 50
 show_missing = true
 
+[tool.mypy]
+mypy_path = "stubs"
+
 [[tool.mypy.overrides]]
 module = "textual.*"
 ignore_missing_imports = true

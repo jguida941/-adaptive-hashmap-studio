@@ -3,8 +3,10 @@ PKG ?= src/adhash
 CLI ?= $(PY) -m hashmap_cli
 
 .PHONY: setup lint type test cov smoke validate precommit fmt release \
-	publish-testpypi publish-pypi \
-	docker-build docker-build-dev docker-run docker-compose-up docker-compose-down
+    publish-testpypi publish-pypi \
+    docker-build docker-build-dev docker-run docker-compose-up docker-compose-down \
+    mutants-report mutants-report-local mutants-worktrees mutants-run-lanes \
+    mutants-auto mutants-dryrun mutants-core
 
 setup:
 	$(PY) -m pip install -U pip
@@ -77,3 +79,60 @@ docker-compose-up:
 
 docker-compose-down:
 	docker compose -f docker/docker-compose.yml down
+
+MUTANTS_WORKFLOW ?= mutmut.yml
+MUTANTS_ARTIFACT ?= mutmut-results
+MUTANTS_TOPN ?= 25
+MUTANTS_REPORT_DEST ?= file
+
+mutants-report:
+	: ${WORKFLOW:=$(MUTANTS_WORKFLOW)}
+	: ${ART_NAME:=$(MUTANTS_ARTIFACT)}
+	: ${TOPN:=$(MUTANTS_TOPN)}
+	: ${REPORT_DEST:=$(MUTANTS_REPORT_DEST)}
+	WORKFLOW=${WORKFLOW} ART_NAME=${ART_NAME} TOPN=${TOPN} REPORT_DEST=${REPORT_DEST} \
+		tools/mutants_report.sh
+
+mutants-report-local:
+	: ${TOPN:=$(MUTANTS_TOPN)}
+	: ${REPORT_DEST:=stdout}
+	MUTANTS_LOCAL_ONLY=1 TOPN=${TOPN} REPORT_DEST=${REPORT_DEST} tools/mutants_report.sh
+
+# ---------------------------------------------------------------------------
+# Mutation worktree helpers
+# ---------------------------------------------------------------------------
+
+MUTANT_LANES ?= maps=src/adhash/core/maps.py probing=src/adhash/core/probing.py snapshot=src/adhash/core/snapshot.py
+MUTANT_TIMEOUT ?= 8
+MUTANT_JOBS ?= auto
+
+mutants-worktrees:
+	mkdir -p worktrees
+	@for lane in $(MUTANT_LANES); do \
+		name=$${lane%%=*}; \
+		printf '[mutants] ensuring worktree %s\n' $$name; \
+		git worktree add -f worktrees/$$name main >/dev/null 2>&1 || true; \
+	done
+
+mutants-run-lanes: mutants-worktrees
+	@for lane in $(MUTANT_LANES); do \
+		name=$${lane%%=*}; \
+		paths=$${lane#*=}; \
+		printf '[mutants] running lane %s (paths=%s)\n' $$name $$paths; \
+		( cd worktrees/$$name && \
+		  mutmut run --paths-to-mutate "$$paths" --use-coverage --jobs $(MUTANT_JOBS) --timeout $(MUTANT_TIMEOUT) ); \
+		( cd worktrees/$$name && \
+		  tools/mutants_report.sh WORKFLOW=mutation-tests.yml ART_NAME=mutmut-results \
+		    MUTANTS_LOCAL_ONLY=1 REPORT_DEST=file SKIP_MUTMUT_INSTALL=1 ); \
+	done
+
+mutants-auto:
+	tools/mutants_orchestrator.sh --module src/adhash/core/maps.py --target-kill 0.70 --survivors-cap 50 --max-iterations 3 --timeout 8 --topn 25
+
+mutants-dryrun:
+	tools/mutants_orchestrator.sh --module src/adhash/core/maps.py --target-kill 0.70 --survivors-cap 50 --max-iterations 1 --timeout 8 --topn 25 --dry-run
+
+mutants-core:
+	@for mod in src/adhash/core/maps.py src/adhash/core/probing.py src/adhash/core/snapshot.py; do \
+		tools/mutants_orchestrator.sh --module $$mod --target-kill 0.70 --survivors-cap 50 --max-iterations 2 --timeout 8 --topn 25; \
+	done
