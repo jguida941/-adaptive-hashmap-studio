@@ -20,3 +20,7 @@ docs/fixes.md
 
 # Python build artifacts
 *.egg-info/
+
+# Coverage reports
+.coverage
+coverage.xml

@@ -158,8 +158,17 @@ def start_metrics_server(
             body = metrics.render().encode("utf-8")
             self._write_body(body, PROMETHEUS_CONTENT_TYPE)
 
-        def _serve_metrics_summary(self) -> None:
+        def _serve_metrics_summary(self, parsed: Optional[ParseResult] = None) -> None:
             payload = metrics.build_summary_payload()
+            limit = 1
+            if parsed is not None:
+                limit = self._limit(parsed, default=1)
+            history_rows = self._history_rows(limit)
+            if not history_rows:
+                latest = getattr(metrics, "latest_tick", None)
+                if isinstance(latest, dict):
+                    history_rows = [latest]
+            payload["items"] = history_rows
             self._write_json(payload)
 
         def _serve_comparison(self) -> None:
@@ -356,7 +365,7 @@ def start_metrics_server(
                 self._serve_metrics_prometheus()
                 return
             if path == "/api/metrics":
-                self._serve_metrics_summary()
+                self._serve_metrics_summary(parsed)
                 return
             if path == "/api/compare":
                 self._serve_comparison()
