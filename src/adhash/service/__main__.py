@@ -16,8 +16,12 @@ DEFAULT_PORT = 9600
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Adaptive Hash Map control surface service.")
-    parser.add_argument("--host", default=DEFAULT_HOST, help="Interface to bind (default: %(default)s).")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Port to bind (default: %(default)s).")
+    parser.add_argument(
+        "--host", default=DEFAULT_HOST, help="Interface to bind (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--port", type=int, default=DEFAULT_PORT, help="Port to bind (default: %(default)s)."
+    )
     parser.add_argument(
         "--job-root",
         type=str,

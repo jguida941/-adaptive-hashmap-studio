@@ -49,7 +49,9 @@ def test_append_log_and_capture_output(job_manager: JobManager):
     assert any("info message" in message for message in messages)
 
 
-def test_execute_run_csv_resolves_artifacts(job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_execute_run_csv_resolves_artifacts(
+    job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     outputs: Dict[str, Any] = {}
 
     def fake_run_csv(csv_path: str, mode: str, **kwargs):
@@ -79,7 +81,9 @@ def test_execute_run_csv_resolves_artifacts(job_manager: JobManager, tmp_path: P
     assert kwargs["metrics_host"] == "127.0.0.1"
 
 
-def test_execute_profile_returns_summary(job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_execute_profile_returns_summary(
+    job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     monkeypatch.setattr("adhash.service.jobs.profile_csv", lambda path, sample_limit: "fast")
 
     request = ProfileRequest(csv=str(tmp_path / "input.csv"), sample_limit=50)
@@ -88,7 +92,9 @@ def test_execute_profile_returns_summary(job_manager: JobManager, tmp_path: Path
     assert artifacts == {}
 
 
-def test_execute_batch_serializes_results(job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_execute_batch_serializes_results(
+    job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     spec_obj = SimpleNamespace(
         name="batch",
         command="run",

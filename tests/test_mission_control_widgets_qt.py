@@ -21,14 +21,12 @@ else:
 
     from adhash.batch.runner import load_spec
 
-
     @pytest.fixture(scope="module")
     def qt_app() -> QApplication:  # pragma: no cover - glue for Qt tests
         app = QApplication.instance()
         if app is not None:
             return cast(QApplication, app)
         return QApplication([])
-
 
     def test_update_events_renders_latest_entries(qt_app: QApplication) -> None:
         pane = widgets.MetricsPane()
@@ -44,7 +42,6 @@ else:
 
         assert rendered[0] == "12.35s — complete (backend=chaining)"
         assert rendered[1] == "0.00s — start (backend=chaining)"
-
 
     def test_builders_construct_controller_and_window(
         qt_app: QApplication,
@@ -90,7 +87,6 @@ else:
         if hasattr(central, "count"):
             assert central.count() >= 5  # type: ignore[attr-defined]
 
-
     def test_config_editor_save_and_presets(
         qt_app: QApplication,
         tmp_path: Path,
@@ -120,7 +116,6 @@ else:
         preset_path = preset_dir / "demo.toml"
         assert preset_path.exists()
         assert pane.preset_combo.findData("demo") >= 0  # type: ignore[attr-defined]
-
 
     def test_run_control_builder_round_trip(qt_app: QApplication, tmp_path: Path) -> None:
         pane = widgets.RunControlPane()
@@ -156,7 +151,6 @@ else:
         assert pane.mode_edit.text() == "chaining"
         assert pane.metrics_port_edit.text() == "4321"
 
-
     def test_benchmark_suite_cancel_discovery(
         qt_app: QApplication,
         monkeypatch: pytest.MonkeyPatch,
@@ -190,6 +184,7 @@ else:
 
         assert not pane._discovering_specs
         assert "cancelled" in pane.status_label.text().lower()
+
     def test_benchmark_suite_pane_lifecycle(
         qt_app: QApplication,
         tmp_path: Path,
@@ -202,7 +197,9 @@ else:
             lambda work, success, error: success(work()),
         )
         dna_pane = widgets.WorkloadDNAPane()
-        pane.add_analysis_callback(lambda result, job, spec: dna_pane.set_primary_result(result, job.name, spec))
+        pane.add_analysis_callback(
+            lambda result, job, spec: dna_pane.set_primary_result(result, job.name, spec)
+        )
 
         repo_root = Path(__file__).resolve().parents[1]
         csv_path = repo_root / "data" / "workloads" / "w_uniform.csv"
@@ -212,13 +209,13 @@ else:
             "\n".join(
                 [
                     "[batch]",
-                    "hashmap_cli = \"-m hashmap_cli\"",
-                    f"report = \"{report_path.name}\"",
+                    'hashmap_cli = "-m hashmap_cli"',
+                    f'report = "{report_path.name}"',
                     "",
                     "[[batch.jobs]]",
-                    "name = \"demo\"",
-                    "command = \"run-csv\"",
-                    f"csv = \"{csv_path.as_posix()}\"",
+                    'name = "demo"',
+                    'command = "run-csv"',
+                    f'csv = "{csv_path.as_posix()}"',
                 ]
             ),
             encoding="utf-8",
@@ -250,7 +247,6 @@ else:
         dna_pane.pin_baseline(baseline_result, "baseline")
         assert "Baseline" in dna_pane.baseline_label.text()
 
-
     def test_probe_visualizer_loads_trace(tmp_path: Path, qt_app: QApplication) -> None:
         pane = widgets.ProbeVisualizerPane()
 
@@ -281,7 +277,6 @@ else:
         assert "Probe visualization" in pane._text.toPlainText()
         assert "Seed entries" in pane._text.toPlainText()
         assert trace_path.as_posix() in pane._info_label.text()
-
 
     def test_probe_visualizer_handles_bad_json(tmp_path: Path, qt_app: QApplication) -> None:
         pane = widgets.ProbeVisualizerPane()

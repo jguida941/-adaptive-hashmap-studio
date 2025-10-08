@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from collections import deque
 import gzip
 import io
 import json
@@ -36,9 +37,6 @@ from .core import Metrics
 logger = logging.getLogger("hashmap_cli")
 
 
-
-
-
 def start_metrics_server(
     metrics: Metrics,
     port: int,
@@ -52,7 +50,9 @@ def start_metrics_server(
         server_version = "AdaptiveHashMap"
         sys_version = ""
 
-        def _set_common_headers(self, *, content_type: str, length: int, gzip_enabled: bool = False) -> None:
+        def _set_common_headers(
+            self, *, content_type: str, length: int, gzip_enabled: bool = False
+        ) -> None:
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(length))
             self.send_header("Cache-Control", CACHE_CONTROL)
@@ -72,7 +72,9 @@ def start_metrics_server(
             status: int = 200,
         ) -> None:
             self.send_response(status)
-            self._set_common_headers(content_type=content_type, length=len(body), gzip_enabled=gzip_enabled)
+            self._set_common_headers(
+                content_type=content_type, length=len(body), gzip_enabled=gzip_enabled
+            )
             self.end_headers()
             if self.command != "HEAD":
                 try:
@@ -139,7 +141,9 @@ def start_metrics_server(
             return value
 
         def _history_rows(self, limit: int) -> List[Dict[str, Any]]:
-            history_buffer = cast(Optional[Deque[Dict[str, Any]]], getattr(metrics, "history_buffer", None))
+            history_buffer = cast(
+                Optional[Deque[Dict[str, Any]]], getattr(metrics, "history_buffer", None)
+            )
             if history_buffer is not None:
                 return [tick for tick in list(history_buffer)[-limit:] if isinstance(tick, dict)]
             latest = getattr(metrics, "latest_tick", None)
@@ -187,7 +191,19 @@ def start_metrics_server(
 
         def _serve_events(self, parsed: ParseResult) -> None:
             limit = self._limit(parsed, 100, clamp=512)
-            events = list(getattr(metrics, "events_history", []))[-limit:]
+            history_source = getattr(metrics, "events_history", None)
+            if isinstance(history_source, list):
+                events_source = history_source
+            elif isinstance(history_source, deque):
+                events_source = list(history_source)
+            elif history_source is None:
+                events_source = []
+            else:
+                try:
+                    events_source = list(history_source)
+                except TypeError:
+                    events_source = []
+            events = events_source[-limit:]
             self._write_json(
                 {
                     "schema": EVENTS_SCHEMA,
@@ -231,9 +247,11 @@ def start_metrics_server(
                 event_summary = ""
                 if isinstance(events_payload, list):
                     event_summary = ";".join(
-                        f"{(evt or {}).get('type', 'event')}@{(evt or {}).get('t', '')}"
-                        if isinstance(evt, dict)
-                        else str(evt)
+                        (
+                            f"{(evt or {}).get('type', 'event')}@{(evt or {}).get('t', '')}"
+                            if isinstance(evt, dict)
+                            else str(evt)
+                        )
                         for evt in events_payload
                     )
                 writer.writerow(
@@ -307,7 +325,9 @@ def start_metrics_server(
                 "total": heatmap.get("total", 0) if isinstance(heatmap, dict) else 0,
                 "max": heatmap.get("max", 0) if isinstance(heatmap, dict) else 0,
                 "slot_span": heatmap.get("slot_span", 1) if isinstance(heatmap, dict) else 1,
-                "original_slots": heatmap.get("original_slots", 0) if isinstance(heatmap, dict) else 0,
+                "original_slots": (
+                    heatmap.get("original_slots", 0) if isinstance(heatmap, dict) else 0
+                ),
             }
             self._write_json(heatmap_payload)
 
@@ -400,12 +420,19 @@ def start_metrics_server(
             token_meta = ""
 
             if Handler.api_token:
-                token_meta = f'<meta name="adhash-token" content="{escape(Handler.api_token, quote=True)}"/>'
-            template = resources.files("adhash.metrics.static").joinpath("dashboard.html").read_text(encoding="utf-8")
+                token_meta = (
+                    f'<meta name="adhash-token" content="{escape(Handler.api_token, quote=True)}"/>'
+                )
+            template = (
+                resources.files("adhash.metrics.static")
+                .joinpath("dashboard.html")
+                .read_text(encoding="utf-8")
+            )
             return template.replace("<!--__TOKEN_META__-->", token_meta).encode("utf-8")
 
-
-        def log_message(self, fmt: str, *args: Any) -> None:  # pragma: no cover - suppress noisy logs
+        def log_message(
+            self, fmt: str, *args: Any
+        ) -> None:  # pragma: no cover - suppress noisy logs
             return
 
     Handler.api_token = os.getenv(TOKEN_ENV_VAR)

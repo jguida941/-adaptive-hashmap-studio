@@ -165,7 +165,9 @@ def analyze_workload_csv(
         header = {fn.strip() for fn in (reader.fieldnames or [])}
         missing = {"op", "key", "value"} - header
         if missing:
-            raise BadInputError(f"Missing header columns: {', '.join(sorted(missing))}", hint=_CSV_HINT)
+            raise BadInputError(
+                f"Missing header columns: {', '.join(sorted(missing))}", hint=_CSV_HINT
+            )
         unexpected = header - {"op", "key", "value"}
         if unexpected:
             raise BadInputError(
@@ -225,9 +227,7 @@ def analyze_workload_csv(
     mutation_fraction = (op_counts["put"] + op_counts["del"]) / total_rows
     key_space_depth = total_rows / unique_keys if unique_keys else 0.0
     numeric_fraction = numeric_keys / total_rows
-    sequential_fraction = (
-        numeric_step_matches / numeric_pair_total if numeric_pair_total else 0.0
-    )
+    sequential_fraction = numeric_step_matches / numeric_pair_total if numeric_pair_total else 0.0
     duplicate_fraction = dup_runs / total_rows
 
     entropy_bits = _shannon_entropy(key_counter.values())
@@ -323,11 +323,13 @@ def _format_hot_keys(
     formatted: List[Dict[str, float | str]] = []
     for key, count in most_common:
         share = count / total if total else 0.0
-        formatted.append({
-            "key": key,
-            "count": float(count),
-            "share": share,
-        })
+        formatted.append(
+            {
+                "key": key,
+                "count": float(count),
+                "share": share,
+            }
+        )
     return formatted
 
 
@@ -372,15 +374,21 @@ def _shannon_entropy(values: Iterable[int]) -> float:
 def format_workload_dna(result: WorkloadDNAResult) -> str:
     lines: List[str] = []
     size_hint = (
-        f"{result.file_size_bytes:,} bytes" if result.file_size_bytes is not None else "unknown size"
+        f"{result.file_size_bytes:,} bytes"
+        if result.file_size_bytes is not None
+        else "unknown size"
     )
-    lines.append(f"Workload DNA for {Path(result.csv_path).name} — {result.total_rows:,} rows ({size_hint})")
+    lines.append(
+        f"Workload DNA for {Path(result.csv_path).name} — {result.total_rows:,} rows ({size_hint})"
+    )
     mix_parts = [f"{op}: {result.op_mix.get(op, 0.0):.1%}" for op in sorted(result.op_mix.keys())]
     lines.append("Mix: " + ", ".join(mix_parts))
     lines.append(
         f"Unique keys ≈ {result.unique_keys_estimated:,} (avg touches {result.key_space_depth:.2f})"
     )
-    lines.append(f"Mutating ops: {result.mutation_fraction:.1%}; adj dupes: {result.adjacent_duplicate_fraction:.1%}")
+    lines.append(
+        f"Mutating ops: {result.mutation_fraction:.1%}; adj dupes: {result.adjacent_duplicate_fraction:.1%}"
+    )
     lines.append(
         "Key length → "
         f"mean {result.key_length_stats.get('mean', 0.0):.2f}, "

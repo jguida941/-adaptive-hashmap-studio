@@ -52,10 +52,12 @@ def test_validate_preset_file_rejects_invalid(tmp_path: Path) -> None:
 
 def test_validate_preset_file_handles_missing_sections(tmp_path: Path) -> None:
     empty_preset = tmp_path / "missing.toml"
-    empty_preset.write_text("""
+    empty_preset.write_text(
+        """
     [watchdog]
     enabled = true
-    """)
+    """
+    )
     with pytest.raises(ValueError):
         validate_preset_file(empty_preset)
 

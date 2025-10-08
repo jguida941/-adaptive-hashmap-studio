@@ -152,7 +152,9 @@ def create_app(manager: Optional[JobManagerProtocol] = None) -> Any:
         try:
             record = manager.get(job_id)
         except KeyError as exc:  # pragma: no cover - defensive guard
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found") from exc
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+            ) from exc
         return record.to_detail()
 
     @app.get(
@@ -163,7 +165,9 @@ def create_app(manager: Optional[JobManagerProtocol] = None) -> Any:
         try:
             logs = manager.iter_logs(job_id)
         except KeyError as exc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found") from exc
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+            ) from exc
 
         log_models: List[JobLogEntryModel] = [entry.to_model() for entry in logs]
 
@@ -184,9 +188,15 @@ def create_app(manager: Optional[JobManagerProtocol] = None) -> Any:
         try:
             record = manager.get(job_id)
         except KeyError as exc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found") from exc
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Job not found"
+            ) from exc
         cancelled = manager.cancel(job_id)
-        if not cancelled and record.status not in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED}:
+        if not cancelled and record.status not in {
+            JobState.COMPLETED,
+            JobState.FAILED,
+            JobState.CANCELLED,
+        }:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Job is already running and could not be cancelled.",

@@ -9,7 +9,11 @@ from .controller import MissionControlController
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from PyQt6.QtCore import Qt as QtNamespace
-    from PyQt6.QtWidgets import QApplication as QApplicationLike, QMainWindow as QMainWindowLike, QWidget as QWidgetLike
+    from PyQt6.QtWidgets import (
+        QApplication as QApplicationLike,
+        QMainWindow as QMainWindowLike,
+        QWidget as QWidgetLike,
+    )
 else:  # pragma: no cover - fallback aliases
     QtNamespace = Any  # type: ignore[assignment]
     QApplicationLike = Any  # type: ignore[assignment]
@@ -27,8 +31,12 @@ _QMainWindow = getattr(_QtWidgets, "QMainWindow", None)
 _QWidget = getattr(_QtWidgets, "QWidget", None)
 _Qt = getattr(_QtCore, "Qt", None)
 
-QAPPLICATION_CLS: Optional[Type[QApplicationLike]] = cast(Optional[Type[QApplicationLike]], _QApplication)
-QMAINWINDOW_CLS: Optional[Type[QMainWindowLike]] = cast(Optional[Type[QMainWindowLike]], _QMainWindow)
+QAPPLICATION_CLS: Optional[Type[QApplicationLike]] = cast(
+    Optional[Type[QApplicationLike]], _QApplication
+)
+QMAINWINDOW_CLS: Optional[Type[QMainWindowLike]] = cast(
+    Optional[Type[QMainWindowLike]], _QMainWindow
+)
 QWIDGET_CLS: Optional[Type[QWidgetLike]] = cast(Optional[Type[QWidgetLike]], _QWidget)
 QT_NAMESPACE: Optional[QtNamespace] = cast(Optional[QtNamespace], _Qt)
 
@@ -138,6 +146,7 @@ def build_window(
     controller_ref = controller
     if QT_NAMESPACE is not None:
         from .layout import create_dock
+
         if hasattr(window, "set_controller"):
             window.set_controller(controller_ref)  # type: ignore[attr-defined]
         dock_area = QT_NAMESPACE.DockWidgetArea.LeftDockWidgetArea  # type: ignore[attr-defined]

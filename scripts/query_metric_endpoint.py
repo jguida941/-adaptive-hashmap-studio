@@ -20,7 +20,9 @@ def fetch_json(url: str) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Query a metrics endpoint and dump JSON.")
     parser.add_argument("url", help="URL to fetch (e.g. http://127.0.0.1:9090/api/metrics)")
-    parser.add_argument("jq_path", nargs="?", default=None, help="Optional dotted path to extract from the JSON")
+    parser.add_argument(
+        "jq_path", nargs="?", default=None, help="Optional dotted path to extract from the JSON"
+    )
     args = parser.parse_args()
 
     try:
@@ -31,7 +33,7 @@ def main() -> int:
 
     if args.jq_path:
         current: Any = data
-        for key in args.jq_path.split('.'):
+        for key in args.jq_path.split("."):
             if isinstance(current, dict):
                 current = current.get(key)
             else:

@@ -7,7 +7,7 @@ parallel = true
 concurrency = multiprocessing
 
 [report]
-fail_under = 70
+fail_under = 90
 show_missing = true
 omit =
     src/adhash/mission_control/*

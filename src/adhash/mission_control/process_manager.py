@@ -7,6 +7,7 @@ import shlex
 import subprocess
 import threading
 from typing import Callable, Optional, Sequence
+import contextlib
 
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,9 @@ class ProcessManager:
                 self._on_output(line.rstrip())
         finally:
             code = proc.wait()
+            with contextlib.suppress(Exception):
+                if proc.stdout:
+                    proc.stdout.close()
             self._on_exit(code)
             with self._lock:
                 self._proc = None

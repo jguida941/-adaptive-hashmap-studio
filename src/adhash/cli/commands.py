@@ -1,4 +1,3 @@
-
 """CLI command registration and handlers for Adaptive Hash Map."""
 
 from __future__ import annotations
@@ -60,18 +59,34 @@ def register_subcommands(
 
     handlers: Dict[str, Callable[[argparse.Namespace], int]] = {}
 
-    def _register(name: str, help_text: Optional[str], configure: Callable[[argparse.ArgumentParser], Callable[[argparse.Namespace], int]]) -> None:
-        parser = subparsers.add_parser(name, help=help_text)
-        handler = configure(parser)
+    def _register(
+        name: str,
+        help_text: Optional[str],
+        configure: Callable[[argparse.ArgumentParser], Callable[[argparse.Namespace], int]],
+    ) -> None:
+        parser = subparsers.add_parser(name, help=help_text)  # pragma: no mutate
+        handler = configure(parser)  # pragma: no mutate
         handlers[name] = ctx.guard(handler)
 
     _register("put", None, lambda parser: _configure_put(parser, ctx))
     _register("get", None, lambda parser: _configure_get(parser, ctx))
     _register("del", None, lambda parser: _configure_del(parser, ctx))
     _register("items", None, lambda parser: _configure_items(parser, ctx))
-    _register("profile", "Profile a CSV workload and print recommended backend.", lambda parser: _configure_profile(parser, ctx))
-    _register("generate-csv", "Generate a synthetic workload CSV.", lambda parser: _configure_generate(parser, ctx))
-    _register("run-csv", "Replay a CSV workload (metrics, snapshots, compaction, JSON summary).", lambda parser: _configure_run_csv(parser, ctx))
+    _register(
+        "profile",
+        "Profile a CSV workload and print recommended backend.",
+        lambda parser: _configure_profile(parser, ctx),
+    )
+    _register(
+        "generate-csv",
+        "Generate a synthetic workload CSV.",
+        lambda parser: _configure_generate(parser, ctx),
+    )
+    _register(
+        "run-csv",
+        "Replay a CSV workload (metrics, snapshots, compaction, JSON summary).",
+        lambda parser: _configure_run_csv(parser, ctx),
+    )
     _register(
         "workload-dna",
         "Analyze a CSV workload for ratios, skew, and collision risk.",
@@ -82,7 +97,11 @@ def register_subcommands(
         "Inspect snapshot metadata and optionally search for keys.",
         lambda parser: _configure_inspect_snapshot(parser, ctx),
     )
-    _register("config-wizard", "Interactively generate a TOML config file.", lambda parser: _configure_config_wizard(parser, ctx))
+    _register(
+        "config-wizard",
+        "Interactively generate a TOML config file.",
+        lambda parser: _configure_config_wizard(parser, ctx),
+    )
     _register(
         "config-edit",
         "Edit a config file with preset support using the wizard schema.",
@@ -93,10 +112,26 @@ def register_subcommands(
         "Run paired run-csv jobs and compute throughput/latency deltas.",
         lambda parser: _configure_ab_compare(parser, ctx),
     )
-    _register("mission-control", "Launch the Mission Control desktop UI (PyQt6).", lambda parser: _configure_mission_control(parser, ctx))
-    _register("serve", "Serve the dashboard/metrics API without running a workload.", lambda parser: _configure_serve(parser, ctx))
-    _register("compact-snapshot", "Compact a RobinHoodMap snapshot offline.", lambda parser: _configure_compact_snapshot(parser, ctx))
-    _register("verify-snapshot", "Verify invariants of a snapshot; optional safe repair (RobinHoodMap).", lambda parser: _configure_verify_snapshot(parser, ctx))
+    _register(
+        "mission-control",
+        "Launch the Mission Control desktop UI (PyQt6).",
+        lambda parser: _configure_mission_control(parser, ctx),
+    )
+    _register(
+        "serve",
+        "Serve the dashboard/metrics API without running a workload.",
+        lambda parser: _configure_serve(parser, ctx),
+    )
+    _register(
+        "compact-snapshot",
+        "Compact a RobinHoodMap snapshot offline.",
+        lambda parser: _configure_compact_snapshot(parser, ctx),
+    )
+    _register(
+        "verify-snapshot",
+        "Verify invariants of a snapshot; optional safe repair (RobinHoodMap).",
+        lambda parser: _configure_verify_snapshot(parser, ctx),
+    )
     _register(
         "probe-visualize",
         "Trace probe paths for GET/PUT operations (text/JSON).",
@@ -106,7 +141,9 @@ def register_subcommands(
     return handlers
 
 
-def _configure_put(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_put(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("key")
     parser.add_argument("value")
 
@@ -122,13 +159,17 @@ def _configure_put(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable
     return handler
 
 
-def _configure_get(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_get(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("key")
 
     def handler(args: argparse.Namespace) -> int:
         m = ctx.build_map(args.mode)
         out = ctx.run_op(m, "get", args.key, None)
-        value = out if out not in {None, ""} else None
+        value = (
+            out if out not in {None, ""} else None
+        )  # pragma: no mutate - treat empty strings as missing
         data = {
             "mode": args.mode,
             "key": args.key,
@@ -141,7 +182,9 @@ def _configure_get(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable
     return handler
 
 
-def _configure_del(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_del(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("key")
 
     def handler(args: argparse.Namespace) -> int:
@@ -155,7 +198,9 @@ def _configure_del(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable
     return handler
 
 
-def _configure_items(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_items(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
 
     def handler(args: argparse.Namespace) -> int:
         m = ctx.build_map(args.mode)
@@ -168,9 +213,15 @@ def _configure_items(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callab
     return handler
 
 
-def _configure_profile(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_profile(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("--csv", required=True)
-    parser.add_argument("--then", nargs=argparse.REMAINDER, help="After profiling, run one command with the picked mode.")
+    parser.add_argument(
+        "--then",
+        nargs=argparse.REMAINDER,
+        help="After profiling, run one command with the picked mode.",
+    )
 
     def handler(args: argparse.Namespace) -> int:
         pick = ctx.profile_csv(args.csv)
@@ -182,7 +233,9 @@ def _configure_profile(parser: argparse.ArgumentParser, ctx: CLIContext) -> Call
     return handler
 
 
-def _configure_generate(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_generate(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("--outfile", required=True)
     parser.add_argument("--ops", type=int, default=100000)
     parser.add_argument("--read-ratio", type=float, default=0.8)
@@ -237,7 +290,9 @@ def _parse_port(raw: str) -> int:
     return port
 
 
-def _configure_run_csv(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_run_csv(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("--csv", required=True)
     parser.add_argument(
         "--metrics-port",
@@ -255,21 +310,48 @@ def _configure_run_csv(parser: argparse.ArgumentParser, ctx: CLIContext) -> Call
         default=None,
         help="Directory for metrics.ndjson (schema exported by metrics module)",
     )
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Validate the CSV workload and exit without executing it")
-    parser.add_argument("--csv-max-rows", type=int, default=5_000_000,
-                        help="Abort if CSV rows exceed this count (0 disables check)")
-    parser.add_argument("--csv-max-bytes", type=int, default=500 * 1024 * 1024,
-                        help="Abort if CSV file size exceeds this many bytes (0 disables check)")
-    parser.add_argument("--metrics-max-ticks", type=int, default=None,
-                        help="Optional retention limit for metrics.ndjson (keep last N ticks)")
-    parser.add_argument("--snapshot-in", type=str, default=None, help="Load initial snapshot (.gz auto-detected)")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate the CSV workload and exit without executing it",
+    )
+    parser.add_argument(
+        "--csv-max-rows",
+        type=int,
+        default=5_000_000,
+        help="Abort if CSV rows exceed this count (0 disables check)",
+    )
+    parser.add_argument(
+        "--csv-max-bytes",
+        type=int,
+        default=500 * 1024 * 1024,
+        help="Abort if CSV file size exceeds this many bytes (0 disables check)",
+    )
+    parser.add_argument(
+        "--metrics-max-ticks",
+        type=int,
+        default=None,
+        help="Optional retention limit for metrics.ndjson (keep last N ticks)",
+    )
+    parser.add_argument(
+        "--snapshot-in", type=str, default=None, help="Load initial snapshot (.gz auto-detected)"
+    )
     parser.add_argument("--snapshot-out", type=str, default=None, help="Write snapshot after run")
-    parser.add_argument("--compress", action="store_true", help="Gzip-compress snapshot writes or use .gz suffix")
-    parser.add_argument("--compact-interval", type=float, default=None, help="Seconds between proactive compactions")
-    parser.add_argument("--json-summary-out", type=str, default=None, help="Write final run stats to JSON for CI")
-    parser.add_argument("--latency-sample-k", type=int, default=1000, help="Reservoir size for latency sampling")
-    parser.add_argument("--latency-sample-every", type=int, default=128, help="Sample every Nth operation")
+    parser.add_argument(
+        "--compress", action="store_true", help="Gzip-compress snapshot writes or use .gz suffix"
+    )
+    parser.add_argument(
+        "--compact-interval", type=float, default=None, help="Seconds between proactive compactions"
+    )
+    parser.add_argument(
+        "--json-summary-out", type=str, default=None, help="Write final run stats to JSON for CI"
+    )
+    parser.add_argument(
+        "--latency-sample-k", type=int, default=1000, help="Reservoir size for latency sampling"
+    )
+    parser.add_argument(
+        "--latency-sample-every", type=int, default=128, help="Sample every Nth operation"
+    )
     parser.add_argument(
         "--latency-buckets",
         choices=ctx.latency_bucket_choices,
@@ -335,10 +417,15 @@ def _configure_run_csv(parser: argparse.ArgumentParser, ctx: CLIContext) -> Call
     return handler
 
 
-def _configure_workload_dna(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_workload_dna(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("--csv", required=True, help="CSV workload to inspect")
     parser.add_argument(
-        "--top-keys", type=int, default=10, help="Number of hot keys to report (default: %(default)s)"
+        "--top-keys",
+        type=int,
+        default=10,
+        help="Number of hot keys to report (default: %(default)s)",
     )
     parser.add_argument(
         "--max-tracked-keys",
@@ -362,8 +449,7 @@ def _configure_workload_dna(parser: argparse.ArgumentParser, ctx: CLIContext) ->
 
         if args.json_out:
             Path(args.json_out).expanduser().write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2 if args.pretty else None)
-                + "\n",
+                json.dumps(payload, ensure_ascii=False, indent=2 if args.pretty else None) + "\n",
                 encoding="utf-8",
             )
 
@@ -379,11 +465,17 @@ def _configure_workload_dna(parser: argparse.ArgumentParser, ctx: CLIContext) ->
     return handler
 
 
-def _configure_inspect_snapshot(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_inspect_snapshot(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("--in", dest="path", required=True, help="Snapshot file (.pkl or .pkl.gz)")
     parser.add_argument("--key", help="Exact key to search (literal evaluated if possible)")
-    parser.add_argument("--contains", default=None, help="Filter preview keys containing this substring")
-    parser.add_argument("--limit", type=int, default=20, help="Preview entry limit (default: %(default)s)")
+    parser.add_argument(
+        "--contains", default=None, help="Filter preview keys containing this substring"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=20, help="Preview entry limit (default: %(default)s)"
+    )
 
     def handler(args: argparse.Namespace) -> int:
         path = Path(args.path).expanduser().resolve()
@@ -542,7 +634,9 @@ def _parse_literal(text: str) -> Any:
         return text
 
 
-def _configure_config_wizard(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_config_wizard(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument(
         "--outfile",
         default="config/config.generated.toml",
@@ -561,7 +655,9 @@ def _configure_config_wizard(parser: argparse.ArgumentParser, ctx: CLIContext) -
     return handler
 
 
-def _configure_config_edit(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_config_edit(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument(
         "--infile",
         default="config/config.toml",
@@ -572,10 +668,22 @@ def _configure_config_edit(parser: argparse.ArgumentParser, ctx: CLIContext) -> 
         default=None,
         help="Where to write the updated config (default: overwrite --infile or config/config.toml)",
     )
-    parser.add_argument("--apply-preset", default=None, help="Optional preset name/path to use as the starting point")
-    parser.add_argument("--save-preset", default=None, help="Optional preset name to save after editing")
-    parser.add_argument("--presets-dir", default=None, help="Directory for presets (default: ~/.adhash/presets or ADHASH_PRESETS_DIR)")
-    parser.add_argument("--force", action="store_true", help="Overwrite preset when --save-preset already exists")
+    parser.add_argument(
+        "--apply-preset",
+        default=None,
+        help="Optional preset name/path to use as the starting point",
+    )
+    parser.add_argument(
+        "--save-preset", default=None, help="Optional preset name to save after editing"
+    )
+    parser.add_argument(
+        "--presets-dir",
+        default=None,
+        help="Directory for presets (default: ~/.adhash/presets or ADHASH_PRESETS_DIR)",
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="Overwrite preset when --save-preset already exists"
+    )
     parser.add_argument("--list-presets", action="store_true", help="List presets and exit")
 
     def handler(args: argparse.Namespace) -> int:
@@ -613,10 +721,16 @@ def _configure_config_edit(parser: argparse.ArgumentParser, ctx: CLIContext) -> 
     return handler
 
 
-def _configure_ab_compare(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_ab_compare(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("--csv", required=True, help="CSV workload to replay for both runs")
-    parser.add_argument("--baseline-label", default="baseline", help="Friendly label for the baseline run")
-    parser.add_argument("--candidate-label", default="candidate", help="Friendly label for the candidate run")
+    parser.add_argument(
+        "--baseline-label", default="baseline", help="Friendly label for the baseline run"
+    )
+    parser.add_argument(
+        "--candidate-label", default="candidate", help="Friendly label for the candidate run"
+    )
     parser.add_argument(
         "--baseline-mode",
         default="adaptive",
@@ -631,14 +745,29 @@ def _configure_ab_compare(parser: argparse.ArgumentParser, ctx: CLIContext) -> C
     )
     parser.add_argument("--baseline-config", help="Config TOML applied to the baseline run")
     parser.add_argument("--candidate-config", help="Config TOML applied to the candidate run")
-    parser.add_argument("--latency-sample-k", type=int, default=1000, help="Reservoir size for latency sampling")
-    parser.add_argument("--latency-sample-every", type=int, default=128, help="Sample every Nth operation")
-    parser.add_argument("--metrics-max-ticks", type=int, default=None, help="Limit history buffer for metrics output")
-    parser.add_argument("--out-dir", default="results/ab", help="Directory for comparison artifacts")
+    parser.add_argument(
+        "--latency-sample-k", type=int, default=1000, help="Reservoir size for latency sampling"
+    )
+    parser.add_argument(
+        "--latency-sample-every", type=int, default=128, help="Sample every Nth operation"
+    )
+    parser.add_argument(
+        "--metrics-max-ticks",
+        type=int,
+        default=None,
+        help="Limit history buffer for metrics output",
+    )
+    parser.add_argument(
+        "--out-dir", default="results/ab", help="Directory for comparison artifacts"
+    )
     parser.add_argument("--json-out", help="Override path for the comparison JSON artifact")
     parser.add_argument("--markdown-out", help="Optional Markdown summary path")
-    parser.add_argument("--metrics-dir", help="Directory for per-run metrics artifacts (defaults under --out-dir)")
-    parser.add_argument("--no-artifacts", action="store_true", help="Skip writing metrics summaries / presets")
+    parser.add_argument(
+        "--metrics-dir", help="Directory for per-run metrics artifacts (defaults under --out-dir)"
+    )
+    parser.add_argument(
+        "--no-artifacts", action="store_true", help="Skip writing metrics summaries / presets"
+    )
 
     def handler(args: argparse.Namespace) -> int:
         out_dir = Path(args.out_dir).expanduser().resolve()
@@ -661,9 +790,15 @@ def _configure_ab_compare(parser: argparse.ArgumentParser, ctx: CLIContext) -> C
 
         if args.no_artifacts:
             metrics_dir: Optional[Path] = None
-            markdown_path: Optional[str] = None if args.markdown_out is None else markdown_out.as_posix()
+            markdown_path: Optional[str] = (
+                None if args.markdown_out is None else markdown_out.as_posix()
+            )
         else:
-            metrics_dir = Path(args.metrics_dir).expanduser().resolve() if args.metrics_dir else out_dir / "artifacts"
+            metrics_dir = (
+                Path(args.metrics_dir).expanduser().resolve()
+                if args.metrics_dir
+                else out_dir / "artifacts"
+            )
             metrics_dir.mkdir(parents=True, exist_ok=True)
             markdown_path = markdown_out.as_posix()
 
@@ -689,7 +824,9 @@ def _configure_ab_compare(parser: argparse.ArgumentParser, ctx: CLIContext) -> C
     return handler
 
 
-def _configure_mission_control(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_mission_control(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
 
     def handler(args: argparse.Namespace) -> int:
         from adhash.mission_control.app import run_mission_control
@@ -699,7 +836,9 @@ def _configure_mission_control(parser: argparse.ArgumentParser, ctx: CLIContext)
     return handler
 
 
-def _configure_serve(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_serve(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument(
         "--port",
         default=None,
@@ -711,10 +850,18 @@ def _configure_serve(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callab
         help="Host/interface to bind (env fallback: ADHASH_METRICS_HOST, default: 127.0.0.1)",
     )
     parser.add_argument("--source", default=None, help="Optional metrics NDJSON file to load")
-    parser.add_argument("--follow", action="store_true", help="Tail the metrics source for new ticks")
-    parser.add_argument("--history-limit", type=int, default=360, help="History buffer length for dashboard plots")
-    parser.add_argument("--poll-interval", type=float, default=1.0, help="Seconds between tail polls when following")
-    parser.add_argument("--compare", default=None, help="Optional comparison JSON produced by ab-compare")
+    parser.add_argument(
+        "--follow", action="store_true", help="Tail the metrics source for new ticks"
+    )
+    parser.add_argument(
+        "--history-limit", type=int, default=360, help="History buffer length for dashboard plots"
+    )
+    parser.add_argument(
+        "--poll-interval", type=float, default=1.0, help="Seconds between tail polls when following"
+    )
+    parser.add_argument(
+        "--compare", default=None, help="Optional comparison JSON produced by ab-compare"
+    )
 
     def handler(args: argparse.Namespace) -> int:
         history_limit = args.history_limit if args.history_limit and args.history_limit > 0 else 360
@@ -763,7 +910,9 @@ def _configure_serve(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callab
             else:
                 port = 9090
 
-        server, stop_server = start_metrics_server(metrics, port, host=host, comparison=comparison_payload)
+        server, stop_server = start_metrics_server(
+            metrics, port, host=host, comparison=comparison_payload
+        )
         bound_port = getattr(server, "server_port", port)
         ctx.logger.info(
             "Serve mode: dashboard available at http://%s:%d/ (source=%s, follow=%s)",
@@ -772,9 +921,7 @@ def _configure_serve(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callab
             args.source or "none",
             args.follow,
         )
-        print(
-            f"Dashboard: http://{host.replace('127.0.0.1', 'localhost')}:{bound_port}/"
-        )
+        print(f"Dashboard: http://{host.replace('127.0.0.1', 'localhost')}:{bound_port}/")
 
         def ingest(tick: Dict[str, Any]) -> None:
             apply_tick_to_metrics(metrics, tick)
@@ -804,7 +951,9 @@ def _configure_serve(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callab
     return handler
 
 
-def _configure_compact_snapshot(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_compact_snapshot(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("--in", dest="infile", required=True)
     parser.add_argument("--out", dest="outfile", required=True)
     parser.add_argument("--compress", action="store_true")
@@ -861,11 +1010,20 @@ def _configure_compact_snapshot(parser: argparse.ArgumentParser, ctx: CLIContext
     return handler
 
 
-def _configure_verify_snapshot(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_verify_snapshot(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument("--in", dest="infile", required=True)
     parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--repair", action="store_true", help="Attempt safe repair (RobinHood compaction).")
-    parser.add_argument("--out", dest="outfile", default=None, help="Write repaired snapshot to this path (default: overwrite input)")
+    parser.add_argument(
+        "--repair", action="store_true", help="Attempt safe repair (RobinHood compaction)."
+    )
+    parser.add_argument(
+        "--out",
+        dest="outfile",
+        default=None,
+        help="Write repaired snapshot to this path (default: overwrite input)",
+    )
 
     def handler(args: argparse.Namespace) -> int:
         if ctx.json_enabled():
@@ -890,7 +1048,9 @@ def _configure_verify_snapshot(parser: argparse.ArgumentParser, ctx: CLIContext)
             )
             return int(Exit.OK)
 
-        rc = ctx.verify_snapshot(args.infile, verbose=args.verbose, repair=args.repair, repair_out=args.outfile)
+        rc = ctx.verify_snapshot(
+            args.infile, verbose=args.verbose, repair=args.repair, repair_out=args.outfile
+        )
         if rc != 0:
             raise InvariantError("Snapshot verification failed")
         ctx.emit_success(
@@ -902,7 +1062,9 @@ def _configure_verify_snapshot(parser: argparse.ArgumentParser, ctx: CLIContext)
     return handler
 
 
-def _configure_probe_visualize(parser: argparse.ArgumentParser, ctx: CLIContext) -> Callable[[argparse.Namespace], int]:
+def _configure_probe_visualize(
+    parser: argparse.ArgumentParser, ctx: CLIContext
+) -> Callable[[argparse.Namespace], int]:
     parser.add_argument(
         "--operation",
         choices=["get", "put"],
@@ -957,7 +1119,9 @@ def _configure_probe_visualize(parser: argparse.ArgumentParser, ctx: CLIContext)
             export_path = None
 
         text_output = "\n".join(
-            format_trace_lines(trace, snapshot=snapshot_text, seeds=args.seed, export_path=export_path)
+            format_trace_lines(
+                trace, snapshot=snapshot_text, seeds=args.seed, export_path=export_path
+            )
         )
 
         payload: Dict[str, Any] = {"trace": cast(Any, trace)}
@@ -990,7 +1154,9 @@ def _resolve_probe_map(args: argparse.Namespace, ctx: CLIContext) -> Any:
             try:
                 return HybridAdaptiveHashMap.load(str(snapshot_path))
             except Exception as exc:  # noqa: BLE001
-                raise PolicyError(f"Unsupported snapshot payload for probe visualizer: {exc}") from exc
+                raise PolicyError(
+                    f"Unsupported snapshot payload for probe visualizer: {exc}"
+                ) from exc
         raise PolicyError("Snapshot must contain a chaining, robinhood, or adaptive map")
 
     mode = getattr(args, "mode", "adaptive") or "adaptive"
@@ -1008,6 +1174,8 @@ def _seed_map_for_probe(map_obj: Any, seeds: List[str]) -> None:
             raise BadInputError(f"Seed entry '{entry}' must be KEY=VALUE")
         key, value = entry.split("=", 1)
         put_fn(key, value)
+
+
 def _parse_items_output(raw: Optional[str]) -> List[Dict[str, str]]:
     if not raw:
         return []

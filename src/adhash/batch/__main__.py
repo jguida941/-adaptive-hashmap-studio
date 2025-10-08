@@ -10,7 +10,9 @@ from .runner import BatchRunner, load_spec
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run Adaptive Hash Map batch benchmarks from a TOML spec.")
+    parser = argparse.ArgumentParser(
+        description="Run Adaptive Hash Map batch benchmarks from a TOML spec."
+    )
     parser.add_argument("--spec", help="Path to the TOML batch specification.")
     parser.add_argument(
         "--list",

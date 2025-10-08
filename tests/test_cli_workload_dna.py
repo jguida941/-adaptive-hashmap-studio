@@ -17,13 +17,17 @@ class DummyContext:
         self._captured: list[str] = []
         self._captured_payload: list[dict[str, object]] = []
 
-    def analyze_workload(self, csv_path: str, top_keys: int, max_tracked_keys: int) -> WorkloadDNAResult:
+    def analyze_workload(
+        self, csv_path: str, top_keys: int, max_tracked_keys: int
+    ) -> WorkloadDNAResult:
         assert Path(csv_path).name == "sample.csv"
         assert top_keys == 10
         assert max_tracked_keys == 200_000
         return self._result
 
-    def emit_success(self, command: str, *, text: str | None = None, data: dict[str, object] | None = None) -> None:
+    def emit_success(
+        self, command: str, *, text: str | None = None, data: dict[str, object] | None = None
+    ) -> None:
         assert command == "workload-dna"
         if text is not None:
             self._captured.append(text)

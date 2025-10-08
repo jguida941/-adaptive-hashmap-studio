@@ -46,7 +46,9 @@ def _items_to_dict(items: Iterable[Tuple[Any, Any]]) -> Dict[Any, Any]:
 
 @settings(max_examples=150, deadline=None)
 @given(st.lists(_operation_strategy(), min_size=1, max_size=120))
-def test_two_level_chaining_behaves_like_dict(operations: list[Tuple[str, Any, int | None]]) -> None:
+def test_two_level_chaining_behaves_like_dict(
+    operations: list[Tuple[str, Any, int | None]]
+) -> None:
     map_impl = TwoLevelChainingMap(initial_buckets=4, groups_per_bucket=2)
     model: Dict[Any, int] = {}
     seen_keys: set[Any] = set()

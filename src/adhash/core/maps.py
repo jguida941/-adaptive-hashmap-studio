@@ -42,7 +42,9 @@ class TwoLevelChainingMap:
             raise ValueError("groups_per_bucket must be a power of two")
         self.M = initial_buckets
         self.G = groups_per_bucket
-        self._buckets: List[List[List[_Entry]]] = [[[] for _ in range(self.G)] for _ in range(self.M)]
+        self._buckets: List[List[List[_Entry]]] = [
+            [[] for _ in range(self.G)] for _ in range(self.M)
+        ]
         self._size = 0
 
     def __len__(self) -> int:
@@ -346,7 +348,11 @@ class HybridAdaptiveHashMap:
         return len(self._backend)
 
     def backend_name(self) -> str:
-        return f"{self._name} -> {self._migrating_to} (migrating)" if self._migrating_to else self._name
+        return (
+            f"{self._name} -> {self._migrating_to} (migrating)"
+            if self._migrating_to
+            else self._name
+        )
 
     def __getstate__(self) -> Dict[str, Any]:
         while self._migrating_to:
@@ -391,7 +397,9 @@ class HybridAdaptiveHashMap:
             self._migrate_target = RobinHoodMap(rounded)
         else:
             self._migrating_to = target
-            self._migrate_target = TwoLevelChainingMap(self.cfg.initial_buckets, self.cfg.groups_per_bucket)
+            self._migrate_target = TwoLevelChainingMap(
+                self.cfg.initial_buckets, self.cfg.groups_per_bucket
+            )
         self._migrate_iter = iter(self._backend.items())
         logger.info("Migration started: %s -> %s", self._name, target)
 
@@ -436,7 +444,10 @@ class HybridAdaptiveHashMap:
             if ap > self.cfg.max_avg_probe_robinhood:
                 self._begin_migration("chaining")
             elif self._backend.tombstone_ratio() >= self.cfg.max_tombstone_ratio:
-                logger.info("Auto-compacting RobinHoodMap (tombstone_ratio=%.3f)", self._backend.tombstone_ratio())
+                logger.info(
+                    "Auto-compacting RobinHoodMap (tombstone_ratio=%.3f)",
+                    self._backend.tombstone_ratio(),
+                )
                 self._backend.compact()
                 if self.cfg.on_compaction:
                     try:
@@ -530,6 +541,7 @@ class MetricsSink:
 
     def attach(self, m: Any) -> None:
         if isinstance(m, HybridAdaptiveHashMap):
+
             def on_migration(old: str, new: str) -> None:
                 self.inc_migrations()
                 self.record_event("switch", {"from": old, "to": new})

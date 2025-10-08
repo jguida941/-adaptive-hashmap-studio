@@ -194,9 +194,7 @@ class BatchRunner:
                 logger.warning("Failed to parse summary for job %s: %s", job.name, exc)
                 summary = None
         if proc.returncode != 0:
-            logger.warning(
-                "Batch job %s exited with status %s", job.name, proc.returncode
-            )
+            logger.warning("Batch job %s exited with status %s", job.name, proc.returncode)
         return JobResult(
             spec=job,
             exit_code=proc.returncode,
@@ -209,19 +207,23 @@ class BatchRunner:
     def _build_command(self, job: JobSpec) -> List[str]:
         cli = [self.python, *self.spec.hashmap_cli]
         if job.command == "profile":
-            cli.extend([
-                "profile",
-                "--csv",
-                str(job.csv),
-            ])
+            cli.extend(
+                [
+                    "profile",
+                    "--csv",
+                    str(job.csv),
+                ]
+            )
         elif job.command == "run-csv":
-            cli.extend([
-                "--mode",
-                job.mode,
-                "run-csv",
-                "--csv",
-                str(job.csv),
-            ])
+            cli.extend(
+                [
+                    "--mode",
+                    job.mode,
+                    "run-csv",
+                    "--csv",
+                    str(job.csv),
+                ]
+            )
             if job.json_summary:
                 job.json_summary.parent.mkdir(parents=True, exist_ok=True)
                 cli.extend(["--json-summary-out", str(job.json_summary)])
@@ -237,19 +239,31 @@ class BatchRunner:
         return cli
 
     def _write_report(self, results: Iterable[JobResult]) -> None:
-        lines = ["# Adaptive Hash Map Batch Report", "", f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}", ""]
+        lines = [
+            "# Adaptive Hash Map Batch Report",
+            "",
+            f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+            "",
+        ]
 
         metrics_summary: List[_SummaryRow] = []
 
-        rows = ["| Job | Command | Status | Duration (s) | Ops/s | Backend |", "|---|---|---|---:|---:|---|"]
+        rows = [
+            "| Job | Command | Status | Duration (s) | Ops/s | Backend |",
+            "|---|---|---|---:|---:|---|",
+        ]
         for result in results:
             status = "✅" if result.exit_code == 0 else "❌"
             summary = result.summary or {}
             ops_per_second = summary.get("ops_per_second") or summary.get("throughput_ops_per_sec")
             backend_raw = summary.get("final_backend") or summary.get("backend") or "-"
             backend = str(backend_raw)
-            latency_packet = summary.get("latency_ms") if isinstance(summary.get("latency_ms"), dict) else {}
-            latency_overall = latency_packet.get("overall") if isinstance(latency_packet, dict) else {}
+            latency_packet = (
+                summary.get("latency_ms") if isinstance(summary.get("latency_ms"), dict) else {}
+            )
+            latency_overall = (
+                latency_packet.get("overall") if isinstance(latency_packet, dict) else {}
+            )
             latency_p99 = latency_overall.get("p99") if isinstance(latency_overall, dict) else None
 
             safe_name = self._clean_text(result.spec.name, max_chars=120)
@@ -316,7 +330,7 @@ class BatchRunner:
                     f'<div class="ops-track"><div class="ops-fill" style="width:{width:.1f}%"></div></div>'
                     f'<span class="ops-value">{row.ops:,.0f} ops/s</span></div>'
                 )
-            lines.append('</div>')
+            lines.append("</div>")
             lines.append("")
 
         lines.append("## Job Logs")

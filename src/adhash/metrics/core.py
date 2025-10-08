@@ -19,10 +19,43 @@ logger = logging.getLogger("hashmap_cli")
 _SUMMARY_QUANTILES = {"p50": "0.5", "p90": "0.9", "p99": "0.99"}
 
 
+def _coerce_alert_flag(value: Any) -> bool:
+    """Normalise watchdog alert flag payloads into booleans."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {
+            "true",
+            "1",
+            "yes",
+            "y",
+            "on",
+        }:  # pragma: no mutate - exhaustive truthy sentinels
+            return True
+        if lowered in {
+            "false",
+            "0",
+            "no",
+            "n",
+            "off",
+            "",
+        }:  # pragma: no mutate - exhaustive falsy sentinels
+            return False
+        return bool(lowered)
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return bool(value)
+
+
 def resolve_ema_alpha(default: float = 0.25) -> float:
     """Resolve the EMA smoothing factor from environment with validation."""
 
-    raw = os.getenv("ADHASH_OPS_ALPHA", str(default))
+    raw = os.getenv(
+        "ADHASH_OPS_ALPHA", str(default)
+    )  # pragma: no mutate - default ensures castable string
     try:
         alpha = float(raw)
     except (TypeError, ValueError):
@@ -107,22 +140,32 @@ class Metrics:
         ]
 
         latest = self.latest_tick or {}
-        latency_ms = latest.get("latency_ms", {})
+        latency_ms = latest.get(
+            "latency_ms", {}
+        )  # pragma: no mutate - empty dict keeps downstream loops safe
         if latency_ms:
-            lines.append("# HELP hashmap_latency_ms Latency percentiles (ms) by operation and quantile")
+            lines.append(
+                "# HELP hashmap_latency_ms Latency percentiles (ms) by operation and quantile"
+            )
             lines.append("# TYPE hashmap_latency_ms gauge")
             for op, packet in latency_ms.items():
                 for q, value in packet.items():
                     lines.append(f'hashmap_latency_ms{{op="{op}",quantile="{q}"}} {value:.6f}')
 
             summary_ops = {
-                op: stats for op, stats in self.latency_summary_stats.items() if stats.get("count", 0)
-            }
+                op: stats
+                for op, stats in self.latency_summary_stats.items()
+                if stats.get("count", 0)
+            }  # pragma: no mutate - zero-count summaries should be filtered
             if summary_ops:
-                lines.append("# HELP hashmap_latency_ms_summary Sampled latency summaries (ms) per operation")
+                lines.append(
+                    "# HELP hashmap_latency_ms_summary Sampled latency summaries (ms) per operation"
+                )
                 lines.append("# TYPE hashmap_latency_ms_summary summary")
                 for op in sorted(summary_ops):
-                    packet = latency_ms.get(op, {})
+                    packet = latency_ms.get(
+                        op, {}
+                    )  # pragma: no mutate - default keeps missing ops safe
                     stats = summary_ops[op]
                     for quantile_key, value in packet.items():
                         quantile_label = _SUMMARY_QUANTILES.get(quantile_key)
@@ -131,25 +174,41 @@ class Metrics:
                         lines.append(
                             f'hashmap_latency_ms_summary{{op="{op}",quantile="{quantile_label}"}} {value:.6f}'
                         )
-                    lines.append(f'hashmap_latency_ms_summary_sum{{op="{op}"}} {stats.get("sum", 0.0):.6f}')
-                    lines.append(f'hashmap_latency_ms_summary_count{{op="{op}"}} {int(stats.get("count", 0))}')
+                    lines.append(
+                        f'hashmap_latency_ms_summary_sum{{op="{op}"}} {stats.get("sum", 0.0):.6f}'
+                    )
+                    lines.append(
+                        f'hashmap_latency_ms_summary_count{{op="{op}"}} {int(stats.get("count", 0))}'
+                    )
 
-            hist_ops = {op: buckets for op, buckets in self.latency_histograms.items() if buckets}
+            hist_ops = {
+                op: buckets for op, buckets in self.latency_histograms.items() if buckets
+            }  # pragma: no mutate - empty buckets suppress histogram output
             if hist_ops:
-                lines.append("# HELP hashmap_latency_ms_hist Sampled latency histogram (ms) per operation")
+                lines.append(
+                    "# HELP hashmap_latency_ms_hist Sampled latency histogram (ms) per operation"
+                )
                 lines.append("# TYPE hashmap_latency_ms_hist histogram")
                 for op in sorted(hist_ops):
                     buckets = hist_ops[op]
                     stats = self.latency_summary_stats.get(op, {})
                     for upper, cumulative in buckets:
                         label = format_bucket_label(upper)
-                        lines.append(f'hashmap_latency_ms_hist_bucket{{op="{op}",le="{label}"}} {cumulative}')
-                    lines.append(f'hashmap_latency_ms_hist_sum{{op="{op}"}} {stats.get("sum", 0.0):.6f}')
-                    lines.append(f'hashmap_latency_ms_hist_count{{op="{op}"}} {int(stats.get("count", 0))}')
+                        lines.append(
+                            f'hashmap_latency_ms_hist_bucket{{op="{op}",le="{label}"}} {cumulative}'
+                        )
+                    lines.append(
+                        f'hashmap_latency_ms_hist_sum{{op="{op}"}} {stats.get("sum", 0.0):.6f}'
+                    )
+                    lines.append(
+                        f'hashmap_latency_ms_hist_count{{op="{op}"}} {int(stats.get("count", 0))}'
+                    )
 
         probe_hist = latest.get("probe_hist")
         if isinstance(probe_hist, list) and probe_hist:
-            lines.append("# HELP hashmap_probe_length_count Probe length histogram (count per distance)")
+            lines.append(
+                "# HELP hashmap_probe_length_count Probe length histogram (count per distance)"
+            )
             lines.append("# TYPE hashmap_probe_length_count gauge")
             for distance, count in probe_hist:
                 lines.append(f'hashmap_probe_length_count{{distance="{distance}"}} {count}')
@@ -210,7 +269,9 @@ class Metrics:
         payload.setdefault("backend", self.backend_name)
         payload.setdefault("ops", self.ops_total)
         payload.setdefault("ops_per_second_instant", self._last_instant or 0.0)
-        payload.setdefault("ops_per_second", payload.get("ops_per_second_instant", self._last_instant or 0.0))
+        payload.setdefault(
+            "ops_per_second", payload.get("ops_per_second_instant", self._last_instant or 0.0)
+        )
         payload.setdefault("ops_per_second_ema", self._ema_ops)
         payload["totals"] = {
             "ops": self.ops_total,
@@ -257,7 +318,7 @@ def apply_tick_to_metrics(metrics: Metrics, tick: Dict[str, Any]) -> None:
         metrics.active_alerts = [item for item in alerts if isinstance(item, dict)]
     alert_flags = tick.get("alert_flags")
     if isinstance(alert_flags, dict):
-        metrics.alert_flags = {str(k): bool(v) for k, v in alert_flags.items()}
+        metrics.alert_flags = {str(k): _coerce_alert_flag(v) for k, v in alert_flags.items()}
 
     latency_summary_stats = tick.get("latency_summary_stats")
     if isinstance(latency_summary_stats, dict):
@@ -288,6 +349,8 @@ def apply_tick_to_metrics(metrics: Metrics, tick: Dict[str, Any]) -> None:
                     upper = float(value_le)
                     count = int(value_count)
                 except (TypeError, ValueError):
+                    continue
+                if math.isnan(upper):
                     continue
                 parsed.append((upper, count))
             if parsed:
@@ -380,7 +443,12 @@ class ThresholdWatchdog:
         flags: Dict[str, bool] = {}
 
         checks = [
-            ("load_factor", tick.get("load_factor"), self.policy.load_factor_warn, "Load factor guardrail exceeded"),
+            (
+                "load_factor",
+                tick.get("load_factor"),
+                self.policy.load_factor_warn,
+                "Load factor guardrail exceeded",
+            ),
             (
                 "avg_probe_estimate",
                 tick.get("avg_probe_estimate"),

@@ -34,7 +34,9 @@ def run_cli(args: list[str], cwd: Path | None = None):
         hashmap_cli.OUTPUT_JSON = False
         if cwd is not None:
             os.chdir(prev_dir)
-    return types.SimpleNamespace(returncode=code, stdout=stdout.getvalue(), stderr=stderr.getvalue())
+    return types.SimpleNamespace(
+        returncode=code, stdout=stdout.getvalue(), stderr=stderr.getvalue()
+    )
 
 
 def test_probe_visualize_text(tmp_path: Path) -> None:
@@ -81,13 +83,15 @@ def test_probe_visualize_json_output(tmp_path: Path) -> None:
 
 
 def test_probe_visualize_requires_value_for_put() -> None:
-    result = run_cli([
-        "probe-visualize",
-        "--operation",
-        "put",
-        "--key",
-        "K1",
-    ])
+    result = run_cli(
+        [
+            "probe-visualize",
+            "--operation",
+            "put",
+            "--key",
+            "K1",
+        ]
+    )
     assert result.returncode == 2
     assert "requires --value" in result.stderr
 

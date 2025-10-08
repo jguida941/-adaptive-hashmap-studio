@@ -32,6 +32,7 @@ except Exception:  # pragma: no cover - headless environments
 
 
 if QObject is not None:  # pragma: no cover - requires PyQt6
+
     class _UiBridge(QObject):  # type: ignore[misc]
         call = pyqtSignal(object)
 
@@ -48,7 +49,9 @@ if QObject is not None:  # pragma: no cover - requires PyQt6
             func, args, kwargs = payload
             if callable(func):
                 func(*args, **kwargs)
+
 else:  # pragma: no cover - PyQt6 missing
+
     class _UiBridge:
         def submit(self, func: Callable[..., None], *args, **kwargs) -> None:
             func(*args, **kwargs)
@@ -186,9 +189,13 @@ class MissionControlController:
                 return
             if isinstance(data, dict) and isinstance(data.get("trace"), dict):
                 trace = data["trace"]
-                seeds = data.get("seed_entries") if isinstance(data.get("seed_entries"), list) else None
+                seeds = (
+                    data.get("seed_entries") if isinstance(data.get("seed_entries"), list) else None
+                )
                 snapshot = data.get("snapshot") if isinstance(data.get("snapshot"), str) else None
-                export_path = data.get("export_json") if isinstance(data.get("export_json"), str) else None
+                export_path = (
+                    data.get("export_json") if isinstance(data.get("export_json"), str) else None
+                )
 
                 def _update_probe() -> None:
                     self._probe_pane.display_trace(
@@ -275,7 +282,9 @@ class MissionControlController:
 
         self._ui.submit(_update)
 
-    def _handle_workload_analysis(self, result: WorkloadDNAResult, job: JobSpec, spec_path: Path) -> None:
+    def _handle_workload_analysis(
+        self, result: WorkloadDNAResult, job: JobSpec, spec_path: Path
+    ) -> None:
         if self._dna_pane is None:
             return
 

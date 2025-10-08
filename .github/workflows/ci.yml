@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   push:
@@ -10,16 +10,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  quality:
+    name: Quality • py${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ['3.11', '3.12']
+        python-version: ["3.11", "3.12"]
+    env:
+      QT_QPA_PLATFORM: offscreen
+      QT_OPENGL: software
+      QT_QUICK_BACKEND: software
+      QTWEBENGINE_DISABLE_SANDBOX: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Install Qt system packages
         run: |
           sudo apt-get update
@@ -29,15 +42,14 @@ jobs:
             libxkbcommon-x11-0 \
             libglu1-mesa \
             libegl1
+
       - name: Cache pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
-      - name: Install dependencies
-        run: |
-          python -m pip install -U pip
-          python -m pip install -e '.[dev,gui]'
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
 
       - name: Cache pytest state
         uses: actions/cache@v4
@@ -48,25 +60,53 @@ jobs:
           key: ${{ runner.os }}-pytest-state-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-pytest-state-${{ matrix.python-version }}-
-      - name: Lint
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install -e '.[dev,gui,service]'
+
+      - name: Tool versions
+        if: matrix.python-version == '3.11'
+        run: |
+          python --version
+          pip --version
+          ruff --version
+          mypy --version
+          pytest --version
+
+      - name: Secret scan (gitleaks)
+        if: matrix.python-version == '3.11'
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --source . --no-banner --redact
+
+      - name: Ruff lint
+        if: matrix.python-version == '3.11'
         run: ruff check .
-      - name: Type check
-        run: mypy .
-      - name: Unit tests & coverage
+
+      - name: Ruff format check
+        if: matrix.python-version == '3.11'
+        run: ruff format --check .
+
+      - name: Type check (mypy --strict)
+        if: matrix.python-version == '3.11'
+        run: mypy --config-file mypy.ini src tests
+
+      - name: Unit + property tests with coverage
         env:
-          QT_QPA_PLATFORM: offscreen
           COVERAGE_PROCESS_START: .coveragerc
           PYTHONPATH: tools/coverage:${PYTHONPATH}
           HYPOTHESIS_PROFILE: ci
         run: |
           set -o pipefail
-          xvfb-run -a coverage run -m pytest --durations=15 -q | tee pytest-output.txt
+          xvfb-run -a coverage run -m pytest -q --maxfail=1 --durations=10 | tee pytest-output.txt
           coverage combine
-          coverage report
           coverage xml
+          coverage report
 
       - name: Record slowest pytest durations
-        if: always()
+        if: always() && matrix.python-version == '3.11'
         run: |
           python - <<'PY'
 import os
@@ -110,15 +150,44 @@ pathlib.Path("pytest-slowest.md").write_text(text, encoding="utf-8")
 PY
 
       - name: Upload slowest-test summary
-        if: always() && hashFiles('pytest-slowest.md') != ''
+        if: always() && matrix.python-version == '3.11' && hashFiles('pytest-slowest.md') != ''
         uses: actions/upload-artifact@v4
         with:
           name: pytest-slowest
           path: pytest-slowest.md
+
+      - name: Coverage gate (fail under 90%)
+        if: matrix.python-version == '3.11'
+        run: |
+          python - <<'PY'
+import xml.etree.ElementTree as ET
+report = ET.parse("coverage.xml").getroot()
+line_rate = float(report.get("line-rate", 0))
+percent = round(line_rate * 100, 2)
+print(f"coverage: {percent:.2f}%")
+if percent < 90.0:
+    raise SystemExit("Coverage threshold not met (expected >= 90%)")
+PY
+
+      - name: pip check
+        if: matrix.python-version == '3.11'
+        run: python -m pip check
+
+      - name: Dependency vulnerability scan (pip-audit)
+        if: matrix.python-version == '3.11'
+        run: pip-audit -e .
+
+      - name: Static security scan (bandit)
+        if: matrix.python-version == '3.11'
+        run: bandit -q -c .bandit.yaml -r src
+
       - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.11'
         uses: codecov/codecov-action@v4
         with:
           files: coverage.xml
           fail_ci_if_error: true
+
       - name: Smoke workload & schema validation
+        if: matrix.python-version == '3.11'
         run: make smoke

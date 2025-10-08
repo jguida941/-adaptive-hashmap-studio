@@ -23,6 +23,8 @@ dev = [
   "ruff>=0.6.9",
   "mypy>=1.11",
   "coverage[toml]>=7.6",
+  "bandit>=1.7",
+  "pip-audit>=2.7",
   "build>=1.2",
   "towncrier>=23.11",
   "twine>=5.0",
@@ -87,68 +89,74 @@ showcontent = true
 hashmap-cli = "hashmap_cli:console_main"
 validate-metrics-ndjson = "hashmap_cli.validate_metrics_ndjson:console_main"
 
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-
 [tool.coverage.run]
 branch = true
 source = ["adhash", "hashmap_cli"]
+parallel = true
 
 [tool.coverage.report]
-fail_under = 50
+fail_under = 90
 show_missing = true
 
-[tool.mypy]
-mypy_path = "stubs"
+[tool.hypothesis]
+deadline = 500
+derandomize = true
+print_blob = true
+verbosity = "normal"
 
-[[tool.mypy.overrides]]
-module = "textual.*"
-ignore_missing_imports = true
+[tool.hypothesis.profiles.ci]
+settings.deadline = 500
+settings.derandomize = true
 
-[[tool.mypy.overrides]]
-module = "adhash.tui.app"
-ignore_errors = true
+[tool.hypothesis.profiles.dev]
+settings.deadline = 1000
+settings.derandomize = false
+settings.max_examples = 200
 
-[[tool.mypy.overrides]]
-module = "pyqtgraph"
-ignore_missing_imports = true
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
 
-[[tool.mypy.overrides]]
-module = "fastapi"
-ignore_missing_imports = true
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "W",
+  "I",
+  "B",
+  "UP",
+  "N",
+  "C4",
+  "ARG",
+  "BLE",
+  "DTZ",
+  "S",
+  "RET",
+  "SIM",
+  "TID",
+]
+ignore = [
+  "ANN101",
+  "ANN102",
+  "D100",
+  "D104",
+]
+fix = false
 
-[[tool.mypy.overrides]]
-module = "fastapi.*"
-ignore_missing_imports = true
+[tool.ruff.lint.isort]
+known-first-party = ["adhash", "hashmap_cli"]
 
-[[tool.mypy.overrides]]
-module = "fastapi.responses"
-ignore_missing_imports = true
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S311"]
+"src/adhash/mission_control/**" = ["TID252"]
 
-[[tool.mypy.overrides]]
-module = "httpx"
-ignore_missing_imports = true
+[tool.ruff.format]
+line-ending = "lf"
 
-[[tool.mypy.overrides]]
-module = "httpx.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "uvicorn"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "uvicorn.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "adhash.service.api"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "adhash.service.__main__"
-ignore_missing_imports = true
+[tool.black]
+line-length = 100
+target-version = ["py311"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -157,6 +165,11 @@ where = ["src"]
 "adhash" = ["py.typed", "metrics/static/*.html", "metrics/static/*.css", "metrics/static/*.js", "contracts/*.json"]
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-q --maxfail=1 --durations=10"
 testpaths = ["tests"]
+xfail_strict = true
 norecursedirs = [".*", "build", "dist", "mutants", "results", "runs", "tmp"]
+filterwarnings = [
+  "error",
+  "ignore::DeprecationWarning:pkg_resources",
+]

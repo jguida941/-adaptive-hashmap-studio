@@ -55,6 +55,7 @@ _MainThreadInvoker: Type[_BaseMainThreadInvoker]
 
 
 if QObject is not None and pyqtSignal is not None:  # type: ignore[truthy-bool]
+
     class _QtMainThreadInvoker(QObject, _BaseMainThreadInvoker):  # type: ignore[misc]
         """Queue callbacks onto the Qt main thread."""
 
@@ -71,17 +72,16 @@ if QObject is not None and pyqtSignal is not None:  # type: ignore[truthy-bool]
             if callable(payload):
                 payload()
 
-
     _MainThreadInvoker = _QtMainThreadInvoker
 
 else:  # pragma: no cover - PyQt6 missing in test envs
+
     class _StubMainThreadInvoker(_BaseMainThreadInvoker):  # type: ignore[too-few-public-methods]
         def __init__(self, parent: Optional[object] = None) -> None:
             super().__init__(parent)
 
         def submit(self, func: Callable[[], None]) -> None:
             func()
-
 
     _MainThreadInvoker = _StubMainThreadInvoker
 
@@ -448,9 +448,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
         self.spec_selector.addItem(self._format_spec_label(path), text)  # type: ignore[attr-defined]
 
     def _render_spec(self, spec: BatchSpec, path: Path) -> None:
-        self.summary_label.setText(
-            f"{len(spec.jobs)} jobs → {path.name}"
-        )
+        self.summary_label.setText(f"{len(spec.jobs)} jobs → {path.name}")
         self.summary_view.setPlainText(self._format_spec_details(spec))
         self._populate_jobs(spec)
         self.analysis_view.setPlainText("Select a job and run analysis to view workload DNA.")
@@ -702,10 +700,10 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
             combo.setObjectName("dnaViewSelector")
             combo.blockSignals(True)
             for label in (
-                    self._VIEW_HEATMAP,
-                    self._VIEW_BUCKETS_ID,
-                    self._VIEW_BUCKETS_SORTED,
-                    self._VIEW_DEPTH,
+                self._VIEW_HEATMAP,
+                self._VIEW_BUCKETS_ID,
+                self._VIEW_BUCKETS_SORTED,
+                self._VIEW_DEPTH,
             ):
                 combo.addItem(label)
             combo.setCurrentText(self._view_mode)
@@ -864,7 +862,9 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
             comparison_plot.clear()
             comparison_plot.hide()
 
-    def _render_plot(self, plot: Optional[pg.PlotWidget], result: Optional[WorkloadDNAResult], title: str) -> None:
+    def _render_plot(
+        self, plot: Optional[pg.PlotWidget], result: Optional[WorkloadDNAResult], title: str
+    ) -> None:
         if plot is None:
             return
         plot.clear()
@@ -1098,12 +1098,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
 
     def _on_primary_hover(self, scene_pos: Any) -> None:
         primary_plot = self._primary_plot
-        if (
-            primary_plot is None
-            or QToolTip is None
-            or Qt is None
-            or pg is None
-        ):
+        if primary_plot is None or QToolTip is None or Qt is None or pg is None:
             return
         if self._view_mode == self._VIEW_HEATMAP:
             handled = self._handle_heatmap_hover(scene_pos)

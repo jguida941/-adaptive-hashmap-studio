@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import time
 from pathlib import Path
@@ -28,8 +29,11 @@ from .common import (
     style_plot,
 )
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from ..metrics_client import MetricsSnapshot
+
 
 class MetricsPane(QWidget):  # type: ignore[misc]
     """Displays snapshot summaries and recent events."""
@@ -93,8 +97,11 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         controls_row.addStretch()
         layout.addLayout(controls_row)
 
+        self._user_history_override = False
         if self._history_slider is not None:
             self._history_slider.valueChanged.connect(self._on_history_slider_changed)  # type: ignore[attr-defined]
+            self._history_slider.sliderPressed.connect(self._on_history_slider_pressed)  # type: ignore[attr-defined]
+            self._history_slider.sliderReleased.connect(self._on_history_slider_released)  # type: ignore[attr-defined]
         if self._latency_series_selector is not None:
             self._latency_series_selector.currentTextChanged.connect(self._on_latency_selector_changed)  # type: ignore[attr-defined]
         if self._latency_metric_selector is not None:
@@ -163,7 +170,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                 throughput_layout.setContentsMargins(6, 6, 6, 6)
                 throughput_layout.addWidget(self._ops_plot)
                 idx = tabs.addTab(throughput_container, "Throughput")  # type: ignore[attr-defined]
-                tip_throughput = "Operations per second. Shows how quickly the hashmap processes requests."
+                tip_throughput = (
+                    "Operations per second. Shows how quickly the hashmap processes requests."
+                )
                 _set_tab_tooltip(idx, tip_throughput)
             else:
                 layout.addWidget(self._ops_plot)
@@ -218,7 +227,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                 self._latency_status.setObjectName("histStatusLabel")
                 latency_layout.addWidget(self._latency_status)
                 idx = tabs.addTab(latency_container, "Latency")  # type: ignore[attr-defined]
-                tip_latency = "Histogram of operation response times. Highlights slow paths or spikes."
+                tip_latency = (
+                    "Histogram of operation response times. Highlights slow paths or spikes."
+                )
                 _set_tab_tooltip(idx, tip_latency)
 
                 self._probe_plot = pg.PlotWidget(title="Probe distribution")  # type: ignore[attr-defined]
@@ -245,7 +256,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                 self._probe_status.setObjectName("histStatusLabel")
                 probe_layout.addWidget(self._probe_status)
                 idx = tabs.addTab(probe_container, "Probe")  # type: ignore[attr-defined]
-                tip_probe = "Probe distance (collision resolution steps). Lower is better for performance."
+                tip_probe = (
+                    "Probe distance (collision resolution steps). Lower is better for performance."
+                )
                 _set_tab_tooltip(idx, tip_probe)
 
                 self._heatmap_plot = pg.PlotWidget(title="Key density heatmap")  # type: ignore[attr-defined]
@@ -268,11 +281,11 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                     cmap = None
                     positions = [0.0, 0.25, 0.5, 0.75, 1.0]
                     colors = [
-                        (20, 11, 52),   # deep violet
+                        (20, 11, 52),  # deep violet
                         (81, 18, 124),  # purple
-                        (183, 55, 121), # magenta
-                        (248, 149, 64), # orange
-                        (240, 249, 33), # yellow
+                        (183, 55, 121),  # magenta
+                        (248, 149, 64),  # orange
+                        (240, 249, 33),  # yellow
                     ]
                     if hasattr(pg, "colormap"):
                         try:
@@ -281,18 +294,21 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                         except Exception:
                             cmap = None
                     if cmap is not None and hasattr(pg, "GradientWidget"):
-                        legend = pg.GradientWidget(orientation='bottom')  # type: ignore[attr-defined]
+                        legend = pg.GradientWidget(orientation="bottom")  # type: ignore[attr-defined]
                         try:
                             state = {
-                                'mode': 'rgb',
-                                'ticks': [
-                                    (p, (r, g, b, 255))
-                                    for p, (r, g, b) in zip(positions, colors)
+                                "mode": "rgb",
+                                "ticks": [
+                                    (p, (r, g, b, 255)) for p, (r, g, b) in zip(positions, colors)
                                 ],
                             }
                             legend.restoreState(state)  # type: ignore[attr-defined]
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.debug(
+                                "metrics pane: restoring heatmap legend state failed: %s",
+                                exc,
+                                exc_info=False,
+                            )
                         legend.setMinimumHeight(22)
                         legend.setMaximumHeight(28)
                         legend.setObjectName("heatmapLegend")
@@ -370,7 +386,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                     analytics_layout.addWidget(self._fft_status)
 
                     idx = tabs.addTab(analytics_container, "Analytics")  # type: ignore[attr-defined]
-                    tip_analytics = "Advanced analytics: scatter plots and latency FFT for deeper diagnostics."
+                    tip_analytics = (
+                        "Advanced analytics: scatter plots and latency FFT for deeper diagnostics."
+                    )
                     _set_tab_tooltip(idx, tip_analytics)
 
             if tabs is not None:
@@ -390,7 +408,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         throughput = self._estimate_throughput(snapshot)
         self._update_charts(snapshot, throughput)
 
-        was_replay = self._in_replay_mode()
+        slider = self._history_slider
+        slider_locked = bool(slider and (slider.isSliderDown() or self._user_history_override))
+        was_replay = self._in_replay_mode() or slider_locked
         self._append_history(snapshot, throughput)
         self._refresh_history_slider(preserve_position=was_replay)
 
@@ -400,6 +420,7 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         self._refresh_summary_for_current_tick()
         self._update_history_label()
         self._update_analytics_panels()
+        self._render_history_index(display_index)
 
     def update_events(self, events: list[dict[str, Any]]) -> None:
         if not events:
@@ -410,7 +431,11 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             etype = event.get("type", "event")
             backend = event.get("backend", "-")
             timestamp = event.get("t", "-")
-            lines.append(f"{timestamp:.2f}s — {etype} (backend={backend})" if isinstance(timestamp, (int, float)) else f"{etype} (backend={backend})")
+            lines.append(
+                f"{timestamp:.2f}s — {etype} (backend={backend})"
+                if isinstance(timestamp, (int, float))
+                else f"{etype} (backend={backend})"
+            )
         self.events_view.setPlainText("\n".join(lines))
 
     # ------------------------------------------------------------------
@@ -424,13 +449,21 @@ class MetricsPane(QWidget):  # type: ignore[misc]
     def _current_history_index(self) -> int:
         if not self._history:
             return 0
-        if self._history_slider is None or not self._history_slider.isEnabled():
+        slider = self._history_slider
+        if slider is None or not slider.isEnabled():
             return len(self._history) - 1
-        value = self._history_slider.value()
+        if self._user_history_override and not slider.isSliderDown():
+            value = slider.sliderPosition()
+        else:
+            value = slider.sliderPosition() if slider.isSliderDown() else slider.value()
         return max(1, min(value, len(self._history))) - 1
 
     def _in_replay_mode(self) -> bool:
-        if self._history_slider is None or not self._history or not self._history_slider.isEnabled():
+        if (
+            self._history_slider is None
+            or not self._history
+            or not self._history_slider.isEnabled()
+        ):
             return False
         return self._history_slider.value() < self._history_slider.maximum()
 
@@ -438,21 +471,28 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         if self._history_slider is None:
             return
         length = len(self._history)
-        self._history_slider.blockSignals(True)
+        slider = self._history_slider
+        slider.blockSignals(True)
+        slider_down = slider.isSliderDown()
         if length <= 1:
-            self._history_slider.setEnabled(False)
-            self._history_slider.setMaximum(1)
-            self._history_slider.setMinimum(1)
-            self._history_slider.setValue(1)
+            slider.setEnabled(False)
+            slider.setMaximum(1)
+            slider.setMinimum(1)
+            slider.setValue(1)
         else:
-            previous_value = self._history_slider.value()
-            self._history_slider.setEnabled(True)
-            self._history_slider.setMinimum(1)
-            self._history_slider.setMaximum(length)
+            previous_value = (
+                slider.sliderPosition()
+                if (slider_down or self._user_history_override)
+                else slider.value()
+            )
+            slider.setEnabled(True)
+            slider.setMinimum(1)
+            slider.setMaximum(length)
             target = previous_value if preserve_position and previous_value <= length else length
             target = max(1, min(target, length))
-            self._history_slider.setValue(target)
-        self._history_slider.blockSignals(False)
+            if not (slider_down or self._user_history_override):
+                slider.setValue(target)
+        slider.blockSignals(False)
 
     def _update_history_label(self) -> None:
         if self._history_label is None:
@@ -469,12 +509,50 @@ class MetricsPane(QWidget):  # type: ignore[misc]
     def _on_history_slider_changed(self, _value: int) -> None:
         if not self._history:
             return
+        if self._history_slider is not None and self._history_slider.isSliderDown():
+            self._user_history_override = True
         index = self._current_history_index()
         snapshot = self._history[index]
         self.update_events(snapshot.events)
         self._refresh_summary_for_current_tick()
         self._update_history_label()
         self._update_analytics_panels()
+        self._render_history_index(index)
+
+    def _on_history_slider_pressed(self) -> None:
+        self._user_history_override = True
+
+    def _on_history_slider_released(self) -> None:
+        slider = self._history_slider
+        if slider is None:
+            self._user_history_override = False
+            return
+        if slider.value() >= slider.maximum():
+            self._user_history_override = False
+        else:
+            self._user_history_override = True
+
+    def _render_history_index(self, index: int) -> None:
+        if not self._history:
+            return
+        index = max(0, min(index, len(self._history) - 1))
+        snapshot = self._history[index]
+        if self._supports_charts:
+            count = min(index + 1, len(self._ops_x))
+            if self._ops_curve is not None:
+                if count > 0:
+                    self._ops_curve.setData(self._ops_x[:count], self._ops_y[:count])
+                else:
+                    self._ops_curve.setData([], [])
+            count_load = min(index + 1, len(self._load_x))
+            if self._load_curve is not None:
+                if count_load > 0:
+                    self._load_curve.setData(self._load_x[:count_load], self._load_y[:count_load])
+                else:
+                    self._load_curve.setData([], [])
+        self._update_latency_chart(snapshot.latency)
+        self._update_probe_chart(snapshot.probe)
+        self._update_heatmap(snapshot.heatmap)
 
     def _current_latency_selection(self) -> Tuple[str, str]:
         series = "overall"
@@ -524,7 +602,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             for snapshot, throughput in zip(self._history, self._history_throughput):
                 if throughput is None:
                     continue
-                load = snapshot.tick.get("load_factor") if isinstance(snapshot.tick, Mapping) else None
+                load = (
+                    snapshot.tick.get("load_factor") if isinstance(snapshot.tick, Mapping) else None
+                )
                 if isinstance(load, (int, float)):
                     xs.append(float(load))
                     ys.append(float(throughput))
@@ -544,7 +624,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
 
             values: List[float] = []
             for snapshot in self._history:
-                packet = snapshot.tick.get("latency_ms") if isinstance(snapshot.tick, Mapping) else None
+                packet = (
+                    snapshot.tick.get("latency_ms") if isinstance(snapshot.tick, Mapping) else None
+                )
                 if isinstance(packet, Mapping):
                     series_payload = packet.get(series)
                     if isinstance(series_payload, Mapping):
@@ -596,7 +678,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                 }
             )
         try:
-            Path(filename).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            Path(filename).write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
         except Exception as exc:  # pragma: no cover - defensive
             self.events_view.appendPlainText(f"Failed to export history: {exc}")
             return
@@ -678,6 +762,14 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                 return float(value)
         return None
 
+    @staticmethod
+    def _format_latency_value(value_ms: float) -> str:
+        if value_ms < 0.01:
+            return f"{value_ms * 1000.0:.2f} µs"
+        if value_ms < 1.0:
+            return f"{value_ms:.3f} ms"
+        return f"{value_ms:.3f} ms"
+
     def _summarize_snapshot(self, snapshot: MetricsSnapshot, throughput: Optional[float]) -> str:
         tick = snapshot.tick
         backend = tick.get("backend", "unknown")
@@ -702,19 +794,73 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             segments.append("Ops/s: —")
 
         series, metric = self._current_latency_selection()
-        latency_value = None
+        metric_label = metric.upper()
+        fmt_latency = self._format_latency_value
+
+        backend_value = None
         latency_ms = tick.get("latency_ms")
         if isinstance(latency_ms, Mapping):
             series_payload = latency_ms.get(series)
             if isinstance(series_payload, Mapping):
                 raw = series_payload.get(metric)
                 if isinstance(raw, (int, float)):
-                    latency_value = float(raw)
-        metric_label = metric.upper()
-        if latency_value is not None:
-            segments.append(f"Latency ({series} {metric_label}): {latency_value:.3f} ms")
+                    backend_value = float(raw)
+
+        loop_latency_value = None
+        latency_loop_ms = tick.get("latency_loop_ms")
+        if isinstance(latency_loop_ms, Mapping):
+            loop_series_payload = latency_loop_ms.get(series)
+            if isinstance(loop_series_payload, Mapping):
+                loop_raw = loop_series_payload.get(metric)
+                if isinstance(loop_raw, (int, float)):
+                    loop_latency_value = float(loop_raw)
+
+        loop_median_value = None
+        loop_median_raw = tick.get("loop_latency_median_ms")
+        if isinstance(loop_median_raw, (int, float)):
+            loop_median_value = float(loop_median_raw)
+
+        implied_latency = None
+        if isinstance(display_throughput, (int, float)) and display_throughput > 0.0:
+            implied_latency = 1000.0 / display_throughput
+        implied_raw = tick.get("implied_latency_ms")
+        if implied_latency is None and isinstance(implied_raw, (int, float)):
+            implied_latency = float(implied_raw)
+
+        primary_scope = "backend"
+        primary_value: Optional[float] = backend_value
+        if primary_value is None and loop_latency_value is not None:
+            primary_scope = "loop"
+            primary_value = loop_latency_value
+
+        badges: List[str] = []
+        if primary_scope == "backend" and loop_latency_value is not None:
+            badges.append(f"[Loop {series} {metric_label}: {fmt_latency(loop_latency_value)}]")
+        elif primary_scope == "loop" and backend_value is not None:
+            badges.append(f"[Backend {series} {metric_label}: {fmt_latency(backend_value)}]")
+
+        baseline = (
+            loop_median_value
+            if loop_median_value is not None
+            else loop_latency_value if loop_latency_value is not None else primary_value
+        )
+        if (
+            implied_latency is not None
+            and baseline is not None
+            and baseline > 0.0
+            and abs(implied_latency - baseline) / baseline > 0.5
+        ):
+            badges.append(f"[⚠ Mean: {fmt_latency(implied_latency)}]")
+
+        if primary_value is not None:
+            primary_text = (
+                f"Latency ({primary_scope} {series} {metric_label}): {fmt_latency(primary_value)}"
+            )
         else:
-            segments.append(f"Latency ({series} {metric_label}): —")
+            primary_text = f"Latency ({series} {metric_label}): —"
+        if badges:
+            primary_text = f"{primary_text} {' '.join(badges[:2])}"
+        segments.append(primary_text)
 
         return " | ".join(segments)
 
@@ -792,7 +938,7 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             self._probe_status.setVisible(not series)
         axis = self._probe_plot.getAxis("bottom")  # type: ignore[attr-defined]
         if series:
-            axis.setTicks([[ (distance, str(distance)) for distance in xs ]])
+            axis.setTicks([[(distance, str(distance)) for distance in xs]])
         else:
             axis.setTicks([])
         self._probe_plot.enableAutoRange(axis="y", enable=True)  # type: ignore[attr-defined]

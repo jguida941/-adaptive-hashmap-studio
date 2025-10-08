@@ -15,7 +15,9 @@ def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_job_manager_warns_on_invalid_max_jobs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_job_manager_warns_on_invalid_max_jobs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     monkeypatch.setenv("ADHASH_MAX_JOBS", "not-a-number")
     base_dir = tmp_path / "jobs"
     with caplog.at_level(logging.WARNING):
@@ -43,7 +45,9 @@ def test_job_manager_log_and_detail_roundtrip(tmp_path: Path) -> None:
         assert detail.kind == "run-csv"
 
         log_path = manager.base_dir / record.id / "logs.ndjson"
-        log_entries = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+        log_entries = [
+            json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()
+        ]
         assert log_entries[0]["message"] == "hello world"
     finally:
         manager.shutdown()
@@ -77,7 +81,15 @@ def test_job_manager_batch_schedules_job(monkeypatch: pytest.MonkeyPatch, tmp_pa
     manager = JobManager(base_dir=tmp_path / "jobs")
 
     class FakeWorker:
-        def __init__(self, *, job_id: str, manager: JobManager, description: str, target, args: Tuple[Any, ...]) -> None:
+        def __init__(
+            self,
+            *,
+            job_id: str,
+            manager: JobManager,
+            description: str,
+            target,
+            args: Tuple[Any, ...],
+        ) -> None:
             self.job_id = job_id
             self.manager = manager
             self.description = description

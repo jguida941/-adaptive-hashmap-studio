@@ -17,19 +17,19 @@ def make_input(responses: List[str]) -> Iterator[str]:
 def test_config_wizard_generates_toml(tmp_path: Path) -> None:
     responses = [
         "robinhood",  # start backend
-        "128",        # initial buckets
-        "16",         # groups per bucket
-        "128",        # initial capacity
-        "4096",       # incremental batch
-        "0.75",       # max lf chaining
-        "6",          # max group len
-        "5.5",        # max avg probe
-        "0.2",        # max tombstone ratio
-        "250000",     # large map warn
-        "y",          # watchdog enabled
-        "0.88",       # load factor warn
-        "7.5",        # avg probe warn
-        "0.3",        # tombstone ratio warn
+        "128",  # initial buckets
+        "16",  # groups per bucket
+        "128",  # initial capacity
+        "4096",  # incremental batch
+        "0.75",  # max lf chaining
+        "6",  # max group len
+        "5.5",  # max avg probe
+        "0.2",  # max tombstone ratio
+        "250000",  # large map warn
+        "y",  # watchdog enabled
+        "0.88",  # load factor warn
+        "7.5",  # avg probe warn
+        "0.3",  # tombstone ratio warn
     ]
     iterator = make_input(responses)
     path = tmp_path / "custom.toml"
@@ -51,16 +51,16 @@ def test_config_wizard_generates_toml(tmp_path: Path) -> None:
 
 def test_config_wizard_allows_none_thresholds(tmp_path: Path) -> None:
     responses = [
-        "",   # default start backend
-        "",   # initial buckets
-        "",   # groups per bucket
-        "",   # initial capacity
-        "",   # incremental batch
-        "",   # max lf
-        "",   # group len
-        "",   # max avg probe
-        "",   # tombstone ratio
-        "",   # large warn
+        "",  # default start backend
+        "",  # initial buckets
+        "",  # groups per bucket
+        "",  # initial capacity
+        "",  # incremental batch
+        "",  # max lf
+        "",  # group len
+        "",  # max avg probe
+        "",  # tombstone ratio
+        "",  # large warn
         "n",  # watchdog enabled? false
         "none",
         "none",

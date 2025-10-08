@@ -61,7 +61,12 @@ def _unpack_header(data: bytes) -> Tuple[SnapshotHeader, int]:
         raise ValueError(f"Unsupported snapshot flags: {flags:#04x}")
     if payload_len > _MAX_PAYLOAD_BYTES:
         raise ValueError("Snapshot payload exceeds maximum allowed size")
-    return SnapshotHeader(version=version, flags=flags, checksum_len=checksum_len, payload_len=payload_len), HEADER_SIZE
+    return (
+        SnapshotHeader(
+            version=version, flags=flags, checksum_len=checksum_len, payload_len=payload_len
+        ),
+        HEADER_SIZE,
+    )
 
 
 def dumps_snapshot(obj: Any, *, compress: bool = True) -> bytes:
@@ -76,7 +81,9 @@ def dumps_snapshot(obj: Any, *, compress: bool = True) -> bytes:
             payload = buffer.getvalue()
         flags |= FLAG_GZIP
     checksum = _blake2b(payload, digest_size=32)
-    header = SnapshotHeader(version=1, flags=flags, checksum_len=len(checksum), payload_len=len(payload))
+    header = SnapshotHeader(
+        version=1, flags=flags, checksum_len=len(checksum), payload_len=len(payload)
+    )
     return _pack_header(header) + checksum + payload
 
 
@@ -88,7 +95,7 @@ def loads_snapshot(blob: bytes) -> Any:
     if len(blob) < checksum_end + header.payload_len:
         raise ValueError("Truncated snapshot")
     checksum = blob[offset:checksum_end]
-    payload = blob[checksum_end:checksum_end + header.payload_len]
+    payload = blob[checksum_end : checksum_end + header.payload_len]
     expected = _blake2b(payload, digest_size=header.checksum_len)
     if checksum != expected:
         raise ValueError("Checksum mismatch")

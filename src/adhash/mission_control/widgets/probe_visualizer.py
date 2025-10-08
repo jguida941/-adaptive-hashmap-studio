@@ -96,7 +96,9 @@ class ProbeVisualizerPane(QWidget):  # type: ignore[misc]
         if QFileDialog is None:
             self._info_label.setText("File dialog requires PyQt6; install the GUI extras.")
             return
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select trace JSON", "", "JSON (*.json);;All files (*.*)")
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select trace JSON", "", "JSON (*.json);;All files (*.*)"
+        )
         if file_path:
             self.load_trace(Path(file_path))
 
@@ -112,7 +114,9 @@ class ProbeVisualizerPane(QWidget):  # type: ignore[misc]
             trace = data["trace"]
             seeds = data.get("seed_entries") if isinstance(data.get("seed_entries"), list) else None
             snapshot = data.get("snapshot") if isinstance(data.get("snapshot"), str) else None
-            export_path = data.get("export_json") if isinstance(data.get("export_json"), str) else None
+            export_path = (
+                data.get("export_json") if isinstance(data.get("export_json"), str) else None
+            )
         elif isinstance(data, dict):
             trace = data
             seeds = None
@@ -121,10 +125,11 @@ class ProbeVisualizerPane(QWidget):  # type: ignore[misc]
         else:
             trace = None
         if trace is None:
-            self._info_label.setText("Trace JSON must contain an object or {\"trace\": {...}}")
+            self._info_label.setText('Trace JSON must contain an object or {"trace": {...}}')
             self._text.setPlainText("")
             return
         export_path_path = Path(export_path) if isinstance(export_path, str) else None
         seeds_list = list(seeds) if isinstance(seeds, list) else None
-        self.display_trace(trace, source=path, snapshot=snapshot, seeds=seeds_list, export_path=export_path_path)
-
+        self.display_trace(
+            trace, source=path, snapshot=snapshot, seeds=seeds_list, export_path=export_path_path
+        )

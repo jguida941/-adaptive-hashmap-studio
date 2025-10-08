@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,22 +24,31 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      - name: Install X/GL libraries for headless Qt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libxkbcommon0 libxcb-xinerama0 libxcb-cursor0
+
       - name: Cache pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-mutation-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-mutation-
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install .[dev] mutmut
+          python -m pip install -e '.[dev]' mutmut
 
       - name: Tool versions
         run: |
@@ -47,11 +58,6 @@ jobs:
           mutmut --version
           pytest --version
           pip freeze > .mutmut-ci/pip-freeze.txt
-
-      - name: Install X/GL libs for headless Qt
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb libgl1 libxkbcommon0 libxcb-xinerama0 libxcb-cursor0
 
       - name: Cache mutation state
         uses: actions/cache@v4
@@ -63,7 +69,41 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mutmut-state-
 
-      - name: Run mutation tests (do not fail early)
+      - name: Determine mutation scope
+        id: scope
+        run: |
+          set -euo pipefail
+          mkdir -p .mutmut-ci
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin ${{ github.base_ref }} --depth=1
+            mapfile -t files < <(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^src/.*\.py$' || true)
+          else
+            mapfile -t files < <(git ls-files 'src/**/*.py')
+          fi
+
+          if [[ "${{ github.event_name }}" == "pull_request" && ${#files[@]} -eq 0 ]]; then
+            printf 'No Python source changes detected for PR.\n'
+            echo "paths=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ ${#files[@]} -eq 0 ]]; then
+            printf 'Falling back to full mutation run.\n'
+            mapfile -t files < <(git ls-files 'src/**/*.py')
+          fi
+
+          joined="$(printf '%s\n' "${files[@]}" | paste -sd, -)"
+          echo "paths=$joined" >> "$GITHUB_OUTPUT"
+          printf 'Mutating paths: %s\n' "$joined"
+
+      - name: Mutation scope summary
+        if: steps.scope.outputs.paths == ''
+        run: |
+          echo "## Mutation testing" >> "$GITHUB_STEP_SUMMARY"
+          echo "No Python source changes detected; skipping mutmut run." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run mutation tests (scoped)
+        if: steps.scope.outputs.paths != ''
         id: run_mutmut
         timeout-minutes: 330
         continue-on-error: true
@@ -71,7 +111,7 @@ jobs:
           set -euo pipefail
           mkdir -p .mutmut-ci
           set +e
-          xvfb-run -s "-screen 0 1920x1080x24" -a bash -lc 'mutmut run --max-children 2' | tee .mutmut-ci/mutmut_run.log
+          xvfb-run -s "-screen 0 1920x1080x24" -a bash -lc "mutmut run --paths-to-mutate '${{ steps.scope.outputs.paths }}' --max-children 2" | tee .mutmut-ci/mutmut_run.log
           exit_code=${PIPESTATUS[0]}
           set -e
           mutmut results > .mutmut-ci/mutmut_results.txt || echo "::warning::mutmut results failed"
@@ -80,7 +120,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Summarize mutation survivors
-        if: always()
+        if: steps.scope.outputs.paths != ''
         continue-on-error: true
         env:
           FETCH_ARTIFACT: "0"
@@ -96,7 +136,7 @@ jobs:
           fi
 
       - name: Prepare artifacts
-        if: always()
+        if: always() && steps.scope.outputs.paths != ''
         run: |
           mkdir -p .mutmut-ci
           if [ -f .mutmut-ci/summary.txt ]; then
@@ -110,7 +150,7 @@ jobs:
           fi
 
       - name: Append summary to job summary
-        if: always()
+        if: always() && steps.scope.outputs.paths != ''
         run: |
           if [ -f .mutmut-ci/github_step_summary.md ]; then
             cat .mutmut-ci/github_step_summary.md >> "$GITHUB_STEP_SUMMARY"
@@ -128,7 +168,7 @@ jobs:
           fi
 
       - name: Kill ratio summary
-        if: always()
+        if: always() && steps.scope.outputs.paths != ''
         run: |
           results_file=".mutmut-ci/mutmut_results.txt"
           if [ -f "$results_file" ]; then
@@ -148,7 +188,7 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload run log
-        if: always()
+        if: always() && steps.scope.outputs.paths != ''
         uses: actions/upload-artifact@v4
         with:
           name: mutmut-run-log
@@ -157,7 +197,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload mutation artifacts
-        if: always()
+        if: always() && steps.scope.outputs.paths != ''
         uses: actions/upload-artifact@v4
         with:
           name: mutmut-results
@@ -173,7 +213,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Fail if survivors remain
-        if: always()
+        if: steps.scope.outputs.paths != ''
         env:
           MUTMUT_EXIT_CODE: ${{ steps.run_mutmut.outputs.exit_code }}
         run: |

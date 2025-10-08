@@ -78,7 +78,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             if isinstance(overall, dict):
                 raw_values = [overall.get("p50"), overall.get("p90"), overall.get("p99")]
                 numeric_values = [v for v in raw_values if isinstance(v, (int, float))]
-                if len(numeric_values) == 3 and all(math.isfinite(v) and v >= 0 for v in numeric_values):
+                if len(numeric_values) == 3 and all(
+                    math.isfinite(v) and v >= 0 for v in numeric_values
+                ):
                     p50, p90, p99 = numeric_values
                     if not (p50 <= p90 <= p99):
                         bad += 1

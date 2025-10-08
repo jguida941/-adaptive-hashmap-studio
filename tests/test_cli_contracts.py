@@ -167,7 +167,9 @@ def test_inspect_snapshot_cli(tmp_path: Path) -> None:
     assert "Snapshot:" in out
     assert str(snapshot_path) in out
 
-    code, out_json, err_json = run_cli(f"--json inspect-snapshot --in {snapshot_path} --key K1 --limit 3")
+    code, out_json, err_json = run_cli(
+        f"--json inspect-snapshot --in {snapshot_path} --key K1 --limit 3"
+    )
     assert code == 0
     payload = json.loads(out_json)
     assert payload["ok"] is True
@@ -216,3 +218,8 @@ def test_serve_auto_reports_bound_port(port_arg: str) -> None:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
+        finally:
+            with contextlib.suppress(Exception):
+                stdout.close()
+            with contextlib.suppress(Exception):
+                stderr.close()

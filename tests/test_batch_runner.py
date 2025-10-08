@@ -49,7 +49,9 @@ def spec_file(tmp_path: Path) -> Path:
         json_summary = "uniform.json"
         latency_sample_k = 128
         latency_sample_every = 16
-        """.format(csv=csv)
+        """.format(
+            csv=csv
+        )
     )
     return spec
 
@@ -164,7 +166,9 @@ def test_metrics_summary_is_capped(tmp_path: Path) -> None:
     assert len(data_rows) == BatchRunner._MAX_SUMMARY_ROWS
 
 
-def test_run_job_handles_launch_failures(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_run_job_handles_launch_failures(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     job_spec = JobSpec(name="broken", command="profile", csv=Path("input.csv"))
     spec = BatchSpec(
         jobs=[job_spec],

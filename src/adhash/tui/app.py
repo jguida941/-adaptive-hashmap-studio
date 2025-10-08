@@ -153,7 +153,9 @@ def _format_history(history: Iterable[Dict[str, Any]]) -> str:
     if not items:
         return "History window empty — waiting for samples."
 
-    load_series = [val for val in (_safe_float(item.get("load_factor")) for item in items) if val is not None]
+    load_series = [
+        val for val in (_safe_float(item.get("load_factor")) for item in items) if val is not None
+    ]
     load_line = "Load factor trend: " + (
         "  ".join(f"{val:.2f}" for val in load_series) if load_series else "n/a"
     )
@@ -179,6 +181,7 @@ def _format_history(history: Iterable[Dict[str, Any]]) -> str:
 
 
 if _TEXTUAL_ERR is None:
+
     class AdaptiveMetricsApp(AppBase[None]):
         """Minimal Textual application that polls and renders Adaptive Hash Map metrics."""
 
@@ -333,11 +336,15 @@ if _TEXTUAL_ERR is None:
             else:
                 trace = None
             if trace is None:
-                return "Probe trace JSON must contain an object or {\"trace\": {...}}"
-            lines = format_trace_lines(trace, snapshot=snapshot, seeds=seeds, export_path=export_path)
+                return 'Probe trace JSON must contain an object or {"trace": {...}}'
+            lines = format_trace_lines(
+                trace, snapshot=snapshot, seeds=seeds, export_path=export_path
+            )
             header = f"Trace file: {self._probe_path}" if self._probe_path else ""
             return "\n".join(([header] if header else []) + lines)
+
 else:  # pragma: no cover - exercised only when Textual is absent
+
     class AdaptiveMetricsApp:  # type: ignore[no-redef]
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             raise ImportError(

@@ -178,7 +178,6 @@ class AppConfig:
                 raise BadInputError(f"Invalid env override {key}={raw_value!r}") from exc
             setattr(self.watchdog, attr, value)
 
-
     def validate(self) -> None:
         self.adaptive.validate()
         self.watchdog.validate()

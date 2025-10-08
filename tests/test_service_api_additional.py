@@ -113,7 +113,9 @@ def test_list_jobs_accepts_query_token(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ADHASH_TOKEN", raising=False)
 
 
-def test_run_csv_endpoint_returns_bad_request_on_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_csv_endpoint_returns_bad_request_on_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("ADHASH_TOKEN", "secret")
 
     class RunCsvErrorManager(StubManager):
@@ -135,7 +137,9 @@ def test_run_csv_endpoint_returns_bad_request_on_value_error(monkeypatch: pytest
         monkeypatch.delenv("ADHASH_TOKEN", raising=False)
 
 
-def test_profile_endpoint_returns_bad_request_on_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_profile_endpoint_returns_bad_request_on_value_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("ADHASH_TOKEN", "secret")
 
     class ProfileErrorManager(StubManager):

@@ -27,7 +27,9 @@ def test_main_run_csv_invokes_stub(monkeypatch: pytest.MonkeyPatch) -> None:
 
     emissions: List[Dict[str, Any]] = []
 
-    def fake_emit_success(command: str, *, text: str | None = None, data: Dict[str, Any] | None = None) -> None:
+    def fake_emit_success(
+        command: str, *, text: str | None = None, data: Dict[str, Any] | None = None
+    ) -> None:
         emissions.append({"command": command, "text": text, "data": data or {}})
 
     monkeypatch.setattr(cli, "load_app_config", fake_load_app_config)
@@ -37,13 +39,15 @@ def test_main_run_csv_invokes_stub(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cli, "emit_success", fake_emit_success)
     monkeypatch.setattr(cli, "OUTPUT_JSON", False, raising=False)
 
-    rc = cli.main([
-        "--config",
-        "custom.toml",
-        "run-csv",
-        "--csv",
-        "data.csv",
-    ])
+    rc = cli.main(
+        [
+            "--config",
+            "custom.toml",
+            "run-csv",
+            "--csv",
+            "data.csv",
+        ]
+    )
 
     assert rc == 0
     assert calls["config_path"] == "custom.toml"
@@ -66,12 +70,14 @@ def test_main_json_mode_enables_output(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cli, "emit_success", lambda *a, **k: None)
     monkeypatch.setattr(cli, "OUTPUT_JSON", False, raising=False)
 
-    rc = cli.main([
-        "--json",
-        "run-csv",
-        "--csv",
-        "data.csv",
-    ])
+    rc = cli.main(
+        [
+            "--json",
+            "run-csv",
+            "--csv",
+            "data.csv",
+        ]
+    )
 
     assert rc == 0
     assert cli.OUTPUT_JSON is True

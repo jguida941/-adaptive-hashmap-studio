@@ -30,23 +30,31 @@ class RunCsvRequest(BaseModel):
         default=None,
         description="Optional host/interface override for metrics server (defaults to ADHASH_METRICS_HOST or 127.0.0.1).",
     )
-    snapshot_in: Optional[str] = Field(default=None, description="Existing snapshot to resume from.")
-    snapshot_out: Optional[str] = Field(
-        default=None, description="Snapshot path to write on completion (auto gzip by suffix or --compress)."
+    snapshot_in: Optional[str] = Field(
+        default=None, description="Existing snapshot to resume from."
     )
-    compress_out: bool = Field(default=False, description="Enable gzip compression for snapshot writes.")
+    snapshot_out: Optional[str] = Field(
+        default=None,
+        description="Snapshot path to write on completion (auto gzip by suffix or --compress).",
+    )
+    compress_out: bool = Field(
+        default=False, description="Enable gzip compression for snapshot writes."
+    )
     compact_interval: Optional[float] = Field(
         default=None, description="Seconds between proactive compactions (None disables)."
     )
     json_summary_out: Optional[str] = Field(
         default=None, description="Optional JSON summary output path for CI/reporting."
     )
-    latency_sample_k: int = Field(default=1000, ge=0, description="Reservoir size for latency sampling.")
+    latency_sample_k: int = Field(
+        default=1000, ge=0, description="Reservoir size for latency sampling."
+    )
     latency_sample_every: int = Field(
         default=128, ge=1, description="Sample every Nth operation for latency calculations."
     )
     latency_bucket_preset: str = Field(
-        default="default", description="Latency histogram preset identifier (see docs/metrics_schema.md)."
+        default="default",
+        description="Latency histogram preset identifier (see docs/metrics_schema.md).",
     )
     metrics_out_dir: Optional[str] = Field(
         default=None, description="Directory where metrics.ndjson should be written."

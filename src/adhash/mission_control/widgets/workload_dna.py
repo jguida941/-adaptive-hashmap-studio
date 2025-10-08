@@ -26,6 +26,7 @@ from .common import (
     pg,
 )
 
+
 class WorkloadDNAPane(QWidget):  # type: ignore[misc]
     """Visualise Workload DNA analysis with interactive charts."""
 
@@ -83,10 +84,10 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
             combo.setObjectName("dnaViewSelector")
             combo.blockSignals(True)
             for label in (
-                    self._VIEW_HEATMAP,
-                    self._VIEW_BUCKETS_ID,
-                    self._VIEW_BUCKETS_SORTED,
-                    self._VIEW_DEPTH,
+                self._VIEW_HEATMAP,
+                self._VIEW_BUCKETS_ID,
+                self._VIEW_BUCKETS_SORTED,
+                self._VIEW_DEPTH,
             ):
                 combo.addItem(label)
             combo.setCurrentText(self._view_mode)
@@ -248,7 +249,9 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
             comparison_plot.clear()
             comparison_plot.hide()
 
-    def _render_plot(self, plot: Optional[pg.PlotWidget], result: Optional[WorkloadDNAResult], title: str) -> None:
+    def _render_plot(
+        self, plot: Optional[pg.PlotWidget], result: Optional[WorkloadDNAResult], title: str
+    ) -> None:
         if plot is None:
             return
         plot.clear()
@@ -485,12 +488,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
 
     def _on_primary_hover(self, scene_pos: Any) -> None:
         primary_plot = self._primary_plot
-        if (
-            primary_plot is None
-            or QToolTip is None
-            or Qt is None
-            or pg is None
-        ):
+        if primary_plot is None or QToolTip is None or Qt is None or pg is None:
             return
         if self._view_mode == self._VIEW_HEATMAP:
             handled = self._handle_heatmap_hover(scene_pos)
@@ -502,11 +500,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
             self._hide_tooltip()
 
     def _handle_heatmap_hover(self, scene_pos: Any) -> bool:
-        if (
-            self._heatmap_image is None
-            or self._heatmap_counts is None
-            or self._heatmap_side <= 0
-        ):
+        if self._heatmap_image is None or self._heatmap_counts is None or self._heatmap_side <= 0:
             return False
         primary_plot = self._primary_plot
         if primary_plot is None:

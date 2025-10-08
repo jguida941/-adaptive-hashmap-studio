@@ -32,6 +32,7 @@ from .common import (
     pyqtSignal,
 )
 
+
 class ConfigEditorPane(QWidget):  # type: ignore[misc]
     """Schema-driven config editor with preset management."""
 
@@ -48,7 +49,9 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
         super().__init__(parent)
         self.setObjectName("missionPane")
         self.setProperty("paneKind", "config")
-        self._field_specs: Dict[Tuple[str, ...], FieldSpec] = {spec.path: spec for spec in CONFIG_FIELDS}
+        self._field_specs: Dict[Tuple[str, ...], FieldSpec] = {
+            spec.path: spec for spec in CONFIG_FIELDS
+        }
         self._field_widgets: Dict[Tuple[str, ...], Any] = {}
         self._current_config = AppConfig()
         self._config_saved_callbacks: List[Callable[[str], None]] = []
@@ -145,7 +148,9 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
         except Exception as exc:  # pragma: no cover - IO issues
             self._show_status(f"Failed to list presets: {exc}", error=True)
             return
-        current = self.preset_combo.currentData() if hasattr(self.preset_combo, "currentData") else None
+        current = (
+            self.preset_combo.currentData() if hasattr(self.preset_combo, "currentData") else None
+        )
         self.preset_combo.clear()
         self.preset_combo.addItem("Select preset…", userData=None)  # type: ignore[attr-defined]
         for name in presets:
@@ -276,7 +281,9 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
         self._emit_config_saved(str(path))
 
     def _on_apply_preset(self) -> None:
-        preset = self.preset_combo.currentData() if hasattr(self.preset_combo, "currentData") else None
+        preset = (
+            self.preset_combo.currentData() if hasattr(self.preset_combo, "currentData") else None
+        )
         if not preset:
             self._show_status("Select a preset to apply.", error=True)
             return

@@ -142,7 +142,9 @@ def test_run_csv_endpoint_handles_success_and_errors(auth_client: TestClient) ->
     assert response.status_code == 202
     assert response.json()["status"] == JobState.PENDING
 
-    response = auth_client.post("/api/jobs/run-csv", json={"csv": "bad", "mode": "adaptive"}, headers=_auth_headers())
+    response = auth_client.post(
+        "/api/jobs/run-csv", json={"csv": "bad", "mode": "adaptive"}, headers=_auth_headers()
+    )
     assert response.status_code == 400
 
 

@@ -31,6 +31,7 @@ New in this version:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import json
 import logging
@@ -42,7 +43,7 @@ from datetime import datetime
 from collections import deque
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, Callable, Deque, Dict, List, Optional, Tuple, cast
+from typing import Any, Callable, Deque, Dict, List, Mapping, Optional, Tuple, cast
 
 ROOT_DIR = Path(__file__).resolve().parent
 SRC_DIR = ROOT_DIR.parent
@@ -190,7 +191,10 @@ def configure_logging(
     else:
         formatter = logging.Formatter(DEFAULT_LOG_FORMAT, DEFAULT_LOG_DATEFMT)
 
-    logger.handlers.clear()
+    for handler in list(logger.handlers):
+        with contextlib.suppress(Exception):
+            handler.close()
+        logger.removeHandler(handler)
 
     stream = logging.StreamHandler()
     stream.setFormatter(formatter)
@@ -213,7 +217,9 @@ def set_app_config(cfg: AppConfig) -> None:
     APP_CONFIG = cfg
 
 
-def emit_success(command: str, *, text: Optional[str] = None, data: Optional[Dict[str, Any]] = None) -> None:
+def emit_success(
+    command: str, *, text: Optional[str] = None, data: Optional[Dict[str, Any]] = None
+) -> None:
     if OUTPUT_JSON:
         payload: Dict[str, Any] = {"ok": True, "command": command}
         if data:
@@ -224,6 +230,7 @@ def emit_success(command: str, *, text: Optional[str] = None, data: Optional[Dic
     else:
         if text is not None:
             print(text)
+
 
 def _write_config_file(cfg: AppConfig, outfile: str | Path) -> Path:
     out_path = Path(outfile).expanduser().resolve()
@@ -310,8 +317,6 @@ def run_config_editor(
     return result
 
 
-
-
 def build_map(
     mode: str,
     metrics: Optional[Metrics] = None,
@@ -339,8 +344,9 @@ def build_map(
         return m
 
     if mode == "fast-insert":
-        chaining = TwoLevelChainingMap(initial_buckets=policy.initial_buckets,
-                                       groups_per_bucket=policy.groups_per_bucket)
+        chaining = TwoLevelChainingMap(
+            initial_buckets=policy.initial_buckets, groups_per_bucket=policy.groups_per_bucket
+        )
         sink.attach(chaining)
         return chaining
     if mode in ("fast-lookup", "memory-tight"):
@@ -355,8 +361,9 @@ def build_map(
 # --------------------------------------------------------------------
 # Ops runner / profiler / generator
 # --------------------------------------------------------------------
-def run_op(m: Any, op: str, key: Optional[str], value: Optional[str],
-           metrics: Optional[Metrics] = None) -> Optional[str]:
+def run_op(
+    m: Any, op: str, key: Optional[str], value: Optional[str], metrics: Optional[Metrics] = None
+) -> Optional[str]:
     if op == "put":
         assert key is not None and value is not None
         m.put(key, value)
@@ -389,6 +396,7 @@ def profile_csv(path: str, sample_limit: int = 5000) -> str:
                 if sample_limit and i >= sample_limit:
                     break
                 yield row["op"], row["key"], row.get("value") or None
+
     ops = list(load_ops())
     candidates: Dict[str, Any] = {
         "fast-insert": build_map("fast-insert"),
@@ -409,7 +417,6 @@ def profile_csv(path: str, sample_limit: int = 5000) -> str:
     return pick
 
 
-
 def _zipf_sampler(n_keys: int, skew: float, rng: random.Random) -> Callable[[], int]:
     if n_keys <= 0:
         raise ValueError("n_keys must be > 0")
@@ -422,6 +429,7 @@ def _zipf_sampler(n_keys: int, skew: float, rng: random.Random) -> Callable[[], 
     for w in weights:
         acc += w / total
         cdf.append(acc)
+
     def sample() -> int:
         x = rng.random()
         lo, hi = 0, n_keys - 1
@@ -432,17 +440,28 @@ def _zipf_sampler(n_keys: int, skew: float, rng: random.Random) -> Callable[[], 
             else:
                 lo = mid + 1
         return lo
+
     return sample
+
 
 def _adversarialize_key(base_idx: int, lowbits: int) -> int:
     if lowbits <= 0:
         return base_idx
     mask = (1 << lowbits) - 1
-    return (base_idx & ~mask)
+    return base_idx & ~mask
 
-def generate_csv(out_path: str, ops: int, read_ratio: float, key_skew: float,
-                 key_space: int, seed: int, del_ratio_within_writes: float = 0.2,
-                 adversarial_ratio: float = 0.0, adversarial_lowbits: int = 6) -> None:
+
+def generate_csv(
+    out_path: str,
+    ops: int,
+    read_ratio: float,
+    key_skew: float,
+    key_space: int,
+    seed: int,
+    del_ratio_within_writes: float = 0.2,
+    adversarial_ratio: float = 0.0,
+    adversarial_lowbits: int = 6,
+) -> None:
     if ops <= 0:
         raise ValueError("ops must be > 0")
     if not (0.0 <= read_ratio <= 1.0):
@@ -475,6 +494,7 @@ def generate_csv(out_path: str, ops: int, read_ratio: float, key_skew: float,
 def analyze_workload(path: str, top_keys: int, max_tracked_keys: int):
     return analyze_workload_csv(path, top_keys=top_keys, max_tracked_keys=max_tracked_keys)
 
+
 # --------------------------------------------------------------------
 # Runner with proactive compaction, JSON summary (+ percentiles), snapshots
 # --------------------------------------------------------------------
@@ -487,20 +507,27 @@ def _parse_port(raw: str) -> int:
     return port
 
 
-def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
-            snapshot_in: Optional[str] = None, snapshot_out: Optional[str] = None,
-            compress_out: bool = False, compact_interval: Optional[float] = None,
-            json_summary_out: Optional[str] = None,
-            latency_sample_k: int = 1000, latency_sample_every: int = 128,
-            latency_bucket_preset: str = "default",
-            metrics_out_dir: Optional[str] = None,
-            metrics_max_ticks: Optional[int] = None,
-            dry_run: bool = False,
-            csv_max_rows: int = DEFAULT_CSV_MAX_ROWS,
-            csv_max_bytes: int = DEFAULT_CSV_MAX_BYTES,
-            metrics_host: Optional[str] = None,
-            *,
-            capture_history: bool = False) -> Dict[str, Any]:
+def run_csv(
+    path: str,
+    mode: str,
+    metrics_port: Optional[int] = None,
+    snapshot_in: Optional[str] = None,
+    snapshot_out: Optional[str] = None,
+    compress_out: bool = False,
+    compact_interval: Optional[float] = None,
+    json_summary_out: Optional[str] = None,
+    latency_sample_k: int = 1000,
+    latency_sample_every: int = 128,
+    latency_bucket_preset: str = "default",
+    metrics_out_dir: Optional[str] = None,
+    metrics_max_ticks: Optional[int] = None,
+    dry_run: bool = False,
+    csv_max_rows: int = DEFAULT_CSV_MAX_ROWS,
+    csv_max_bytes: int = DEFAULT_CSV_MAX_BYTES,
+    metrics_host: Optional[str] = None,
+    *,
+    capture_history: bool = False,
+) -> Dict[str, Any]:
     """
     Replay operations from a CSV workload. Exposes live metrics, writes
     machine-readable summaries for CI pipelines, and returns a structured
@@ -544,7 +571,9 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
     preset_from_env = os.getenv("ADHASH_LATENCY_BUCKETS")
     requested_preset = preset_from_env or latency_bucket_preset
     try:
-        latency_hist_preset, latency_bucket_bounds_tuple = resolve_latency_bucket_bounds(requested_preset)
+        latency_hist_preset, latency_bucket_bounds_tuple = resolve_latency_bucket_bounds(
+            requested_preset
+        )
     except ValueError:
         latency_hist_preset, latency_bucket_bounds_tuple = resolve_latency_bucket_bounds("default")
         logger.warning(
@@ -586,7 +615,9 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
                     if not op_raw:
                         raise BadInputError(f"Missing op at line {line_no}", hint=csv_hint)
                     if op_raw not in {"put", "get", "del"}:
-                        raise BadInputError(f"Unknown op '{op_raw}' at line {line_no}", hint=csv_hint)
+                        raise BadInputError(
+                            f"Unknown op '{op_raw}' at line {line_no}", hint=csv_hint
+                        )
                     if not key:
                         raise BadInputError(f"Missing key at line {line_no}", hint=csv_hint)
                     if op_raw == "put":
@@ -713,6 +744,12 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
         "get": Reservoir(k=max(1, latency_sample_k // 3), seed=0xC0FF02),
         "del": Reservoir(k=max(1, latency_sample_k // 3), seed=0xC0FF03),
     }
+    overall_loop_res = Reservoir(k=latency_sample_k, seed=0xC0FF10)
+    loop_res_by_op: Dict[str, Reservoir] = {
+        "put": Reservoir(k=max(1, latency_sample_k // 3), seed=0xC0FF11),
+        "get": Reservoir(k=max(1, latency_sample_k // 3), seed=0xC0FF12),
+        "del": Reservoir(k=max(1, latency_sample_k // 3), seed=0xC0FF13),
+    }
 
     last_probe_hist: List[List[int]] = []
     last_key_heatmap: Dict[str, Any] = {
@@ -790,18 +827,36 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
             },
         }
         tick["latency_hist_ms"] = {
-            op: [
-                {"le": format_bucket_label(bound), "count": count}
-                for bound, count in hist
-            ]
+            op: [{"le": format_bucket_label(bound), "count": count} for bound, count in hist]
             for op, hist in latency_histograms.items()
         }
+        loop_series_packets = {
+            "overall": percentile_packet(overall_loop_res),
+            "put": percentile_packet(loop_res_by_op["put"]),
+            "get": percentile_packet(loop_res_by_op["get"]),
+            "del": percentile_packet(loop_res_by_op["del"]),
+        }
+        tick["latency_loop_ms"] = loop_series_packets
         tick["latency_hist_preset"] = latency_hist_preset
         tick["events"] = list(events)
         latency_ms_dict = cast(Dict[str, Dict[str, float]], tick["latency_ms"])
         overall_ms = latency_ms_dict.get("overall", {})
         latency_ns = {q: int(max(value, 0.0) * 1_000_000) for q, value in overall_ms.items()}
         tick["latency_ns"] = latency_ns
+        elapsed = tick["t"]
+        implied_latency_ms: Optional[float] = None
+        if isinstance(elapsed, (int, float)) and elapsed > 0.0 and metrics.ops_total > 0:
+            throughput_avg = metrics.ops_total / elapsed
+            if throughput_avg > 0.0:
+                implied_latency_ms = 1000.0 / throughput_avg
+        tick["implied_latency_ms"] = implied_latency_ms
+        loop_packet = loop_series_packets.get("overall")
+        loop_median: Optional[float] = None
+        if isinstance(loop_packet, Mapping):
+            raw_median = loop_packet.get("p50")
+            if isinstance(raw_median, (int, float)):
+                loop_median = float(raw_median)
+        tick["loop_latency_median_ms"] = loop_median
 
         if resume_pending:
             sink.record_event(
@@ -857,13 +912,15 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
 
     try:
         for op_idx, (op, k, v) in enumerate(load_ops(), 1):
-            if want_latency and (op_idx % latency_sample_every == 0):
-                t0 = time.perf_counter()
+            sample_iteration = want_latency and (op_idx % latency_sample_every == 0)
+            loop_start = time.perf_counter() if sample_iteration else None
+
+            if sample_iteration:
                 run_op(m, op, k, v, metrics=metrics)
-                dt_ms = (time.perf_counter() - t0) * 1000.0
-                overall_res.offer(dt_ms)
+                backend_elapsed_ms = (time.perf_counter() - cast(float, loop_start)) * 1000.0
+                overall_res.offer(backend_elapsed_ms)
                 if op in res_by_op:
-                    res_by_op[op].offer(dt_ms)
+                    res_by_op[op].offer(backend_elapsed_ms)
             else:
                 run_op(m, op, k, v, metrics=metrics)
 
@@ -884,15 +941,26 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
                     backend_name = metrics.backend_name
                     if isinstance(m, HybridAdaptiveHashMap):
                         if m._migrating_to is None and isinstance(m._backend, RobinHoodMap):
-                            logger.info("Proactive compaction tick (interval=%.2fs)", compact_interval)
+                            logger.info(
+                                "Proactive compaction tick (interval=%.2fs)", compact_interval
+                            )
                             m._backend.compact()
                             sink.inc_compactions()
-                            sink.record_event("compaction", {"backend": backend_name, "source": "proactive"})
+                            sink.record_event(
+                                "compaction", {"backend": backend_name, "source": "proactive"}
+                            )
                     elif isinstance(m, RobinHoodMap):
                         logger.info("Proactive compaction tick (interval=%.2fs)", compact_interval)
                         m.compact()
                         sink.inc_compactions()
-                        sink.record_event("compaction", {"backend": backend_name, "source": "proactive"})
+                        sink.record_event(
+                            "compaction", {"backend": backend_name, "source": "proactive"}
+                        )
+            if sample_iteration and loop_start is not None:
+                loop_elapsed_ms = (time.perf_counter() - loop_start) * 1000.0
+                overall_loop_res.offer(loop_elapsed_ms)
+                if op in loop_res_by_op:
+                    loop_res_by_op[op].offer(loop_elapsed_ms)
 
         sink.record_event(
             "complete",
@@ -915,6 +983,12 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
                 "get": percentile_packet(res_by_op["get"]),
                 "del": percentile_packet(res_by_op["del"]),
             },
+            "latency_loop_ms": {
+                "overall": percentile_packet(overall_loop_res),
+                "put": percentile_packet(loop_res_by_op["put"]),
+                "get": percentile_packet(loop_res_by_op["get"]),
+                "del": percentile_packet(loop_res_by_op["del"]),
+            },
             "latency_sample": {
                 "reservoir_k_overall": overall_res.k,
                 "reservoir_k_each": res_by_op["put"].k,
@@ -923,6 +997,19 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
             },
             "latency_histogram_preset": latency_hist_preset,
         }
+        implied_latency_ms = (
+            (1000.0 / summary["ops_per_second"]) if summary.get("ops_per_second") else None
+        )
+        summary["implied_latency_ms"] = implied_latency_ms
+        raw_loop_median = (
+            summary["latency_loop_ms"]["overall"].get("p50")
+            if isinstance(summary["latency_loop_ms"], dict)
+            else None
+        )
+        loop_median_ms = (
+            float(raw_loop_median) if isinstance(raw_loop_median, (int, float)) else None
+        )
+        summary["loop_latency_median_ms"] = loop_median_ms
 
         run_result.update(
             {
@@ -936,6 +1023,9 @@ def run_csv(path: str, mode: str, metrics_port: Optional[int] = None,
                 "alerts": metrics.active_alerts,
                 "events": list(events),
                 "latency_histogram_preset": latency_hist_preset,
+                "latency_loop_ms": summary["latency_loop_ms"],
+                "implied_latency_ms": implied_latency_ms,
+                "loop_latency_median_ms": loop_median_ms,
                 "summary": summary,
             }
         )
@@ -974,7 +1064,9 @@ def _safe_number(value: Any) -> Optional[float]:
     return None
 
 
-def _delta_packet(baseline: Optional[float], candidate: Optional[float]) -> Dict[str, Optional[float]]:
+def _delta_packet(
+    baseline: Optional[float], candidate: Optional[float]
+) -> Dict[str, Optional[float]]:
     delta: Optional[float] = None
     percent: Optional[float] = None
     if baseline is not None and candidate is not None:
@@ -989,15 +1081,31 @@ def _delta_packet(baseline: Optional[float], candidate: Optional[float]) -> Dict
     }
 
 
-def _latency_deltas(baseline_summary: Dict[str, Any], candidate_summary: Dict[str, Any]) -> Dict[str, Dict[str, Dict[str, Optional[float]]]]:
+def _latency_deltas(
+    baseline_summary: Dict[str, Any], candidate_summary: Dict[str, Any]
+) -> Dict[str, Dict[str, Dict[str, Optional[float]]]]:
     output: Dict[str, Dict[str, Dict[str, Optional[float]]]] = {}
-    baseline_packet = baseline_summary.get("latency_ms", {}) if isinstance(baseline_summary, dict) else {}
-    candidate_packet = candidate_summary.get("latency_ms", {}) if isinstance(candidate_summary, dict) else {}
+    baseline_packet = (
+        baseline_summary.get("latency_ms", {}) if isinstance(baseline_summary, dict) else {}
+    )
+    candidate_packet = (
+        candidate_summary.get("latency_ms", {}) if isinstance(candidate_summary, dict) else {}
+    )
     for operation in sorted(set(baseline_packet.keys()) | set(candidate_packet.keys())):
-        base_series = baseline_packet.get(operation, {}) if isinstance(baseline_packet.get(operation), dict) else {}
-        cand_series = candidate_packet.get(operation, {}) if isinstance(candidate_packet.get(operation), dict) else {}
+        base_series = (
+            baseline_packet.get(operation, {})
+            if isinstance(baseline_packet.get(operation), dict)
+            else {}
+        )
+        cand_series = (
+            candidate_packet.get(operation, {})
+            if isinstance(candidate_packet.get(operation), dict)
+            else {}
+        )
         output[operation] = {}
-        for quantile in sorted(set(base_series.keys()) | set(cand_series.keys()) | {"p50", "p90", "p99"}):
+        for quantile in sorted(
+            set(base_series.keys()) | set(cand_series.keys()) | {"p50", "p90", "p99"}
+        ):
             output[operation][quantile] = _delta_packet(
                 _safe_number(base_series.get(quantile)),
                 _safe_number(cand_series.get(quantile)),
@@ -1014,8 +1122,12 @@ def _build_timeline(
     for index in range(length):
         base_tick = baseline_history[index]
         cand_tick = candidate_history[index]
-        base_ops = _safe_number(base_tick.get("ops_per_second_ema")) or _safe_number(base_tick.get("ops_per_second_instant"))
-        cand_ops = _safe_number(cand_tick.get("ops_per_second_ema")) or _safe_number(cand_tick.get("ops_per_second_instant"))
+        base_ops = _safe_number(base_tick.get("ops_per_second_ema")) or _safe_number(
+            base_tick.get("ops_per_second_instant")
+        )
+        cand_ops = _safe_number(cand_tick.get("ops_per_second_ema")) or _safe_number(
+            cand_tick.get("ops_per_second_instant")
+        )
         base_load = _safe_number(base_tick.get("load_factor"))
         cand_load = _safe_number(cand_tick.get("load_factor"))
         base_probe = _safe_number(base_tick.get("avg_probe_estimate"))
@@ -1105,10 +1217,22 @@ def run_ab_compare(
     baseline_summary = baseline_payload["summary"]
     candidate_summary = candidate_payload["summary"]
 
-    ops_delta = _delta_packet(_safe_number(baseline_summary.get("ops_per_second")), _safe_number(candidate_summary.get("ops_per_second")))
-    elapsed_delta = _delta_packet(_safe_number(baseline_summary.get("elapsed_seconds")), _safe_number(candidate_summary.get("elapsed_seconds")))
-    migrations_delta = _delta_packet(_safe_number(baseline_summary.get("migrations_triggered")), _safe_number(candidate_summary.get("migrations_triggered")))
-    compactions_delta = _delta_packet(_safe_number(baseline_summary.get("compactions_triggered")), _safe_number(candidate_summary.get("compactions_triggered")))
+    ops_delta = _delta_packet(
+        _safe_number(baseline_summary.get("ops_per_second")),
+        _safe_number(candidate_summary.get("ops_per_second")),
+    )
+    elapsed_delta = _delta_packet(
+        _safe_number(baseline_summary.get("elapsed_seconds")),
+        _safe_number(candidate_summary.get("elapsed_seconds")),
+    )
+    migrations_delta = _delta_packet(
+        _safe_number(baseline_summary.get("migrations_triggered")),
+        _safe_number(candidate_summary.get("migrations_triggered")),
+    )
+    compactions_delta = _delta_packet(
+        _safe_number(baseline_summary.get("compactions_triggered")),
+        _safe_number(candidate_summary.get("compactions_triggered")),
+    )
 
     latency_delta = _latency_deltas(baseline_summary, candidate_summary)
     timeline = _build_timeline(baseline_payload["history"], candidate_payload["history"])
@@ -1177,6 +1301,7 @@ def run_ab_compare(
 
     return comparison
 
+
 # --------------------------------------------------------------------
 # Verification (with optional repair)
 # --------------------------------------------------------------------
@@ -1186,12 +1311,15 @@ def _verify_chaining(m: TwoLevelChainingMap, verbose: bool) -> Tuple[bool, List[
     for groups in m._buckets:
         for grp in groups:
             total += len(grp)
-    ok = (total == m._size)
+    ok = total == m._size
     if not ok:
         msgs.append(f"Size mismatch: size={m._size}, summed={total}")
     if verbose:
-        msgs.append(f"Buckets={m.M}, Groups/Bucket={m.G}, Size={m._size}, MaxGroupLen={m.max_group_len()}")
+        msgs.append(
+            f"Buckets={m.M}, Groups/Bucket={m.G}, Size={m._size}, MaxGroupLen={m.max_group_len()}"
+        )
     return ok, msgs
+
 
 def _verify_robinhood(m: RobinHoodMap, verbose: bool) -> Tuple[bool, List[str]]:
     msgs: List[str] = []
@@ -1199,13 +1327,16 @@ def _verify_robinhood(m: RobinHoodMap, verbose: bool) -> Tuple[bool, List[str]]:
     if not bound_ok:
         msgs.append(f"Bound violated: size+tombstones={m._size + m._tombstones} > cap={m._cap}")
     count = sum(1 for _ in m.items())
-    size_ok = (count == m._size)
+    size_ok = count == m._size
     if not size_ok:
         msgs.append(f"Item iteration count={count} != size={m._size}")
     if verbose:
-        msgs.append(f"Cap={m._cap}, Size={m._size}, Tombstones={m._tombstones}, "
-                    f"LF={m.load_factor():.3f}, TZ={m.tombstone_ratio():.3f}")
+        msgs.append(
+            f"Cap={m._cap}, Size={m._size}, Tombstones={m._tombstones}, "
+            f"LF={m.load_factor():.3f}, TZ={m.tombstone_ratio():.3f}"
+        )
     return (bound_ok and size_ok), msgs
+
 
 def _verify_hybrid(m: HybridAdaptiveHashMap, verbose: bool) -> Tuple[bool, List[str]]:
     msgs: List[str] = []
@@ -1228,8 +1359,10 @@ def _verify_hybrid(m: HybridAdaptiveHashMap, verbose: bool) -> Tuple[bool, List[
         msgs.append(f"Hybrid name={m.backend_name()}, size={len(m)}")
     return ok, msgs
 
-def verify_snapshot(path: str, verbose: bool = False,
-                    repair: bool = False, repair_out: Optional[str] = None) -> int:
+
+def verify_snapshot(
+    path: str, verbose: bool = False, repair: bool = False, repair_out: Optional[str] = None
+) -> int:
     """
     Verify invariants of a snapshot. If --repair is passed and the map is a RobinHoodMap
     (or Hybrid with RH active), compacts to purge tombstones / fix counters and writes
@@ -1306,29 +1439,52 @@ def verify_snapshot(path: str, verbose: bool = False,
             print(f"ERROR: repair failed: {e}")
             return 1
     elif repair and target_for_repair is None:
-        print("NOTICE: --repair requested but snapshot/backend is not a RobinHoodMap; no safe repair applicable.")
+        print(
+            "NOTICE: --repair requested but snapshot/backend is not a RobinHoodMap; no safe repair applicable."
+        )
 
     return 0 if ok else 1
+
 
 # --------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------
 def main(argv: List[str]) -> int:
-    p = argparse.ArgumentParser(description="HashMap CLI with multi-backend, adaptive mode, generator, profiler, metrics, snapshots, verification (with repair), and CI summaries.")
-    p.add_argument("--mode", default="adaptive",
-                   choices=["fast-insert", "fast-lookup", "memory-tight", "adaptive"],
-                   help="Select backend when not loading a snapshot.")
+    p = argparse.ArgumentParser(
+        description="HashMap CLI with multi-backend, adaptive mode, generator, profiler, metrics, snapshots, verification (with repair), and CI summaries."
+    )
+    p.add_argument(
+        "--mode",
+        default="adaptive",
+        choices=["fast-insert", "fast-lookup", "memory-tight", "adaptive"],
+        help="Select backend when not loading a snapshot.",
+    )
     p.add_argument("--log-json", action="store_true", help="Emit logs in JSON format")
-    p.add_argument("--log-file", default=None,
-                   help="Optional log file path (rotates at 5MB, keeps 5 backups by default)")
-    p.add_argument("--log-max-bytes", type=int, default=DEFAULT_LOG_MAX_BYTES,
-                   help="Max bytes per log file before rotation (default: %(default)s)")
-    p.add_argument("--log-backup-count", type=int, default=DEFAULT_LOG_BACKUP_COUNT,
-                   help="Number of rotated log files to keep (default: %(default)s)")
-    p.add_argument("--json", action="store_true",
-                   help="Emit machine-readable success output to stdout")
-    p.add_argument("--config", default=None,
-                   help="Path to TOML config file (overrides defaults and env overrides)")
+    p.add_argument(
+        "--log-file",
+        default=None,
+        help="Optional log file path (rotates at 5MB, keeps 5 backups by default)",
+    )
+    p.add_argument(
+        "--log-max-bytes",
+        type=int,
+        default=DEFAULT_LOG_MAX_BYTES,
+        help="Max bytes per log file before rotation (default: %(default)s)",
+    )
+    p.add_argument(
+        "--log-backup-count",
+        type=int,
+        default=DEFAULT_LOG_BACKUP_COUNT,
+        help="Number of rotated log files to keep (default: %(default)s)",
+    )
+    p.add_argument(
+        "--json", action="store_true", help="Emit machine-readable success output to stdout"
+    )
+    p.add_argument(
+        "--config",
+        default=None,
+        help="Path to TOML config file (overrides defaults and env overrides)",
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
     ctx = CLIContext(
@@ -1375,13 +1531,11 @@ def main(argv: List[str]) -> int:
     if cfg_path:
         logger.info("Loaded config from %s", cfg_path)
 
-
-
-
     handler = handlers.get(args.cmd)
     if handler is None:
         raise PolicyError(f"Unknown command {args.cmd}")
     return handler(args)
+
 
 def console_main() -> None:
     """Entry point for console_scripts."""

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import ast
+import logging
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Iterable, List, Optional, Tuple
 
 from adhash.io.snapshot import load_snapshot_any
 from adhash.io.snapshot_header import SnapshotDescriptor, describe_snapshot
@@ -24,6 +25,9 @@ from .common import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 def _iter_items(obj: Any) -> Iterable[Tuple[Any, Any]]:
     """Yield key/value pairs from supported snapshot payloads."""
 
@@ -32,10 +36,11 @@ def _iter_items(obj: Any) -> Iterable[Tuple[Any, Any]]:
     if hasattr(obj, "items") and callable(getattr(obj, "items")):
         try:
             iterable = getattr(obj, "items")()  # type: ignore[call-arg]
+        except (AttributeError, TypeError, ValueError) as exc:
+            logger.debug("snapshot inspector: payload.items() failed: %s", exc, exc_info=False)
+        else:
             if isinstance(iterable, Iterable):
                 return iterable
-        except Exception:
-            pass
     if isinstance(obj, dict):
         return obj.items()
     return []
@@ -239,42 +244,73 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
             self.summary_view.setPlainText("Payload empty or unsupported.")
             return
         lines = [f"Object type: {type(payload).__name__}"]
+
+        def _append(
+            description: str, formatter: Callable[[Any], str], getter: Callable[[], Any]
+        ) -> None:
+            try:
+                value = getter()
+            except (AttributeError, TypeError, ValueError) as exc:
+                logger.debug(
+                    "snapshot inspector: unable to resolve %s: %s", description, exc, exc_info=False
+                )
+                return
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "snapshot inspector: unexpected error resolving %s: %s", description, exc
+                )
+                return
+            try:
+                lines.append(formatter(value))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("snapshot inspector: failed to format %s: %s", description, exc)
+
         if hasattr(payload, "backend_name"):
-            try:
-                lines.append(f"Backend: {payload.backend_name()}")
-            except Exception:
-                pass
+            _append("backend", lambda value: f"Backend: {value}", payload.backend_name)
+
         if hasattr(payload, "cfg"):
+
+            def _cfg() -> Any:
+                return getattr(payload, "cfg")
+
+            def _format_cfg(cfg: Any) -> List[str]:
+                return [
+                    f"Adaptive start backend: {getattr(cfg, 'start_backend', 'unknown')}",
+                    f"Incremental batch: {getattr(cfg, 'incremental_batch', 'unknown')}",
+                ]
+
+            cfg = None
             try:
-                cfg = getattr(payload, "cfg")
-                lines.append(f"Adaptive start backend: {cfg.start_backend}")
-                lines.append(f"Incremental batch: {cfg.incremental_batch}")
-            except Exception:
-                pass
+                cfg = _cfg()
+            except (AttributeError, TypeError, ValueError) as exc:
+                logger.debug("snapshot inspector: cfg unavailable: %s", exc, exc_info=False)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("snapshot inspector: unexpected cfg error: %s", exc)
+            else:
+                for entry in _format_cfg(cfg):
+                    lines.append(entry)
+
         if hasattr(payload, "load_factor"):
-            try:
-                lf = payload.load_factor()
-                lines.append(f"Load factor: {lf:.4f}")
-            except Exception:
-                pass
+            _append(
+                "load factor", lambda value: f"Load factor: {float(value):.4f}", payload.load_factor
+            )
+
         if hasattr(payload, "tombstone_ratio"):
-            try:
-                tr = payload.tombstone_ratio()
-                lines.append(f"Tombstone ratio: {tr:.4f}")
-            except Exception:
-                pass
+            _append(
+                "tombstone ratio",
+                lambda value: f"Tombstone ratio: {float(value):.4f}",
+                payload.tombstone_ratio,
+            )
+
         if hasattr(payload, "max_group_len"):
-            try:
-                mg = payload.max_group_len()
-                lines.append(f"Max group length: {mg}")
-            except Exception:
-                pass
+            _append(
+                "max group length",
+                lambda value: f"Max group length: {value}",
+                payload.max_group_len,
+            )
+
         if hasattr(payload, "items") or isinstance(payload, dict):
-            try:
-                size = len(payload)  # type: ignore[arg-type]
-                lines.append(f"Item count: {size:,}")
-            except Exception:
-                pass
+            _append("item count", lambda value: f"Item count: {int(value):,}", lambda: len(payload))
         self.summary_view.setPlainText("\n".join(lines))
 
     def _refresh_limit_label(self) -> None:
@@ -346,8 +382,10 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
                 warn = self.alert_spin.value() / 100.0
                 if load_factor is not None and load_factor >= warn:
                     text.append(f"⚠ Load factor {load_factor:.3f} exceeds {warn:.3f}")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug(
+                    "snapshot inspector: load_factor lookup failed: %s", exc, exc_info=False
+                )
         self.result_view.setPlainText("\n".join(text))
 
 

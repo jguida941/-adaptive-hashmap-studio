@@ -108,6 +108,7 @@ def test_run_csv_handler_uses_env_metrics_host_and_port(tmp_path, monkeypatch) -
     emitted = captured.get("emit", {})
     assert emitted.get("command") == "run-csv"
 
+
 def test_run_csv_handler_accepts_auto_port_flag(tmp_path) -> None:
     csv_path = tmp_path / "auto.csv"
     _write_minimal_workload(csv_path)

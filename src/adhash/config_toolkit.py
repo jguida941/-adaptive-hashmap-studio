@@ -35,19 +35,73 @@ class FieldSpec:
 
 CONFIG_FIELDS: Tuple[FieldSpec, ...] = (
     FieldSpec(("adaptive", "start_backend"), "Start backend", "choice", ("chaining", "robinhood")),
-    FieldSpec(("adaptive", "initial_buckets"), "Initial buckets (power of two)", "int", validator="power_of_two"),
-    FieldSpec(("adaptive", "groups_per_bucket"), "Groups per bucket (power of two)", "int", validator="power_of_two"),
-    FieldSpec(("adaptive", "initial_capacity_rh"), "Initial capacity (Robin Hood, power of two)", "int", validator="power_of_two"),
+    FieldSpec(
+        ("adaptive", "initial_buckets"),
+        "Initial buckets (power of two)",
+        "int",
+        validator="power_of_two",
+    ),
+    FieldSpec(
+        ("adaptive", "groups_per_bucket"),
+        "Groups per bucket (power of two)",
+        "int",
+        validator="power_of_two",
+    ),
+    FieldSpec(
+        ("adaptive", "initial_capacity_rh"),
+        "Initial capacity (Robin Hood, power of two)",
+        "int",
+        validator="power_of_two",
+    ),
     FieldSpec(("adaptive", "incremental_batch"), "Incremental batch size", "int", min_value=1.0),
-    FieldSpec(("adaptive", "max_lf_chaining"), "Max load factor before migrating (0-1]", "float", min_value=0.01, max_value=1.0),
+    FieldSpec(
+        ("adaptive", "max_lf_chaining"),
+        "Max load factor before migrating (0-1]",
+        "float",
+        min_value=0.01,
+        max_value=1.0,
+    ),
     FieldSpec(("adaptive", "max_group_len"), "Max chaining group length", "int", min_value=1.0),
-    FieldSpec(("adaptive", "max_avg_probe_robinhood"), "Max average probe distance (Robin Hood)", "float", min_value=0.1),
-    FieldSpec(("adaptive", "max_tombstone_ratio"), "Max tombstone ratio before compaction (0-1)", "float", min_value=0.0, max_value=1.0),
-    FieldSpec(("adaptive", "large_map_warn_threshold"), "Large map warning threshold (keys)", "int", min_value=0.0),
+    FieldSpec(
+        ("adaptive", "max_avg_probe_robinhood"),
+        "Max average probe distance (Robin Hood)",
+        "float",
+        min_value=0.1,
+    ),
+    FieldSpec(
+        ("adaptive", "max_tombstone_ratio"),
+        "Max tombstone ratio before compaction (0-1)",
+        "float",
+        min_value=0.0,
+        max_value=1.0,
+    ),
+    FieldSpec(
+        ("adaptive", "large_map_warn_threshold"),
+        "Large map warning threshold (keys)",
+        "int",
+        min_value=0.0,
+    ),
     FieldSpec(("watchdog", "enabled"), "Enable watchdog alerts", "bool"),
-    FieldSpec(("watchdog", "load_factor_warn"), "Watchdog load factor warning threshold", "optional_float", min_value=0.0, max_value=1.0),
-    FieldSpec(("watchdog", "avg_probe_warn"), "Watchdog avg probe warning threshold", "optional_float", min_value=0.0),
-    FieldSpec(("watchdog", "tombstone_ratio_warn"), "Watchdog tombstone ratio warning threshold", "optional_float", min_value=0.0, max_value=1.0),
+    FieldSpec(
+        ("watchdog", "load_factor_warn"),
+        "Watchdog load factor warning threshold",
+        "optional_float",
+        min_value=0.0,
+        max_value=1.0,
+    ),
+    FieldSpec(
+        ("watchdog", "avg_probe_warn"),
+        "Watchdog avg probe warning threshold",
+        "optional_float",
+        min_value=0.0,
+    ),
+    FieldSpec(
+        ("watchdog", "tombstone_ratio_warn"),
+        "Watchdog tombstone ratio warning threshold",
+        "optional_float",
+        min_value=0.0,
+        max_value=1.0,
+    ),
 )
 
 
@@ -225,10 +279,14 @@ def prompt_for_config(
                 break
             continue
 
-        default_repr = "none" if current is None else (
-            current if isinstance(current, str)
-            else _format_float(current) if isinstance(current, float)
-            else str(current)
+        default_repr = (
+            "none"
+            if current is None
+            else (
+                current
+                if isinstance(current, str)
+                else _format_float(current) if isinstance(current, float) else str(current)
+            )
         )
         if spec.choices:
             choice_hint = "/".join(spec.choices)

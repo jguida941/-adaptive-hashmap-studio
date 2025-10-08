@@ -484,9 +484,9 @@ Comprehensive command transcripts live in [`audits/audit.md`](audits/audit.md) a
 2. Update `audits/audit.md` and `reports/command_run_log.tsv` when adding major commands or artifacts.
 3. Phase 3 work (deployment & integration) is tracked in [`docs/upgrade.md`](docs/upgrade.md): Docker packaging, release automation, Helm/Compose templates, etc.
 
-**Questions or patches?** 
+**Questions or patches?**
 - Just open an issue or PR, just include the commands/tests you ran and highlight any schema or snapshot changes.
 
 ## License
-Copyright © 2025 Justin Guida  
+Copyright © 2025 Justin Guida
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details and [NOTICE](NOTICE) for attribution.

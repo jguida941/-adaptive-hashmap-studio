@@ -34,7 +34,9 @@ def run(argv: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess
     stdout_text = stdout.getvalue()
     stderr_text = stderr.getvalue()
     if code != 0:
-        raise subprocess.CalledProcessError(code, ["hashmap_cli"] + argv, output=stdout_text, stderr=stderr_text)
+        raise subprocess.CalledProcessError(
+            code, ["hashmap_cli"] + argv, output=stdout_text, stderr=stderr_text
+        )
     return subprocess.CompletedProcess(["hashmap_cli"] + argv, code, stdout_text, stderr_text)
 
 
@@ -131,7 +133,11 @@ def test_run_csv_emits_histograms_without_summary(tmp_path: Path) -> None:
     assert completed.returncode == 0
 
     ndjson_path = metrics_dir / "metrics.ndjson"
-    ticks = [json.loads(line) for line in ndjson_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    ticks = [
+        json.loads(line)
+        for line in ndjson_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     assert ticks, "expected metrics ticks"
 
     hist_tick = next((tick for tick in reversed(ticks) if tick.get("latency_hist_ms")), None)

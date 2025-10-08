@@ -234,7 +234,9 @@ def trace_chaining_get(map_obj: TwoLevelChainingMap, key: Any) -> ProbeTrace:
     }
 
 
-def trace_probe_get(map_obj: Union[RobinHoodMap, TwoLevelChainingMap, HybridAdaptiveHashMap], key: Any) -> ProbeTrace:
+def trace_probe_get(
+    map_obj: Union[RobinHoodMap, TwoLevelChainingMap, HybridAdaptiveHashMap], key: Any
+) -> ProbeTrace:
     if isinstance(map_obj, RobinHoodMap):
         return trace_robinhood_get(map_obj, key)
     if isinstance(map_obj, TwoLevelChainingMap):
@@ -247,7 +249,9 @@ def trace_probe_get(map_obj: Union[RobinHoodMap, TwoLevelChainingMap, HybridAdap
     raise TypeError(f"Unsupported map type: {type(map_obj)!r}")
 
 
-def trace_probe_put(map_obj: Union[RobinHoodMap, TwoLevelChainingMap, HybridAdaptiveHashMap], key: Any, value: Any) -> ProbeTrace:
+def trace_probe_put(
+    map_obj: Union[RobinHoodMap, TwoLevelChainingMap, HybridAdaptiveHashMap], key: Any, value: Any
+) -> ProbeTrace:
     if isinstance(map_obj, RobinHoodMap):
         return trace_robinhood_put(map_obj, key, value)
     if isinstance(map_obj, TwoLevelChainingMap):
@@ -282,9 +286,7 @@ def format_trace_lines(
     operation = trace.get("operation", "?")
     key_repr = trace.get("key_repr", "?")
     lines.append(f"Probe visualization [{backend}] {operation.upper()} key={key_repr}")
-    lines.append(
-        f"Found: {trace.get('found')} | Terminal: {trace.get('terminal')}"
-    )
+    lines.append(f"Found: {trace.get('found')} | Terminal: {trace.get('terminal')}")
     if backend == "robinhood" and "capacity" in trace:
         capacity_line = f"Capacity: {trace['capacity']}"
         if trace.get("resized"):

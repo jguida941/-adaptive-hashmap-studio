@@ -35,6 +35,7 @@ except Exception as exc:  # pragma: no cover - most environments won't have PyQt
     QBrush = cast(Any, object)
 
 if Qt is not None:  # pragma: no cover - only when PyQt6 is present
+
     class MissionControlWindow(QMainWindow):  # type: ignore[misc]
         def __init__(self) -> None:
             super().__init__()
@@ -84,13 +85,18 @@ if Qt is not None:  # pragma: no cover - only when PyQt6 is present
             palette = self.palette()
             palette.setBrush(QPalette.ColorRole.Window, QBrush(grad))
             self.setPalette(palette)
+
 else:  # pragma: no cover - PyQt6 missing
     MissionControlWindow = cast(Any, object)
 
 
 def _load_stylesheet() -> str:
     try:
-        return resources.files("adhash.mission_control.widgets").joinpath("styles.qss").read_text(encoding="utf-8")
+        return (
+            resources.files("adhash.mission_control.widgets")
+            .joinpath("styles.qss")
+            .read_text(encoding="utf-8")
+        )
     except (FileNotFoundError, OSError):  # pragma: no cover - fallback in packaging scenarios
         return ""
 

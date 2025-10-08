@@ -40,6 +40,39 @@ def test_trace_robinhood_get_handles_tombstone() -> None:
     assert trace["found"] is False
 
 
+def test_trace_robinhood_get_records_start_slot_and_steps() -> None:
+    class StableKey:
+        def __init__(self, label: str, hashed: int) -> None:
+            self.label = label
+            self._hash = hashed
+
+        def __repr__(self) -> str:
+            return f"<Key {self.label}>"
+
+        def __hash__(self) -> int:
+            return self._hash
+
+        def __eq__(self, other: object) -> bool:
+            return isinstance(other, StableKey) and other.label == self.label
+
+    m = RobinHoodMap(initial_capacity=8)
+    blocker = StableKey("blocker", 0)
+    probe_key = StableKey("probe", 0)
+    m.put(blocker, "blocker")
+    m.put(probe_key, "probe")
+
+    trace = trace_probe_get(m, probe_key)
+    path = trace["path"]
+    assert path
+
+    step_numbers = [entry["step"] for entry in path if "step" in entry]
+    assert step_numbers == list(range(len(step_numbers)))
+
+    start_idx = m._idx(hash(probe_key))  # pylint: disable=protected-access
+    assert all(entry.get("start_slot") == start_idx for entry in path)
+    assert path[0].get("slot") == start_idx
+
+
 def test_trace_robinhood_put_reports_swap() -> None:
     m = RobinHoodMap(initial_capacity=4)
     # Craft a collision scenario
@@ -80,6 +113,19 @@ def test_trace_robinhood_put_accounts_for_resize() -> None:
     assert all(0 <= slot < 16 for slot in slots)
 
 
+def test_trace_robinhood_put_without_resize_preserves_capacity() -> None:
+    m = RobinHoodMap(initial_capacity=8)
+    for i in range(3):
+        m.put(f"key-{i}", i)
+
+    trace = trace_probe_put(m, "fresh-key", 42)
+    assert trace.get("capacity") == 8
+    assert trace.get("resized") is False
+
+    step_numbers = [entry["step"] for entry in trace["path"] if "step" in entry]
+    assert step_numbers == list(range(len(step_numbers)))
+
+
 def test_trace_chaining_get_group() -> None:
     m = TwoLevelChainingMap(initial_buckets=4, groups_per_bucket=4)
     m.put("A", 1)
@@ -95,6 +141,14 @@ def test_trace_hybrid_delegates_backend() -> None:
     trace = trace_probe_get(m, "alpha")
     assert "adaptive_backend" in trace
     assert trace["found"] is True
+
+
+def test_trace_hybrid_put_reports_backend() -> None:
+    m = HybridAdaptiveHashMap()
+    trace = trace_probe_put(m, "alpha", 1)
+    adaptive = trace.get("adaptive_backend")
+    assert adaptive == m.backend_name()
+    assert trace["backend"] == adaptive
 
 
 def test_format_trace_lines_includes_steps() -> None:

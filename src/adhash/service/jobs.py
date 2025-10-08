@@ -20,7 +20,14 @@ from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from adhash.batch.runner import BatchRunner, JobResult, load_spec
 from adhash.hashmap_cli import profile_csv, run_csv
 
-from .models import BatchRequest, JobDetail, JobLogEntryModel, JobState, ProfileRequest, RunCsvRequest
+from .models import (
+    BatchRequest,
+    JobDetail,
+    JobLogEntryModel,
+    JobState,
+    ProfileRequest,
+    RunCsvRequest,
+)
 from .worker import JobWorker
 
 logger = logging.getLogger(__name__)
@@ -91,7 +98,11 @@ class JobManager:
                 try:
                     max_workers = max(1, int(env_workers))
                 except ValueError:
-                    logger.warning("Invalid ADHASH_MAX_JOBS value '%s'; defaulting to %s", env_workers, _DEFAULT_MAX_WORKERS)
+                    logger.warning(
+                        "Invalid ADHASH_MAX_JOBS value '%s'; defaulting to %s",
+                        env_workers,
+                        _DEFAULT_MAX_WORKERS,
+                    )
                     max_workers = _DEFAULT_MAX_WORKERS
             else:
                 max_workers = _DEFAULT_MAX_WORKERS
@@ -203,7 +214,9 @@ class JobManager:
             record.updated_at = time.time()
             self._write_status(record)
 
-    def _mark_completed(self, job_id: str, result: Dict[str, Any], artifacts: Dict[str, str]) -> None:
+    def _mark_completed(
+        self, job_id: str, result: Dict[str, Any], artifacts: Dict[str, str]
+    ) -> None:
         with self._lock:
             record = self._jobs[job_id]
             record.status = JobState.COMPLETED
@@ -292,8 +305,12 @@ class JobManager:
     # ------------------------------------------------------------------
     # Worker targets
     # ------------------------------------------------------------------
-    def _execute_run_csv(self, job_id: str, request: RunCsvRequest) -> Tuple[Dict[str, Any], Dict[str, str]]:
-        working_dir = Path(request.working_dir).expanduser().resolve() if request.working_dir else None
+    def _execute_run_csv(
+        self, job_id: str, request: RunCsvRequest
+    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+        working_dir = (
+            Path(request.working_dir).expanduser().resolve() if request.working_dir else None
+        )
         csv_arg = self._prepare_path(request.csv, working_dir)
         snapshot_in = self._prepare_optional_path(request.snapshot_in, working_dir)
         snapshot_out = self._prepare_optional_path(request.snapshot_out, working_dir)
@@ -341,8 +358,12 @@ class JobManager:
 
         return result, artifacts
 
-    def _execute_profile(self, job_id: str, request: ProfileRequest) -> Tuple[Dict[str, Any], Dict[str, str]]:
-        working_dir = Path(request.working_dir).expanduser().resolve() if request.working_dir else None
+    def _execute_profile(
+        self, job_id: str, request: ProfileRequest
+    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+        working_dir = (
+            Path(request.working_dir).expanduser().resolve() if request.working_dir else None
+        )
         csv_arg = self._prepare_path(request.csv, working_dir)
 
         with self._use_working_dir(working_dir), self._capture_output(job_id):
@@ -356,8 +377,12 @@ class JobManager:
         }
         return result, {}
 
-    def _execute_batch(self, job_id: str, request: BatchRequest) -> Tuple[Dict[str, Any], Dict[str, str]]:
-        working_dir = Path(request.working_dir).expanduser().resolve() if request.working_dir else None
+    def _execute_batch(
+        self, job_id: str, request: BatchRequest
+    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+        working_dir = (
+            Path(request.working_dir).expanduser().resolve() if request.working_dir else None
+        )
         spec_path = self._prepare_path(request.spec_path, working_dir)
 
         with self._use_working_dir(working_dir), self._capture_output(job_id):
@@ -436,7 +461,12 @@ class JobManager:
         log_path = self.base_dir / job_id / "logs.ndjson"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps({"ts": timestamp, "level": level, "message": message}, ensure_ascii=False) + "\n")
+            handle.write(
+                json.dumps(
+                    {"ts": timestamp, "level": level, "message": message}, ensure_ascii=False
+                )
+                + "\n"
+            )
 
     def _write_request(self, job_id: str, payload: Dict[str, Any]) -> None:
         self._write_json(self.base_dir / job_id / "request.json", payload)
@@ -476,7 +506,9 @@ class JobManager:
         return str(path.resolve())
 
     @staticmethod
-    def _prepare_optional_path(path_str: Optional[str], working_dir: Optional[Path]) -> Optional[str]:
+    def _prepare_optional_path(
+        path_str: Optional[str], working_dir: Optional[Path]
+    ) -> Optional[str]:
         if path_str is None:
             return None
         return JobManager._prepare_path(path_str, working_dir)
@@ -532,5 +564,6 @@ class _LogStream(io.StringIO):
                 self._hook(remainder)
             self._buffer = ""
         super().flush()
+
 
 __all__ = ["JobManager", "JobRecord", "JobLogEntry"]

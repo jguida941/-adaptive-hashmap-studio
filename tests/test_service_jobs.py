@@ -22,7 +22,12 @@ def test_run_csv_job_completes(tmp_path: Path, tiny_csv: Path) -> None:
     jobs_root = tmp_path / "jobs"
     manager = JobManager(base_dir=jobs_root, max_workers=1)
     try:
-        request = RunCsvRequest(csv=str(tiny_csv), mode="adaptive", dry_run=True, json_summary_out=str(tmp_path / "summary.json"))
+        request = RunCsvRequest(
+            csv=str(tiny_csv),
+            mode="adaptive",
+            dry_run=True,
+            json_summary_out=str(tmp_path / "summary.json"),
+        )
         record = manager.run_csv(request)
         finished = manager.wait(record.id, timeout=10.0)
         assert finished.status is JobState.COMPLETED

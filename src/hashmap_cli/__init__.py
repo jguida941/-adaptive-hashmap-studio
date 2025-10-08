@@ -55,7 +55,9 @@ def _assign_meta(shim: _Shim, *, exports: Iterable[str]) -> None:
 
     types.ModuleType.__setattr__(shim, "__doc__", getattr(_impl, "__doc__", None))
     types.ModuleType.__setattr__(shim, "__package__", __name__)
-    types.ModuleType.__setattr__(shim, "__file__", getattr(_orig, "__file__", getattr(_impl, "__file__", __file__)))
+    types.ModuleType.__setattr__(
+        shim, "__file__", getattr(_orig, "__file__", getattr(_impl, "__file__", __file__))
+    )
     types.ModuleType.__setattr__(shim, "__path__", module_dir)
     types.ModuleType.__setattr__(shim, "__loader__", getattr(_orig, "__loader__", None))
     types.ModuleType.__setattr__(shim, "__spec__", getattr(_orig, "__spec__", None))
@@ -73,4 +75,3 @@ _shim = _Shim(__name__)
 _assign_meta(_shim, exports=_resolve_exports())
 
 sys.modules[__name__] = _shim
-

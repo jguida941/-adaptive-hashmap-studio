@@ -92,10 +92,14 @@ def test_cancel_job_idempotent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     app = create_app(manager)
     client = TestClient(app)
     try:
-        response = client.delete(f"/api/jobs/{record.id}", headers={"Authorization": "Bearer secret"})
+        response = client.delete(
+            f"/api/jobs/{record.id}", headers={"Authorization": "Bearer secret"}
+        )
         assert response.status_code == 204
 
-        response2 = client.delete(f"/api/jobs/{record.id}", headers={"Authorization": "Bearer secret"})
+        response2 = client.delete(
+            f"/api/jobs/{record.id}", headers={"Authorization": "Bearer secret"}
+        )
         assert response2.status_code == 204
     finally:
         manager.shutdown()

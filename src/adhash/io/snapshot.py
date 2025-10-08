@@ -1,4 +1,3 @@
-
 """Snapshot I/O helpers for Adaptive Hash Map."""
 
 from __future__ import annotations
@@ -11,7 +10,10 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any, IO, cast
 
-from .snapshot_header import read_snapshot as read_versioned_snapshot, write_snapshot as write_versioned_snapshot
+from .snapshot_header import (
+    read_snapshot as read_versioned_snapshot,
+    write_snapshot as write_versioned_snapshot,
+)
 from .safe_pickle import dump as safe_dump, load as safe_load
 
 
