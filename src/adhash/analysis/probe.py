@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any
 
 from adhash.core.maps import (
+    _TOMBSTONE,
     HybridAdaptiveHashMap,
     RobinHoodMap,
     TwoLevelChainingMap,
     _RHEntry,
-    _TOMBSTONE,
 )
 
-ProbeTrace = Dict[str, Any]
+ProbeTrace = dict[str, Any]
 
 
 def _json_friendly(value: Any) -> Any:
@@ -24,7 +25,7 @@ def _json_friendly(value: Any) -> Any:
 
         json.dumps(value)
         return value
-    except Exception:  # noqa: BLE001
+    except TypeError:  # noqa: BLE001 - only non-serialisable objects fall back to repr
         return repr(value)
 
 
@@ -34,12 +35,12 @@ def trace_robinhood_get(map_obj: RobinHoodMap, key: Any) -> ProbeTrace:
     start_idx = map_obj._idx(hash(key))  # pylint: disable=protected-access
     idx = start_idx
     scanned = 0
-    path: List[Dict[str, Any]] = []
+    path: list[dict[str, Any]] = []
     found = False
     terminal = "overflow"
     while scanned <= cap:
         slot = map_obj._table[idx]  # pylint: disable=protected-access
-        step: Dict[str, Any] = {
+        step: dict[str, Any] = {
             "step": scanned,
             "slot": idx,
             "start_slot": start_idx,
@@ -59,16 +60,14 @@ def trace_robinhood_get(map_obj: RobinHoodMap, key: Any) -> ProbeTrace:
             ideal = map_obj._idx(hash(slot.key))  # pylint: disable=protected-access
             distance = map_obj._probe_distance(ideal, idx)  # pylint: disable=protected-access
             matches = slot.key == key
-            step.update(
-                {
-                    "state": "occupied",
-                    "key_repr": repr(slot.key),
-                    "value_repr": repr(slot.value),
-                    "ideal_slot": ideal,
-                    "probe_distance": distance,
-                    "matches": matches,
-                }
-            )
+            step.update({
+                "state": "occupied",
+                "key_repr": repr(slot.key),
+                "value_repr": repr(slot.value),
+                "ideal_slot": ideal,
+                "probe_distance": distance,
+                "matches": matches,
+            })
             path.append(step)
             if matches:
                 terminal = "match"
@@ -95,14 +94,14 @@ def _probe_distance_for_cap(capacity: int, ideal_idx: int, cur_idx: int) -> int:
 
 def _rehash_robinhood_table(
     map_obj: RobinHoodMap,
-) -> tuple[int, int, List[Optional[Any]], bool]:
+) -> tuple[int, int, list[Any | None], bool]:
     """Return a simulated table (capacity/mask/table) mirroring resize behaviour."""
 
     needs_resize = map_obj.load_factor() > 0.85
     if needs_resize:
         cap = map_obj._cap * 2  # pylint: disable=protected-access
         mask = cap - 1
-        table: List[Optional[Any]] = [None] * cap
+        table: list[Any | None] = [None] * cap
         for slot in map_obj._table:  # pylint: disable=protected-access
             if isinstance(slot, _RHEntry):
                 idx = hash(slot.key) & mask
@@ -138,12 +137,12 @@ def trace_robinhood_put(map_obj: RobinHoodMap, key: Any, value: Any) -> ProbeTra
     idx = hash(key) & mask
     current = _RHEntry(key, value)
     dist = 0
-    path: List[Dict[str, Any]] = []
+    path: list[dict[str, Any]] = []
     steps = 0
     terminal = "insert"
     while steps <= cap + 1:
         slot = table[idx]
-        step: Dict[str, Any] = {
+        step: dict[str, Any] = {
             "step": steps,
             "slot": idx,
             "candidate_key": repr(current.key),
@@ -162,16 +161,14 @@ def trace_robinhood_put(map_obj: RobinHoodMap, key: Any, value: Any) -> ProbeTra
             ideal = hash(slot.key) & mask
             slot_dist = _probe_distance_for_cap(cap, ideal, idx)
             matches = slot.key == key
-            step.update(
-                {
-                    "state": "occupied",
-                    "occupant_key": repr(slot.key),
-                    "occupant_value": repr(slot.value),
-                    "ideal_slot": ideal,
-                    "probe_distance": slot_dist,
-                    "matches": matches,
-                }
-            )
+            step.update({
+                "state": "occupied",
+                "occupant_key": repr(slot.key),
+                "occupant_value": repr(slot.value),
+                "ideal_slot": ideal,
+                "probe_distance": slot_dist,
+                "matches": matches,
+            })
             if matches:
                 step["action"] = "update"
                 path.append(step)
@@ -208,18 +205,16 @@ def trace_robinhood_put(map_obj: RobinHoodMap, key: Any, value: Any) -> ProbeTra
 def trace_chaining_get(map_obj: TwoLevelChainingMap, key: Any) -> ProbeTrace:
     bucket_idx, group_idx = map_obj._index_group(key)  # pylint: disable=protected-access
     group = map_obj._buckets[bucket_idx][group_idx]  # pylint: disable=protected-access
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     found = False
     for pos, entry in enumerate(group):
         matches = entry.key == key
-        entries.append(
-            {
-                "position": pos,
-                "key_repr": repr(entry.key),
-                "value_repr": repr(entry.value),
-                "matches": matches,
-            }
-        )
+        entries.append({
+            "position": pos,
+            "key_repr": repr(entry.key),
+            "value_repr": repr(entry.value),
+            "matches": matches,
+        })
         if matches:
             found = True
     return {
@@ -235,7 +230,7 @@ def trace_chaining_get(map_obj: TwoLevelChainingMap, key: Any) -> ProbeTrace:
 
 
 def trace_probe_get(
-    map_obj: Union[RobinHoodMap, TwoLevelChainingMap, HybridAdaptiveHashMap], key: Any
+    map_obj: RobinHoodMap | TwoLevelChainingMap | HybridAdaptiveHashMap, key: Any
 ) -> ProbeTrace:
     if isinstance(map_obj, RobinHoodMap):
         return trace_robinhood_get(map_obj, key)
@@ -250,19 +245,17 @@ def trace_probe_get(
 
 
 def trace_probe_put(
-    map_obj: Union[RobinHoodMap, TwoLevelChainingMap, HybridAdaptiveHashMap], key: Any, value: Any
+    map_obj: RobinHoodMap | TwoLevelChainingMap | HybridAdaptiveHashMap, key: Any, value: Any
 ) -> ProbeTrace:
     if isinstance(map_obj, RobinHoodMap):
         return trace_robinhood_put(map_obj, key, value)
     if isinstance(map_obj, TwoLevelChainingMap):
         base = trace_chaining_get(map_obj, key)
-        base.update(
-            {
-                "operation": "put",
-                "value_repr": _json_friendly(value),
-                "terminal": "update" if base.get("found") else "append",
-            }
-        )
+        base.update({
+            "operation": "put",
+            "value_repr": _json_friendly(value),
+            "terminal": "update" if base.get("found") else "append",
+        })
         return base
     if isinstance(map_obj, HybridAdaptiveHashMap):
         backend = map_obj.backend()
@@ -273,15 +266,15 @@ def trace_probe_put(
 
 
 def format_trace_lines(
-    trace: Dict[str, Any],
+    trace: dict[str, Any],
     *,
-    snapshot: Optional[Union[str, Path]] = None,
-    seeds: Optional[Sequence[str]] = None,
-    export_path: Optional[Union[str, Path]] = None,
-) -> List[str]:
+    snapshot: str | Path | None = None,
+    seeds: Sequence[str] | None = None,
+    export_path: str | Path | None = None,
+) -> list[str]:
     """Return a human-friendly rendering of a probe trace."""
 
-    lines: List[str] = []
+    lines: list[str] = []
     backend = trace.get("backend", "?")
     operation = trace.get("operation", "?")
     key_repr = trace.get("key_repr", "?")
@@ -315,7 +308,7 @@ def format_trace_lines(
                 prefix += f"Entry {item['position']}: "
             else:
                 prefix += "Item: "
-            attrs: List[str] = []
+            attrs: list[str] = []
             for key in (
                 "slot",
                 "start_slot",

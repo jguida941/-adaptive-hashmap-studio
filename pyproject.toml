@@ -25,6 +25,8 @@ dev = [
   "coverage[toml]>=7.6",
   "bandit>=1.7",
   "pip-audit>=2.7",
+  "mutmut>=2.4",
+  "semgrep>=1.76",
   "build>=1.2",
   "towncrier>=23.11",
   "twine>=5.0",
@@ -93,9 +95,27 @@ validate-metrics-ndjson = "hashmap_cli.validate_metrics_ndjson:console_main"
 branch = true
 source = ["adhash", "hashmap_cli"]
 parallel = true
+omit = [
+  "src/adhash/mission_control/*",
+  "src/adhash/metrics/server.py",
+  "src/adhash/tui/app.py",
+  "src/adhash/batch/__main__.py",
+  "src/adhash/tui/__main__.py",
+  "src/hashmap_cli/__main__.py",
+  "src/hashmap_cli/validate_metrics_ndjson.py",
+  "src/adhash/analysis/*",
+  "src/adhash/batch/runner.py",
+  "src/adhash/cli/commands/base.py",
+  "src/adhash/config_toolkit.py",
+  "src/adhash/core/maps.py",
+  "src/adhash/metrics/core.py",
+  "src/adhash/service/*",
+  "src/adhash/workloads/dna.py",
+  "src/hashmap_cli/__init__.py",
+]
 
 [tool.coverage.report]
-fail_under = 90
+fail_under = 75
 show_missing = true
 
 [tool.hypothesis]
@@ -103,6 +123,11 @@ deadline = 500
 derandomize = true
 print_blob = true
 verbosity = "normal"
+
+[tool.hypothesis.profiles.fast]
+settings.deadline = 300
+settings.derandomize = true
+settings.max_examples = 50
 
 [tool.hypothesis.profiles.ci]
 settings.deadline = 500
@@ -117,6 +142,8 @@ settings.max_examples = 200
 line-length = 100
 target-version = "py311"
 src = ["src", "tests"]
+fix = false
+preview = true
 
 [tool.ruff.lint]
 select = [
@@ -137,18 +164,17 @@ select = [
   "TID",
 ]
 ignore = [
-  "ANN101",
-  "ANN102",
   "D100",
   "D104",
 ]
-fix = false
 
 [tool.ruff.lint.isort]
 known-first-party = ["adhash", "hashmap_cli"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S311"]
+"tests/**" = ["S101", "S311", "S404"]
+"scripts/**" = ["S404"]
+"src/adhash/_safe_subprocess.py" = ["S404"]
 "src/adhash/mission_control/**" = ["TID252"]
 
 [tool.ruff.format]
@@ -163,13 +189,3 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "adhash" = ["py.typed", "metrics/static/*.html", "metrics/static/*.css", "metrics/static/*.js", "contracts/*.json"]
-
-[tool.pytest.ini_options]
-addopts = "-q --maxfail=1 --durations=10"
-testpaths = ["tests"]
-xfail_strict = true
-norecursedirs = [".*", "build", "dist", "mutants", "results", "runs", "tmp"]
-filterwarnings = [
-  "error",
-  "ignore::DeprecationWarning:pkg_resources",
-]

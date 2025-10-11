@@ -1,5 +1,5 @@
 # 🔑 Adaptive Hash Map Studio
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](#requirements) [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](#validation) [![codecov](https://codecov.io/gh/jguida941/adaptive-hashmap-studio/branch/main/graph/badge.svg)](https://codecov.io/gh/jguida941/adaptive-hashmap-studio) [![Docs](https://img.shields.io/badge/docs-updated-blueviolet)](#documentation)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](#requirements) [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](#validation) [![Nightly](https://github.com/jguida941/adaptive-hashmap-studio/actions/workflows/nightly.yml/badge.svg)](https://github.com/jguida941/adaptive-hashmap-studio/actions/workflows/nightly.yml) [![codecov](https://codecov.io/gh/jguida941/adaptive-hashmap-studio/branch/main/graph/badge.svg)](https://codecov.io/gh/jguida941/adaptive-hashmap-studio) [![Docs](https://img.shields.io/badge/docs-updated-blueviolet)](#documentation)
 [![Mission Control](https://img.shields.io/badge/mission_control-PyQt6-orange)](#mission-control-pyqt6) [![Terminal TUI](https://img.shields.io/badge/terminal_tui-Textual-ff69b4)](#textual-tui-terminal) [![Snapshots](https://img.shields.io/badge/snapshots-versioned%20%2B%20checksummed-success)](#snapshots--configuration)
 
 
@@ -104,6 +104,8 @@ The editable install registers a `hashmap-cli` entry point, and you can also inv
    make type
    make test   # pytest (90 passed / 7 skipped as of Oct 10 2025)
    ```
+
+> **Running on Windows runners?** Set `PYTEST_TIMEOUT_METHOD=thread` (or edit `pytest.ini`) because the default `signal` method is unavailable on Windows.
 
 All three commands are logged in `reports/command_run_log.tsv` along with the full async audit transcripts.
 

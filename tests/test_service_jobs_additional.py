@@ -1,7 +1,8 @@
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, cast
+from typing import Any, cast
 
 import pytest
 
@@ -11,7 +12,7 @@ from adhash.service.models import BatchRequest, ProfileRequest, RunCsvRequest
 
 
 @pytest.fixture
-def job_manager(tmp_path: Path):
+def job_manager(tmp_path: Path) -> Iterator[JobManager]:
     manager = JobManager(base_dir=tmp_path / "jobs", max_workers=1)
     try:
         yield manager
@@ -19,7 +20,7 @@ def job_manager(tmp_path: Path):
         manager.shutdown()
 
 
-def test_prepare_path_handles_relative_and_absolute(tmp_path: Path):
+def test_prepare_path_handles_relative_and_absolute(tmp_path: Path) -> None:
     work = tmp_path / "workspace"
     work.mkdir()
     absolute = tmp_path / "data.csv"
@@ -33,7 +34,7 @@ def test_prepare_path_handles_relative_and_absolute(tmp_path: Path):
     assert JobManager._prepare_optional_path(None, work) is None
 
 
-def test_append_log_and_capture_output(job_manager: JobManager):
+def test_append_log_and_capture_output(job_manager: JobManager) -> None:
     record = job_manager._create_job("test", {"input": "csv"})
     job_manager._append_log(record.id, "first log", "INFO")
     log_path = job_manager.base_dir / record.id / "logs.ndjson"
@@ -51,10 +52,10 @@ def test_append_log_and_capture_output(job_manager: JobManager):
 
 def test_execute_run_csv_resolves_artifacts(
     job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    outputs: Dict[str, Any] = {}
+) -> None:
+    outputs: dict[str, Any] = {}
 
-    def fake_run_csv(csv_path: str, mode: str, **kwargs):
+    def fake_run_csv(csv_path: str, mode: str, **kwargs: Any) -> dict[str, Any]:
         outputs["csv"] = csv_path
         outputs["kwargs"] = kwargs
         return {"status": "ok", "mode": mode}
@@ -77,14 +78,14 @@ def test_execute_run_csv_resolves_artifacts(
     assert artifacts["snapshot_out"].endswith("snapshots/out.snapshot")
     assert artifacts["json_summary_out"].endswith("summary.json")
     assert artifacts["metrics_out_dir"].endswith("metrics")
-    kwargs = cast(Dict[str, Any], outputs["kwargs"])
+    kwargs = cast(dict[str, Any], outputs["kwargs"])
     assert kwargs["metrics_host"] == "127.0.0.1"
 
 
 def test_execute_profile_returns_summary(
     job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    monkeypatch.setattr("adhash.service.jobs.profile_csv", lambda path, sample_limit: "fast")
+) -> None:
+    monkeypatch.setattr("adhash.service.jobs.profile_csv", lambda _path, _sample_limit: "fast")
 
     request = ProfileRequest(csv=str(tmp_path / "input.csv"), sample_limit=50)
     result, artifacts = job_manager._execute_profile("job", request)
@@ -94,7 +95,7 @@ def test_execute_profile_returns_summary(
 
 def test_execute_batch_serializes_results(
     job_manager: JobManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
+) -> None:
     spec_obj = SimpleNamespace(
         name="batch",
         command="run",
@@ -116,13 +117,13 @@ def test_execute_batch_serializes_results(
     ]
 
     class FakeRunner:
-        def __init__(self, spec):
+        def __init__(self, spec: Any) -> None:
             assert spec is spec_obj
 
-        def run(self):
+        def run(self) -> list[JobResult]:
             return run_results
 
-    monkeypatch.setattr("adhash.service.jobs.load_spec", lambda path: spec_obj)
+    monkeypatch.setattr("adhash.service.jobs.load_spec", lambda _path: spec_obj)
     monkeypatch.setattr("adhash.service.jobs.BatchRunner", FakeRunner)
 
     request = BatchRequest(spec_path=str(tmp_path / "spec.toml"))
@@ -134,7 +135,7 @@ def test_execute_batch_serializes_results(
     assert serialized["summary"] == {"ops": 10}
 
 
-def test_cancel_returns_false_for_unknown_future(job_manager: JobManager):
+def test_cancel_returns_false_for_unknown_future(job_manager: JobManager) -> None:
     record = job_manager._create_job("test", {"alpha": 1})
     # Cancellation should fail because future not registered yet.
     assert job_manager.cancel(record.id) is False

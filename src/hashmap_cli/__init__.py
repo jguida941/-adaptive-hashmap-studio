@@ -5,8 +5,8 @@ from __future__ import annotations
 import importlib
 import sys
 import types
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from adhash.hashmap_cli import *  # noqa: F401,F403 - re-export public API by default
 
@@ -29,10 +29,10 @@ class _Shim(types.ModuleType):
         "__all__",
     }
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> object:
         return getattr(_impl, name)
 
-    def __setattr__(self, name: str, value) -> None:
+    def __setattr__(self, name: str, value: object) -> None:
         if name in self._PROTECTED:
             types.ModuleType.__setattr__(self, name, value)
         else:

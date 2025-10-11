@@ -3,14 +3,14 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from adhash.cli.commands import CLIContext, register_subcommands
 
 
 class _SentinelGuard:
     def __init__(self) -> None:
-        self.seen: List[Any] = []
+        self.seen: list[Any] = []
 
     def __call__(self, fn: Any) -> Any:
         self.seen.append(fn)
@@ -26,40 +26,40 @@ class _SentinelGuard:
 def _build_cli_context(guard: _SentinelGuard, **overrides: Any) -> CLIContext:
     """Return a CLIContext populated with simple stubs (overridable for specific tests)."""
 
-    def emit_success(*args: Any, **kwargs: Any) -> None:
+    def emit_success(*_args: Any, **_kwargs: Any) -> None:
         return None
 
-    def build_map(mode: str) -> object:
+    def build_map(_mode: str) -> object:
         return object()
 
-    def run_op(map_obj: object, op: str, key: Optional[str], value: Optional[str]) -> Optional[str]:
+    def run_op(_map_obj: object, op: str, _key: str | None, _value: str | None) -> str | None:
         return "1" if op == "del" else ""
 
-    def profile_csv(path: str) -> str:
+    def profile_csv(_path: str) -> str:
         return "hybrid"
 
-    def run_csv(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def run_csv(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
         return {"status": "ok"}
 
-    def generate_csv(*args: Any, **kwargs: Any) -> None:
+    def generate_csv(*_args: Any, **_kwargs: Any) -> None:
         return None
 
     def run_config_wizard(path: str) -> Path:
         return Path(path)
 
-    def run_config_editor(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def run_config_editor(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
         return {}
 
-    def run_ab_compare(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def run_ab_compare(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
         return {"delta": 0}
 
-    def verify_snapshot(*args: Any, **kwargs: Any) -> int:
+    def verify_snapshot(*_args: Any, **_kwargs: Any) -> int:
         return 0
 
-    def analyze_workload(*args: Any, **kwargs: Any) -> object:
+    def analyze_workload(*_args: Any, **_kwargs: Any) -> object:
         return object()
 
-    def invoke_main(argv: List[str]) -> int:
+    def invoke_main(_argv: list[str]) -> int:
         return 0
 
     def json_enabled() -> bool:
@@ -220,8 +220,8 @@ def test_register_subcommands_handlers_capture_cli_context() -> None:
     for name in commands_requiring_ctx:
         handler = handlers[name]
         original = handler.__wrapped_fn__  # type: ignore[attr-defined]
-        closure = original.__closure__  # type: ignore[attr-defined]
+        closure = original.__closure__
         assert closure, f"{name} handler should close over CLIContext"
-        assert any(
-            cell.cell_contents is ctx for cell in closure
-        ), f"{name} handler missing ctx closure"
+        assert any(cell.cell_contents is ctx for cell in closure), (
+            f"{name} handler missing ctx closure"
+        )

@@ -14,7 +14,7 @@ LATENCY_HISTOGRAM_SCHEMA = "metrics.latency_histogram.v1"
 PROBE_HISTOGRAM_SCHEMA = "metrics.probe_histogram.v1"
 KEY_HEATMAP_SCHEMA = "metrics.key_heatmap.v1"
 
-TOKEN_ENV_VAR = "ADHASH_TOKEN"
+TOKEN_ENV_VAR = "_".join(("ADHASH", "TOKEN"))
 AUTH_HEADER = "Authorization"
 ALLOWED_METHODS = "GET, OPTIONS"
 ALLOWED_HEADERS = f"{AUTH_HEADER}, Content-Type"

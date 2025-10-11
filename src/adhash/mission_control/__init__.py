@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 __all__ = [
     "build_app",
     "build_controller",
@@ -22,7 +24,13 @@ def __getattr__(name: str):  # pragma: no cover - thin re-export shim
 
         return getattr(builders, name)
     if name == "MissionControlController":
-        from .controller import MissionControlController as cls
+        from .controller import MissionControlController as controller_class  # noqa: N813
 
-        return cls
+        return controller_class
     raise AttributeError(name)
+
+
+if TYPE_CHECKING:  # pragma: no cover - import-time typing only
+    from .app import run_mission_control
+    from .builders import build_app, build_controller, build_widgets, build_window
+    from .controller import MissionControlController

@@ -20,7 +20,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    except Exception as exc:  # noqa: BLE001
+    except (ImportError, RuntimeError) as exc:
         print(f"Failed to import TUI modules: {exc}", file=sys.stderr)
         return 1
 
@@ -33,7 +33,7 @@ def main() -> int:
             poll_interval=args.poll_interval,
             timeout=args.timeout,
         )
-    except Exception as exc:  # noqa: BLE001
+    except (RuntimeError, OSError) as exc:
         print(f"TUI exited with an error: {exc}", file=sys.stderr)
         return 1
     return 0

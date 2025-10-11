@@ -3,15 +3,20 @@
 
 from __future__ import annotations
 
-from typing import Optional, Any, cast
+from typing import Any, cast
 
-_QT_IMPORT_ERROR: Optional[Exception] = None
+QT_IMPORT_ERROR: Exception | None = None
 
 try:  # pragma: no cover - only when PyQt6 is available
-    from PyQt6.QtWidgets import QDockWidget, QWidget, QHBoxLayout, QLabel  # type: ignore[import-not-found]
     from PyQt6.QtCore import Qt  # type: ignore[import-not-found]
-except Exception as exc:  # pragma: no cover
-    _QT_IMPORT_ERROR = exc
+    from PyQt6.QtWidgets import (  # type: ignore[import-not-found]
+        QDockWidget,
+        QHBoxLayout,
+        QLabel,
+        QWidget,
+    )
+except Exception as exc:  # pragma: no cover  # noqa: BLE001
+    QT_IMPORT_ERROR = exc
     QDockWidget = cast(Any, object)
     QWidget = cast(Any, object)
     QHBoxLayout = cast(Any, object)
@@ -38,7 +43,7 @@ def create_dock(title: str, widget: QWidget, area: Qt.DockWidgetArea) -> QDockWi
     dock.setObjectName(f"dock_{title.lower().replace(' ', '_')}")
     dock.setWindowTitle(title)
     if Qt is not None:
-        dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)  # type: ignore[attr-defined]
+        dock.setAllowedAreas(area)
         dock.setTitleBarWidget(_build_title_bar(title, dock))
     dock.setWidget(widget)
     return dock

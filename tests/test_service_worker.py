@@ -3,10 +3,10 @@ from unittest import mock
 from adhash.service.worker import JobWorker
 
 
-def test_job_worker_runs_target_and_updates_manager():
+def test_job_worker_runs_target_and_updates_manager() -> None:
     manager = mock.Mock()
 
-    def job_fn(*args, **kwargs):
+    def job_fn(*args: object, **kwargs: object) -> tuple[dict[str, object], dict[str, str]]:
         return {"result": args, "kwargs": kwargs}, {"artifact": "path"}
 
     worker = JobWorker(

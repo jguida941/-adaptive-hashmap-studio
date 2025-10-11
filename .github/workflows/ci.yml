@@ -1,39 +1,59 @@
 name: CI
 
 on:
-  push:
-    branches: ["main"]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+
 jobs:
-  quality:
-    name: Quality • py${{ matrix.python-version }}
-    runs-on: ubuntu-latest
+  test:
+    name: ${{ matrix.os }} • py${{ matrix.python }} • ${{ github.event_name == 'pull_request' && 'FAST' || 'FULL' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        os: [ubuntu-latest]
+        python: ["3.11", "3.12"]
     env:
-      QT_QPA_PLATFORM: offscreen
-      QT_OPENGL: software
-      QT_QUICK_BACKEND: software
+      PYTHONHASHSEED: "0"
+      QT_QPA_PLATFORM: "offscreen"
+      QT_OPENGL: "software"
+      QT_QUICK_BACKEND: "software"
       QTWEBENGINE_DISABLE_SANDBOX: "1"
+      PIPELINE_ENTRY: "./scripts/pipeline.sh"
+      ART_DIR: ".artifacts"
+      PKG_IMPORT_NAME: "adhash"
+      PKG_ALT_IMPORT_NAME: "hashmap_cli"
+      PKG_CLI_NAME: "hashmap-cli"
+# adjust the PKG_* values above if import/CLI names ever change
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Python & uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+          cache-dependency-path: |
+            uv.lock
+            pyproject.toml
 
-      - name: Install Qt system packages
+      - name: Install system packages (Qt/X11)
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -43,151 +63,232 @@ jobs:
             libglu1-mesa \
             libegl1
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ matrix.python-version }}-
-
-      - name: Cache pytest state
+      - name: Cache tool state
         uses: actions/cache@v4
         with:
           path: |
-            .hypothesis
+            .mypy_cache
+            .ruff_cache
             .pytest_cache
-          key: ${{ runner.os }}-pytest-state-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pytest-state-${{ matrix.python-version }}-
+            .semgrep
+            .artifacts/.mutmut-cache
+          key: tools-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
 
-      - name: Install dependencies
+      - name: Install project dependencies (uv)
         run: |
-          python -m pip install -U pip
-          python -m pip install -e '.[dev,gui,service]'
+          if [ -f uv.lock ]; then
+            uv pip install -e '.[dev,gui,service]' --locked
+          else
+            echo "uv.lock not found; falling back to unlocked install" >&2
+            uv pip install -e '.[dev,gui,service]'
+          fi
 
-      - name: Tool versions
-        if: matrix.python-version == '3.11'
+      - name: Create artifacts directory
+        run: mkdir -p "$ART_DIR/logs" "$ART_DIR/reports"
+
+      - name: Check subprocess safety
+        run: python tools/check_subprocess_safety.py
+
+      - name: Compute changed files
+        id: diff
+        shell: bash
         run: |
-          python --version
-          pip --version
-          ruff --version
-          mypy --version
-          pytest --version
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            before="${{ github.event.before }}"
+            if [ -n "$before" ] && [ "$before" != "0000000000000000000000000000000000000000" ]; then
+              base="$before"
+            else
+              base=$(git rev-list --max-parents=0 HEAD | tail -n 1)
+            fi
+          fi
+          if ! git cat-file -e "${base}^{commit}" >/dev/null 2>&1; then
+            git fetch --no-tags origin "${base}" --depth=1 || true
+          fi
+          mapfile -t changed < <(git diff --name-only --diff-filter=ACMRTD "$base"...HEAD)
+          printf '%s\n' "${changed[@]}" | tee "$ART_DIR/logs/changed_files.txt"
+          CHANGED_PY=$(printf '%s\n' "${changed[@]}" | grep -E '^(src|tests)/.*\.py$' || true)
+          echo "changed_py<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGED_PY" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          packages=$(
+            printf '%s\n' "$CHANGED_PY" \
+              | python - <<'PY'
+import sys
+packages = set()
+for line in sys.stdin:
+    line = line.strip()
+    if not line.startswith("src/"):
+        continue
+    rest = line[4:]
+    head = rest.split("/", 1)[0]
+    if head:
+        packages.add(head)
+if packages:
+    print(",".join(f"src/{name}" for name in sorted(packages)))
+PY
+          )
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
 
-      - name: Secret scan (gitleaks)
-        if: matrix.python-version == '3.11'
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          args: detect --source . --no-banner --redact
+      - name: Select pipeline profile
+        id: profile
+        run: |
+          mode="full"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then mode="fast"; fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
-      - name: Ruff lint
-        if: matrix.python-version == '3.11'
-        run: ruff check .
-
-      - name: Ruff format check
-        if: matrix.python-version == '3.11'
-        run: ruff format --check .
-
-      - name: Type check (mypy --strict)
-        if: matrix.python-version == '3.11'
-        run: mypy --config-file mypy.ini src tests
-
-      - name: Unit + property tests with coverage
+      - name: Run unified pipeline (${{ steps.profile.outputs.mode }})
         env:
-          COVERAGE_PROCESS_START: .coveragerc
-          PYTHONPATH: tools/coverage:${PYTHONPATH}
-          HYPOTHESIS_PROFILE: ci
+          PIPELINE_MODE: ${{ steps.profile.outputs.mode }}
+          CHANGED_PY: ${{ steps.diff.outputs.changed_py }}
+          MUTATE_PACKAGES: ${{ steps.diff.outputs.packages }}
         run: |
-          set -o pipefail
-          xvfb-run -a coverage run -m pytest -q --maxfail=1 --durations=10 | tee pytest-output.txt
-          coverage combine
-          coverage xml
-          coverage report
+          echo "Mode=$PIPELINE_MODE"
+          xvfb-run -a "$PIPELINE_ENTRY" --mode "$PIPELINE_MODE"
 
-      - name: Record slowest pytest durations
-        if: always() && matrix.python-version == '3.11'
+      - name: Run Bandit (medium/high gate)
+        env:
+          ART_DIR: ${{ env.ART_DIR }}
         run: |
+          set -euo pipefail
+          bandit -q -r src -f json -o "${ART_DIR}/reports/bandit.json"
           python - <<'PY'
+import json
 import os
-import pathlib
+import sys
+from pathlib import Path
 
-output_path = pathlib.Path("pytest-output.txt")
-if not output_path.exists():
-    raise SystemExit(0)
+art_dir = Path(os.environ["ART_DIR"])
+report = art_dir / "reports" / "bandit.json"
+summary = art_dir / "logs" / "bandit_summary.txt"
 
-lines = output_path.read_text(encoding="utf-8", errors="ignore").splitlines()
-durations: list[str] = []
-capture = False
+try:
+    data = json.loads(report.read_text(encoding="utf-8"))
+except FileNotFoundError:
+    print("Bandit report missing at", report, file=sys.stderr)
+    sys.exit(1)
 
-for line in lines:
-    stripped = line.strip()
-    if not capture:
-        if "slowest" in stripped and "durations" in stripped:
-            capture = True
-        continue
-    if not stripped:
-        if durations:
-            break
-        continue
-    if stripped.startswith("="):
-        continue
-    durations.append(stripped)
+blocked = [
+    issue
+    for issue in data.get("results", [])
+    if issue.get("issue_confidence") == "HIGH"
+    and issue.get("issue_severity") in {"MEDIUM", "HIGH"}
+]
 
-if not durations:
-    raise SystemExit(0)
+lines = []
+for issue in blocked:
+    location = f"{issue.get('filename')}:{issue.get('line_number')}"
+    lines.append(
+        f"{issue.get('issue_severity')} {issue.get('test_id')} {location} — {issue.get('issue_text')}"
+    )
 
-top = durations[:10]
-summary_lines = ["## Slowest pytest durations", ""] + [f"- {entry}" for entry in top]
-text = "\n".join(summary_lines) + "\n"
+if blocked:
+    summary.write_text("\n".join(lines), encoding="utf-8")
+    print("Bandit found medium/high severity issues:", file=sys.stderr)
+    for line in lines:
+        print("  " + line, file=sys.stderr)
+    sys.exit(1)
 
-summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
-if summary_file:
-    with open(summary_file, "a", encoding="utf-8") as handle:
-        handle.write("\n" + text)
-
-pathlib.Path("pytest-slowest.md").write_text(text, encoding="utf-8")
+summary.write_text("No medium/high issues detected (high confidence).", encoding="utf-8")
 PY
 
-      - name: Upload slowest-test summary
-        if: always() && matrix.python-version == '3.11' && hashFiles('pytest-slowest.md') != ''
+      - name: Upload pipeline artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-slowest
-          path: pytest-slowest.md
+          name: artifacts-${{ matrix.os }}-py${{ matrix.python }}
+          path: ${{ env.ART_DIR }}/**
+          if-no-files-found: ignore
+          retention-days: 14
 
-      - name: Coverage gate (fail under 90%)
-        if: matrix.python-version == '3.11'
-        run: |
-          python - <<'PY'
-import xml.etree.ElementTree as ET
-report = ET.parse("coverage.xml").getroot()
-line_rate = float(report.get("line-rate", 0))
-percent = round(line_rate * 100, 2)
-print(f"coverage: {percent:.2f}%")
-if percent < 90.0:
-    raise SystemExit("Coverage threshold not met (expected >= 90%)")
-PY
-
-      - name: pip check
-        if: matrix.python-version == '3.11'
-        run: python -m pip check
-
-      - name: Dependency vulnerability scan (pip-audit)
-        if: matrix.python-version == '3.11'
-        run: pip-audit -e .
-
-      - name: Static security scan (bandit)
-        if: matrix.python-version == '3.11'
-        run: bandit -q -c .bandit.yaml -r src
-
-      - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
+      - name: Upload raw coverage data
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          files: coverage.xml
-          fail_ci_if_error: true
+          name: covdata-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            ${{ env.ART_DIR }}/reports/covdata/.coverage*
+          if-no-files-found: ignore
+          retention-days: 14
 
-      - name: Smoke workload & schema validation
-        if: matrix.python-version == '3.11'
-        run: make smoke
+      - name: Upload Semgrep SARIF
+        if: always() && hashFiles(format('{0}/semgrep.sarif', env.ART_DIR)) != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ env.ART_DIR }}/semgrep.sarif
+
+      - name: Post PR summary comment
+        if: ${{ github.event_name == 'pull_request' && always() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f "${ART_DIR}/summary.md" ]; then
+            gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+              -f body="$(cat "${ART_DIR}/summary.md")"
+          fi
+
+  coverage-aggregate:
+    name: coverage-aggregate
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download coverage data
+        id: download_cov
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: covdata-*
+          path: covdata
+          merge-multiple: true
+
+      - name: Combine coverage and publish
+        if: ${{ steps.download_cov.outcome == 'success' }}
+        run: |
+          python -m pip install coverage
+          mkdir -p .artifacts/htmlcov
+          coverage_files=$(find covdata -type f -name ".coverage*" -print)
+          if [ -z "$coverage_files" ]; then
+            echo "No coverage data found; skipping aggregation" >&2
+            exit 0
+          fi
+          while IFS= read -r file; do
+            dest="$(basename "$file")"
+            cp "$file" "$dest"
+          done <<<"$coverage_files"
+          coverage combine .coverage.* || true
+          coverage xml -o .artifacts/coverage-aggregate.xml
+          coverage html -d .artifacts/htmlcov
+          coverage report || true
+
+      - name: Generate coverage badge
+        if: ${{ steps.download_cov.outcome == 'success' && hashFiles('.artifacts/coverage-aggregate.xml') != '' }}
+        run: |
+          chmod +x scripts/coverage_badge.sh
+          scripts/coverage_badge.sh .artifacts/coverage-aggregate.xml .artifacts/coverage-badge.svg
+
+      - name: Upload aggregated coverage
+        if: ${{ steps.download_cov.outcome == 'success' && hashFiles('.artifacts/coverage-aggregate.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-aggregate
+          path: |
+            .artifacts/coverage-aggregate.xml
+            .artifacts/htmlcov/**
+          retention-days: 14
+
+      - name: Upload coverage badge
+        if: ${{ steps.download_cov.outcome == 'success' && hashFiles('.artifacts/coverage-badge.svg') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-badge
+          path: .artifacts/coverage-badge.svg
+          retention-days: 14

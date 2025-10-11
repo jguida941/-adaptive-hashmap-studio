@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
+from typing import Any
 
 import pytest
 
@@ -18,7 +19,7 @@ def _write_csv(path: Path) -> None:
     path.write_text("op,key,value\nput,A,1\nget,A,\n", encoding="utf-8")
 
 
-def _iter_log_lines(payload: str) -> Iterable[dict]:
+def _iter_log_lines(payload: str) -> Iterable[dict[str, Any]]:
     for line in payload.splitlines():
         if line.strip():
             yield json.loads(line)

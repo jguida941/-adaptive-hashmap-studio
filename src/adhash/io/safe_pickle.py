@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import builtins
 import io
-import pickle
-from typing import Any, IO, Tuple
+import pickle  # noqa: S403  # nosec B403 - module is wrapped to restrict globals
+from typing import IO, Any
 
 _ALLOWED_BUILTINS = {
     "dict",
@@ -22,7 +22,7 @@ _ALLOWED_BUILTINS = {
     "bool",
 }
 
-_ALLOWED_CLASSES: set[Tuple[str, str]] = {
+_ALLOWED_CLASSES: set[tuple[str, str]] = {
     ("collections", "defaultdict"),
     ("collections", "deque"),
     ("adhash.core.maps", "TwoLevelChainingMap"),
@@ -39,7 +39,7 @@ _ALLOWED_CLASSES: set[Tuple[str, str]] = {
 }
 
 
-class _RestrictedUnpickler(pickle.Unpickler):
+class _RestrictedUnpickler(pickle.Unpickler):  # noqa: S301
     """Pickle loader that only allows a curated set of classes and builtins."""
 
     def find_class(self, module: str, name: str) -> Any:  # noqa: D401
@@ -74,4 +74,7 @@ def dumps(obj: Any, *, protocol: int = pickle.HIGHEST_PROTOCOL) -> bytes:
     return pickle.dumps(obj, protocol=protocol)
 
 
-__all__ = ["load", "loads", "dump", "dumps"]
+UnpicklingError = pickle.UnpicklingError
+
+
+__all__ = ["load", "loads", "dump", "dumps", "UnpicklingError"]

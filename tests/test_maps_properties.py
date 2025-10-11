@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any
 
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from adhash.core.maps import AdaptiveConfig, HybridAdaptiveHashMap
 
@@ -31,7 +33,7 @@ def _value_strategy() -> st.SearchStrategy[int]:
     return st.integers(-1_000, 1_000)
 
 
-def _operation_strategy() -> st.SearchStrategy[Tuple[str, Any, int | None]]:
+def _operation_strategy() -> st.SearchStrategy[tuple[str, Any, int | None]]:
     key = _key_strategy()
     value = _value_strategy()
     put_op = st.tuples(st.just("put"), key, value)
@@ -56,15 +58,15 @@ def _hybrid_map() -> HybridAdaptiveHashMap:
     return HybridAdaptiveHashMap(cfg)
 
 
-def _items_to_dict(items: Iterable[Tuple[Any, Any]]) -> Dict[Any, Any]:
+def _items_to_dict(items: Iterable[tuple[Any, Any]]) -> dict[Any, Any]:
     return dict(items)
 
 
 @settings(max_examples=150, deadline=None)
 @given(st.lists(_operation_strategy(), min_size=1, max_size=80))
-def test_hybrid_map_matches_python_dict(operations: list[Tuple[str, Any, int | None]]) -> None:
+def test_hybrid_map_matches_python_dict(operations: list[tuple[str, Any, int | None]]) -> None:
     map_impl = _hybrid_map()
-    model: Dict[Any, int] = {}
+    model: dict[Any, int] = {}
     seen_keys: set[Any] = set()
 
     for op, key, maybe_value in operations:

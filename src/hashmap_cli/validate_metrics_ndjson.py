@@ -10,7 +10,7 @@ from pathlib import Path
 
 try:
     from jsonschema import Draft202012Validator
-except Exception as exc:  # pragma: no cover
+except ImportError as exc:  # pragma: no cover
     print("jsonschema not installed; install dev extras to validate.", file=sys.stderr)
     raise SystemExit(2) from exc
 
@@ -29,8 +29,7 @@ def _load_schema_text(custom_schema: Path | None) -> str:
 
 def _non_monotonic_latency_message(p50: float, p90: float, p99: float, idx: int) -> str:
     return (
-        f"[invalid line {idx}] non-monotonic latency percentiles: "
-        f"p50={p50}, p90={p90}, p99={p99}"
+        f"[invalid line {idx}] non-monotonic latency percentiles: p50={p50}, p90={p90}, p99={p99}"
     )
 
 
@@ -77,7 +76,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             overall = lat.get("overall")
             if isinstance(overall, dict):
                 raw_values = [overall.get("p50"), overall.get("p90"), overall.get("p99")]
-                numeric_values = [v for v in raw_values if isinstance(v, (int, float))]
+                numeric_values = [v for v in raw_values if isinstance(v, int | float)]
                 if len(numeric_values) == 3 and all(
                     math.isfinite(v) and v >= 0 for v in numeric_values
                 ):

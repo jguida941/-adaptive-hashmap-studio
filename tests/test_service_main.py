@@ -1,12 +1,13 @@
+from pathlib import Path
 from unittest import mock
 
 from adhash.service import __main__ as service_main
 
 
-def test_service_main_invokes_uvicorn_with_expected_configuration(tmp_path):
+def test_service_main_invokes_uvicorn_with_expected_configuration(tmp_path: Path) -> None:
     argv = [
         "--host",
-        "0.0.0.0",
+        "0.0.0.0",  # noqa: S104
         "--port",
         "8100",
         "--job-root",
@@ -41,7 +42,11 @@ def test_service_main_invokes_uvicorn_with_expected_configuration(tmp_path):
     create_app_mock.assert_called_once_with(job_manager_instance)
     import_module_mock.assert_called_once_with("uvicorn")
     uvicorn_run.assert_called_once_with(
-        "app", host="0.0.0.0", port=8100, log_level="debug", reload=True
+        "app",
+        host="0.0.0.0",  # noqa: S104 - intentional public bind for service
+        port=8100,
+        log_level="debug",
+        reload=True,
     )
     get_logger_mock.assert_called_once_with("adhash.service")
     logger.setLevel.assert_called_once_with("DEBUG")

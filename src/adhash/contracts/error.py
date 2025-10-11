@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
 from functools import wraps
-from typing import Callable, NoReturn, Optional, TypeVar
+from typing import Any, NoReturn, TypeVar
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -30,7 +31,7 @@ class ErrorEnvelope:
 
     error: str
     detail: str
-    hint: Optional[str] = None
+    hint: str | None = None
 
     def to_json(self) -> str:
         payload = {"error": self.error, "detail": self.detail}
@@ -39,7 +40,7 @@ class ErrorEnvelope:
         return json.dumps(payload, ensure_ascii=False)
 
 
-def die(code: Exit, kind: str, detail: str, hint: Optional[str] = None) -> NoReturn:
+def die(code: Exit, kind: str, detail: str, hint: str | None = None) -> NoReturn:
     """Emit standardized JSON error on stderr and exit with a stable code."""
 
     env = ErrorEnvelope(error=kind, detail=detail, hint=hint)
@@ -53,7 +54,7 @@ def die(code: Exit, kind: str, detail: str, hint: Optional[str] = None) -> NoRet
 class EnvelopeError(Exception):
     """Base exception that carries an optional hint for the error envelope."""
 
-    def __init__(self, message: str, *, hint: Optional[str] = None) -> None:
+    def __init__(self, message: str, *, hint: str | None = None) -> None:
         super().__init__(message)
         self.hint = hint
 
@@ -70,7 +71,7 @@ class PolicyError(EnvelopeError):
     """Raised for unsupported operations or contract violations."""
 
 
-class IOErrorEnvelope(EnvelopeError):
+class IOErrorEnvelope(EnvelopeError):  # noqa: N818 - legacy public API name
     """Raised for IO errors that should map to Exit.IO."""
 
 
@@ -86,7 +87,7 @@ def guard_cli(fn: Callable[..., T]) -> Callable[..., T]:
     """Decorate a CLI handler to enforce exit codes and error envelopes."""
 
     @wraps(fn)
-    def _wrapped(*args, **kwargs) -> T:
+    def _wrapped(*args: Any, **kwargs: Any) -> T:
         try:
             return fn(*args, **kwargs)
         except EnvelopeError as exc:

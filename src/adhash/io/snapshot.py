@@ -8,14 +8,16 @@ import os
 import tempfile
 from contextlib import suppress
 from pathlib import Path
-from typing import Any, IO, cast
+from typing import IO, Any, cast
 
+from .safe_pickle import dump as safe_dump
+from .safe_pickle import load as safe_load
 from .snapshot_header import (
     read_snapshot as read_versioned_snapshot,
+)
+from .snapshot_header import (
     write_snapshot as write_versioned_snapshot,
 )
-from .safe_pickle import dump as safe_dump, load as safe_load
-
 
 logger = logging.getLogger("hashmap_cli")
 
@@ -43,35 +45,37 @@ def load_snapshot_any(path: str) -> Any:
     target = Path(path)
     try:
         return read_versioned_snapshot(target)
-    except Exception as exc:
+    except (ValueError, OSError, RuntimeError) as exc:
         logger.debug("Falling back to legacy snapshot load for %s: %s", path, exc)
-        with open_snapshot_for_read(str(target)) as fh:
-            return safe_load(fh)
+    with open_snapshot_for_read(str(target)) as fh:
+        return safe_load(fh)
 
 
 def save_snapshot_any(obj: Any, path: str, compress: bool) -> None:
     """Persist an object via versioned header, falling back to legacy pickle."""
 
     target = Path(path)
-    tmp = tempfile.NamedTemporaryFile(
+    with tempfile.NamedTemporaryFile(
         delete=False,
         dir=target.parent,
         prefix=f".{target.name}.",
         suffix=".tmp",
-    )
-    tmp_path = Path(tmp.name)
-    tmp.close()
+    ) as tmp:
+        tmp_path = Path(tmp.name)
     try:
         try:
             write_versioned_snapshot(tmp_path, obj, compress=compress or path.endswith(".gz"))
-        except Exception as exc:
+        except (ValueError, OSError, RuntimeError, EOFError) as exc:
             logger.debug("Falling back to legacy snapshot save for %s: %s", path, exc)
-            with open_snapshot_for_write(str(tmp_path), compress or path.endswith(".gz")) as fh:
+            legacy_compress = compress or path.endswith(".gz")
+            with open_snapshot_for_write(str(tmp_path), legacy_compress) as fh:
                 safe_dump(obj, fh)
         os.replace(tmp_path, target)
-    except Exception:
-        with suppress(FileNotFoundError):
+    except Exception as exc:  # noqa: BLE001
+        with suppress(Exception):
             tmp_path.unlink()
+        if isinstance(exc, OSError):
+            raise RuntimeError(f"Failed to save snapshot to {path}") from exc
         raise
 
 
@@ -79,19 +83,18 @@ def atomic_map_save(map_obj: Any, path: str | Path, *, compress: bool) -> None:
     """Save a map snapshot atomically by writing to a temp file first."""
 
     target = Path(path)
-    tmp = tempfile.NamedTemporaryFile(
+    with tempfile.NamedTemporaryFile(
         delete=False,
         dir=target.parent,
         prefix=f".{target.name}.",
         suffix=".tmp",
-    )
-    tmp_path = Path(tmp.name)
-    tmp.close()
+    ) as tmp:
+        tmp_path = Path(tmp.name)
     try:
         map_obj.save(str(tmp_path), compress=compress)
         os.replace(tmp_path, target)
-    except Exception:
-        with suppress(FileNotFoundError):
+    except Exception:  # noqa: BLE001
+        with suppress(Exception):
             tmp_path.unlink()
         raise
 

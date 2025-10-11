@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, Sequence
 
 from .runner import BatchRunner, load_spec
 
@@ -22,12 +22,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--python",
         default=None,
-        help="Optional python executable to use when invoking `python -m hashmap_cli` (defaults to current interpreter).",
+        help=(
+            "Optional python executable to use when invoking `python -m hashmap_cli` "
+            "(defaults to current interpreter)."
+        ),
     )
     return parser
 
 
-def main(argv: Optional[Sequence[str]] = None) -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     if args.list:
         _list_specs()

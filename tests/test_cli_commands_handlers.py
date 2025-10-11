@@ -1,23 +1,22 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, List, Tuple
+from typing import Any
 
 import pytest
 
 from adhash.cli import commands
-
-from tests.test_cli_commands_register import _SentinelGuard, _build_cli_context
+from tests.test_cli_commands_register import _build_cli_context, _SentinelGuard
 
 
 @dataclass
 class _RecordingHooks:
-    ab_args: Optional[Dict[str, Any]] = None
-    emitted: Optional[Dict[str, Any]] = None
+    ab_args: dict[str, Any] | None = None
+    emitted: dict[str, Any] | None = None
 
-    def run_ab_compare(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def run_ab_compare(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         self.ab_args = {
             "args": args,
             "kwargs": kwargs,
@@ -30,26 +29,19 @@ class _RecordingHooks:
 
 @dataclass
 class _BasicHooks:
-    next_output: Optional[str] = None
+    next_output: str | None = None
     profile_return: str = "hybrid"
-    build_modes: List[str] = None  # type: ignore[assignment]
-    run_calls: List[Tuple[Any, str, Optional[str], Optional[str]]] = None  # type: ignore[assignment]
-    profile_args: List[str] = None  # type: ignore[assignment]
-    emitted: Optional[Dict[str, Any]] = None
-    invoked: Optional[List[str]] = None
-
-    def __post_init__(self) -> None:
-        self.build_modes = []
-        self.run_calls = []
-        self.profile_args = []
+    build_modes: list[str] = field(default_factory=list)
+    run_calls: list[tuple[Any, str, str | None, str | None]] = field(default_factory=list)
+    profile_args: list[str] = field(default_factory=list)
+    emitted: dict[str, Any] | None = None
+    invoked: list[str] | None = None
 
     def build_map(self, mode: str) -> Any:
         self.build_modes.append(mode)
         return {"mode": mode}
 
-    def run_op(
-        self, map_obj: Any, op: str, key: Optional[str], value: Optional[str]
-    ) -> Optional[str]:
+    def run_op(self, map_obj: Any, op: str, key: str | None, value: str | None) -> str | None:
         self.run_calls.append((map_obj, op, key, value))
         return self.next_output
 
@@ -60,7 +52,7 @@ class _BasicHooks:
         self.profile_args.append(path)
         return self.profile_return
 
-    def invoke_main(self, argv: List[str]) -> int:
+    def invoke_main(self, argv: list[str]) -> int:
         self.invoked = argv
         return 0
 
@@ -164,7 +156,8 @@ def test_configure_ab_compare_respects_no_artifacts(tmp_path: Path) -> None:
         ],
     )
 
-    kwargs = hooks.ab_args["kwargs"]  # type: ignore[index]
+    assert hooks.ab_args is not None
+    kwargs = hooks.ab_args["kwargs"]
     assert kwargs["metrics_dir"] is None
     assert kwargs["markdown_out"] == md_out.as_posix()
     assert kwargs["json_out"] == json_out.as_posix()
@@ -176,8 +169,8 @@ def test_configure_profile_requires_csv_argument() -> None:
     guard = _SentinelGuard()
     ctx = _build_cli_context(
         guard,
-        profile_csv=lambda path: "hybrid",
-        emit_success=lambda *args, **kwargs: None,
+        profile_csv=lambda _path: "hybrid",
+        emit_success=lambda *_args, **_kwargs: None,
     )
     handler_factory(parser, ctx)
     with pytest.raises(SystemExit):

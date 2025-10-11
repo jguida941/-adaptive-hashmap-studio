@@ -1,0 +1,26 @@
+Name                                    Stmts   Miss Branch BrPart  Cover   Missing
+-----------------------------------------------------------------------------------
+src/adhash/__init__.py                      2      0      0      0   100%
+src/adhash/_safe_subprocess.py             60      8     12      2    86%   34, 36, 86-94, 138-140
+src/adhash/batch/__init__.py                2      0      0      0   100%
+src/adhash/cli/__init__.py                 11      0      8      0   100%
+src/adhash/cli/app.py                     820    180    326     67    74%   54-60, 183, 185, 235->237, 289-293, 303, 315, 325, 380, 386, 393, 395->397, 398-401, 411, 424, 436, 438, 462-465, 480, 482, 484, 486, 488, 497, 509, 517-521, 575-580, 588-590, 611, 627, 629, 633, 645, 648-651, 655-658, 660, 693, 712, 714-716, 746-754, 807->810, 868->870, 873->877, 875->877, 880-884, 890-904, 924, 943->948, 951-953, 955, 958-976, 982->935, 1074, 1184->1187, 1191, 1201->1206, 1282->1288, 1288->1334, 1334->1337, 1351, 1353, 1360-1373, 1379, 1386-1392, 1394, 1408-1410, 1413, 1420-1421, 1423-1424, 1426-1430, 1438-1443, 1449, 1451, 1455-1475, 1477, 1575, 1582-1588, 1592-1596
+src/adhash/cli/commands/__init__.py        19      1     10      2    90%   58, 95->exit
+src/adhash/config.py                      147      0     60      0   100%
+src/adhash/config_models.py                41      0      0      0   100%
+src/adhash/contracts/__init__.py            2      0      0      0   100%
+src/adhash/contracts/error.py              56      3      6      1    94%   97-99
+src/adhash/core/__init__.py                 3      0      0      0   100%
+src/adhash/core/latency.py                 76      0     20      0   100%
+src/adhash/hashmap_cli.py                  11      0      0      0   100%
+src/adhash/io/__init__.py                   3      0      0      0   100%
+src/adhash/io/safe_pickle.py               24      0      4      0   100%
+src/adhash/io/snapshot.py                  61     10      6      0    82%   74-79, 96-99
+src/adhash/io/snapshot_header.py           90      8     20      6    87%   53, 60, 62, 64, 97, 107-108, 144
+src/adhash/metrics/__init__.py              5      0      0      0   100%
+src/adhash/metrics/constants.py            22      0      0      0   100%
+src/adhash/metrics/static/__init__.py       0      0      0      0   100%
+src/adhash/tui/__init__.py                  2      0      0      0   100%
+src/adhash/workloads/__init__.py            3      0      0      0   100%
+-----------------------------------------------------------------------------------
+TOTAL                                    1460    210    472     78    83%

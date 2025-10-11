@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from .common import (
     QColor,
     QGraphicsDropShadowEffect,
@@ -20,7 +18,7 @@ from .common import (
 class ConnectionPane(QWidget):  # type: ignore[misc]
     """Simple form for host/port selection."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:  # type: ignore[override]
+    def __init__(self, parent: QWidget | None = None) -> None:  # type: ignore[override]
         super().__init__(parent)
         self.setObjectName("missionPane")
         self.setProperty("paneKind", "connection")

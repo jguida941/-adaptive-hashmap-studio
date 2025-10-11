@@ -10,12 +10,12 @@ import threading
 import time
 import traceback
 import uuid
+from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TextIO
-
-from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
+from typing import Any, TextIO
 
 from adhash.batch.runner import BatchRunner, JobResult, load_spec
 from adhash.hashmap_cli import profile_csv, run_csv
@@ -56,14 +56,14 @@ class JobRecord:
     id: str
     kind: str
     status: JobState
-    request: Dict[str, Any]
+    request: dict[str, Any]
     created_at: float
     updated_at: float
     path: Path
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    artifacts: Dict[str, str] = field(default_factory=dict)
-    logs: List[JobLogEntry] = field(default_factory=list)
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    artifacts: dict[str, str] = field(default_factory=dict)
+    logs: list[JobLogEntry] = field(default_factory=list)
 
     def to_detail(self) -> JobDetail:
         return JobDetail(
@@ -84,9 +84,9 @@ class JobManager:
 
     def __init__(
         self,
-        base_dir: Optional[str | Path] = None,
+        base_dir: str | Path | None = None,
         *,
-        max_workers: Optional[int] = None,
+        max_workers: int | None = None,
     ) -> None:
         env_root = os.getenv("ADHASH_JOB_ROOT")
         resolved_base = Path(base_dir or env_root or _DEFAULT_JOB_ROOT).expanduser().resolve()
@@ -108,15 +108,15 @@ class JobManager:
                 max_workers = _DEFAULT_MAX_WORKERS
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._lock = threading.RLock()
-        self._jobs: Dict[str, JobRecord] = {}
-        self._futures: Dict[str, Future[Any]] = {}
+        self._jobs: dict[str, JobRecord] = {}
+        self._futures: dict[str, Future[Any]] = {}
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
     def shutdown(self) -> None:
         """Shut down the underlying executor."""
-        self._executor.shutdown(wait=True, cancel_futures=False)
+        self._executor.shutdown()
 
     def run_csv(self, request: RunCsvRequest) -> JobRecord:
         """Schedule a ``run-csv`` job."""
@@ -160,10 +160,9 @@ class JobManager:
     def get(self, job_id: str) -> JobRecord:
         """Retrieve the job record (raises KeyError if unknown)."""
         with self._lock:
-            record = self._jobs[job_id]
-            return record
+            return self._jobs[job_id]
 
-    def list(self) -> List[JobRecord]:
+    def list(self) -> list[JobRecord]:
         """Return all jobs sorted by creation time (most recent last)."""
         with self._lock:
             return sorted(self._jobs.values(), key=lambda job: job.created_at)
@@ -174,7 +173,7 @@ class JobManager:
             record = self._jobs[job_id]
             return list(record.logs)
 
-    def wait(self, job_id: str, timeout: Optional[float] = None) -> JobRecord:
+    def wait(self, job_id: str, timeout: float | None = None) -> JobRecord:
         """Block until a job finishes (completed or failed)."""
         future = self._futures.get(job_id)
         if future is None:
@@ -184,7 +183,7 @@ class JobManager:
             future.result(timeout=timeout)
         except CancelledError:
             pass
-        except Exception as exc:  # pragma: no cover - exception already recorded
+        except Exception as exc:  # pragma: no cover - exception already recorded  # noqa: BLE001
             logger.debug("Job %s raised %s during wait", job_id, exc)
         return self.get(job_id)
 
@@ -215,7 +214,7 @@ class JobManager:
             self._write_status(record)
 
     def _mark_completed(
-        self, job_id: str, result: Dict[str, Any], artifacts: Dict[str, str]
+        self, job_id: str, result: dict[str, Any], artifacts: dict[str, str]
     ) -> None:
         with self._lock:
             record = self._jobs[job_id]
@@ -250,10 +249,10 @@ class JobManager:
                 super().__init__()
                 self._hook = hook
 
-            def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+            def emit(self, record: logging.LogRecord) -> None:
                 try:
                     msg = self.format(record)
-                except Exception:  # pragma: no cover - defensive
+                except (ValueError, TypeError):  # pragma: no cover - defensive
                     msg = record.getMessage()
                 self._hook(msg, record.levelname)
 
@@ -262,7 +261,7 @@ class JobManager:
                 super().__init__()
                 self._thread_id = thread_id
 
-            def filter(self, record: logging.LogRecord) -> bool:  # type: ignore[override]
+            def filter(self, record: logging.LogRecord) -> bool:
                 return record.thread == self._thread_id
 
         handler = _Handler(lambda msg, level: self._append_log(job_id, msg, level))
@@ -277,9 +276,11 @@ class JobManager:
 
         stream = _LogStream(lambda text: self._append_log(job_id, text, "INFO"))
 
-        overridden_streams: List[Tuple[logging.StreamHandler, TextIO]] = []
+        overridden_streams: list[tuple[logging.StreamHandler[Any], TextIO]] = []
 
-        def _restore_stream(log_handler: logging.StreamHandler, original_stream: TextIO) -> None:
+        def _restore_stream(
+            log_handler: logging.StreamHandler[Any], original_stream: TextIO
+        ) -> None:
             log_handler.setStream(original_stream)
 
         for log_handler in list(cli_logger.handlers):
@@ -307,7 +308,7 @@ class JobManager:
     # ------------------------------------------------------------------
     def _execute_run_csv(
         self, job_id: str, request: RunCsvRequest
-    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    ) -> tuple[dict[str, Any], dict[str, str]]:
         working_dir = (
             Path(request.working_dir).expanduser().resolve() if request.working_dir else None
         )
@@ -321,7 +322,7 @@ class JobManager:
         if metrics_host is None and not request.metrics_host_env_fallback:
             metrics_host = "127.0.0.1"
 
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "metrics_port": request.metrics_port,
             "snapshot_in": snapshot_in,
             "snapshot_out": snapshot_out,
@@ -347,7 +348,7 @@ class JobManager:
                 **kwargs,
             )
 
-        artifacts: Dict[str, str] = {}
+        artifacts: dict[str, str] = {}
         for key, value in (
             ("snapshot_out", snapshot_out),
             ("json_summary_out", json_summary_out),
@@ -360,14 +361,14 @@ class JobManager:
 
     def _execute_profile(
         self, job_id: str, request: ProfileRequest
-    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    ) -> tuple[dict[str, Any], dict[str, str]]:
         working_dir = (
             Path(request.working_dir).expanduser().resolve() if request.working_dir else None
         )
         csv_arg = self._prepare_path(request.csv, working_dir)
 
         with self._use_working_dir(working_dir), self._capture_output(job_id):
-            recommended = profile_csv(csv_arg, sample_limit=request.sample_limit)
+            recommended = profile_csv(csv_arg, request.sample_limit)
 
         result = {
             "status": "completed",
@@ -379,7 +380,7 @@ class JobManager:
 
     def _execute_batch(
         self, job_id: str, request: BatchRequest
-    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    ) -> tuple[dict[str, Any], dict[str, str]]:
         working_dir = (
             Path(request.working_dir).expanduser().resolve() if request.working_dir else None
         )
@@ -398,7 +399,7 @@ class JobManager:
             "report": str(spec.report_path),
             "html_report": str(spec.html_report_path) if spec.html_report_path else None,
         }
-        artifacts: Dict[str, str] = {"report": str(spec.report_path)}
+        artifacts: dict[str, str] = {"report": str(spec.report_path)}
         if spec.html_report_path:
             artifacts["html_report"] = str(spec.html_report_path)
         return result, artifacts
@@ -406,7 +407,7 @@ class JobManager:
     # ------------------------------------------------------------------
     # Private utilities
     # ------------------------------------------------------------------
-    def _create_job(self, kind: str, payload: Dict[str, Any]) -> JobRecord:
+    def _create_job(self, kind: str, payload: dict[str, Any]) -> JobRecord:
         job_id = uuid.uuid4().hex
         now = time.time()
         job_dir = self.base_dir / job_id
@@ -434,7 +435,7 @@ class JobManager:
                 exc = fut.exception()
             except CancelledError:
                 exc = None
-            except Exception as err:  # pragma: no cover - defensive
+            except Exception as err:  # pragma: no cover - defensive  # noqa: BLE001
                 logger.debug("Job %s raised %s", record.id, err)
                 exc = err
             if exc:
@@ -468,10 +469,10 @@ class JobManager:
                 + "\n"
             )
 
-    def _write_request(self, job_id: str, payload: Dict[str, Any]) -> None:
+    def _write_request(self, job_id: str, payload: dict[str, Any]) -> None:
         self._write_json(self.base_dir / job_id / "request.json", payload)
 
-    def _write_result(self, job_id: str, payload: Dict[str, Any]) -> None:
+    def _write_result(self, job_id: str, payload: dict[str, Any]) -> None:
         self._write_json(self.base_dir / job_id / "result.json", payload)
 
     def _write_status(self, record: JobRecord) -> None:
@@ -483,7 +484,7 @@ class JobManager:
         }
         self._write_json(record.path / "status.json", payload)
 
-    def _write_artifacts(self, job_id: str, artifacts: Dict[str, str]) -> None:
+    def _write_artifacts(self, job_id: str, artifacts: dict[str, str]) -> None:
         self._write_json(self.base_dir / job_id / "artifacts.json", artifacts)
 
     def _write_error(self, job_id: str, text: str) -> None:
@@ -491,12 +492,12 @@ class JobManager:
         error_path.write_text(text, encoding="utf-8")
 
     @staticmethod
-    def _write_json(path: Path, payload: Dict[str, Any]) -> None:
+    def _write_json(path: Path, payload: dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     @staticmethod
-    def _prepare_path(path_str: str, working_dir: Optional[Path]) -> str:
+    def _prepare_path(path_str: str, working_dir: Path | None) -> str:
         path = Path(path_str)
         path = path.expanduser()
         if path.is_absolute():
@@ -506,15 +507,13 @@ class JobManager:
         return str(path.resolve())
 
     @staticmethod
-    def _prepare_optional_path(
-        path_str: Optional[str], working_dir: Optional[Path]
-    ) -> Optional[str]:
+    def _prepare_optional_path(path_str: str | None, working_dir: Path | None) -> str | None:
         if path_str is None:
             return None
         return JobManager._prepare_path(path_str, working_dir)
 
     @contextmanager
-    def _use_working_dir(self, working_dir: Optional[Path]) -> Iterator[None]:
+    def _use_working_dir(self, working_dir: Path | None) -> Iterator[None]:
         if working_dir is None:
             yield
             return
@@ -522,8 +521,8 @@ class JobManager:
         yield
 
 
-def _serialize_batch_result(result: JobResult) -> Dict[str, Any]:
-    payload: Dict[str, Any] = {
+def _serialize_batch_result(result: JobResult) -> dict[str, Any]:
+    payload: dict[str, Any] = {
         "name": result.spec.name,
         "command": result.spec.command,
         "csv": str(result.spec.csv),

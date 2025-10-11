@@ -1,0 +1,191 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  security-events: write
+
+env:
+  PYTHONHASHSEED: "0"
+  QT_QPA_PLATFORM: "offscreen"
+  QT_OPENGL: "software"
+  QT_QUICK_BACKEND: "software"
+  QTWEBENGINE_DISABLE_SANDBOX: "1"
+  PIPELINE_ENTRY: "./scripts/pipeline.sh"
+  ART_DIR: ".artifacts"
+  PKG_IMPORT_NAME: "adhash"
+  PKG_ALT_IMPORT_NAME: "hashmap_cli"
+  PKG_CLI_NAME: "hashmap-cli"
+
+jobs:
+  nightly:
+    name: nightly-full • ${{ matrix.os }} • py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+          cache-dependency-path: |
+            uv.lock
+            pyproject.toml
+
+      - name: Install system packages (Qt/X11)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb \
+            libgl1 \
+            libxkbcommon-x11-0 \
+            libglu1-mesa \
+            libegl1
+
+      - name: Cache tool state
+        uses: actions/cache@v4
+        with:
+          path: |
+            .mypy_cache
+            .ruff_cache
+            .pytest_cache
+            .semgrep
+            .artifacts/.mutmut-cache
+          key: nightly-tools-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+
+      - name: Install project dependencies (uv)
+        run: |
+          if [ -f uv.lock ]; then
+            uv pip install -e '.[dev,gui,service]' --locked
+          else
+            echo "uv.lock not found; falling back to unlocked install" >&2
+            uv pip install -e '.[dev,gui,service]'
+          fi
+
+      - name: Create artifacts directory
+        run: mkdir -p "$ART_DIR/logs" "$ART_DIR/reports"
+
+      - name: Run unified pipeline (FULL)
+        env:
+          PIPELINE_MODE: full
+        run: xvfb-run -a "$PIPELINE_ENTRY" --mode full
+
+      - name: Upload pipeline artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-artifacts-${{ matrix.os }}-py${{ matrix.python }}
+          path: ${{ env.ART_DIR }}/**
+          if-no-files-found: ignore
+          retention-days: 21
+
+      - name: Upload raw coverage data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-covdata-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            ${{ env.ART_DIR }}/reports/covdata/.coverage*
+          if-no-files-found: ignore
+          retention-days: 21
+
+      - name: Upload Semgrep SARIF
+        if: ${{ always() && hashFiles(format('{0}/semgrep.sarif', env.ART_DIR)) != '' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ env.ART_DIR }}/semgrep.sarif
+
+      - name: Push metrics to Grafana
+        if: ${{ always() && secrets.GRAFANA_METRICS_URL != '' && secrets.GRAFANA_METRICS_TOKEN != '' }}
+        env:
+          GRAFANA_METRICS_URL: ${{ secrets.GRAFANA_METRICS_URL }}
+          GRAFANA_METRICS_TOKEN: ${{ secrets.GRAFANA_METRICS_TOKEN }}
+        run: |
+          if [ -f "${ART_DIR}/metrics.json" ]; then
+            curl -sS -X POST "$GRAFANA_METRICS_URL" \
+              -H "Authorization: Bearer $GRAFANA_METRICS_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data-binary @"${ART_DIR}/metrics.json" \
+              -o "$ART_DIR/logs/grafana_resp.json" -w "\nHTTP %{http_code}\n"
+          else
+            echo "metrics.json not found; skipping Grafana push" >&2
+          fi
+
+  coverage-aggregate:
+    name: nightly coverage-aggregate
+    needs: [nightly]
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download coverage data
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nightly-covdata-*
+          path: covdata
+          merge-multiple: true
+          if-no-files-found: ignore
+
+      - name: Combine coverage and publish
+        run: |
+          python -m pip install coverage
+          mkdir -p .artifacts/htmlcov
+          mkdir -p covdata
+          mapfile -d '' covfiles < <(find covdata -type f -name ".coverage*" -print0 || true)
+          if [ "${#covfiles[@]}" -eq 0 ]; then
+            echo "No nightly coverage data found; skipping aggregation" >&2
+            exit 0
+          fi
+          for covfile in "${covfiles[@]}"; do
+            cp "$covfile" .
+          done
+          coverage combine || true
+          coverage xml -o .artifacts/coverage-aggregate.xml
+          coverage html -d .artifacts/htmlcov
+          coverage report || true
+
+      - name: Generate coverage badge
+        if: ${{ hashFiles('.artifacts/coverage-aggregate.xml') != '' }}
+        run: |
+          chmod +x scripts/coverage_badge.sh
+          scripts/coverage_badge.sh .artifacts/coverage-aggregate.xml .artifacts/coverage-badge.svg
+
+      - name: Upload aggregated coverage
+        if: ${{ hashFiles('.artifacts/coverage-aggregate.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-coverage-aggregate
+          path: |
+            .artifacts/coverage-aggregate.xml
+            .artifacts/htmlcov/**
+          retention-days: 21
+
+      - name: Upload coverage badge
+        if: ${{ hashFiles('.artifacts/coverage-badge.svg') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-coverage-badge
+          path: .artifacts/coverage-badge.svg
+          retention-days: 21

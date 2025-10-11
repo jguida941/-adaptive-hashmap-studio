@@ -4,44 +4,40 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Mapping, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    Iterable,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
     cast,
 )
 
-_QT_IMPORT_ERROR: Optional[Exception] = None
+QT_IMPORT_ERROR: Exception | None = None
 
 try:  # pragma: no cover - only when PyQt6 is present
-    from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
+    from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
+    from PyQt6.QtGui import QColor, QCursor
     from PyQt6.QtWidgets import (
+        QCheckBox,
+        QComboBox,
+        QDoubleSpinBox,
+        QFileDialog,
+        QFormLayout,
+        QGraphicsDropShadowEffect,
+        QHBoxLayout,
         QLabel,
         QLineEdit,
+        QPlainTextEdit,
+        QProgressBar,
         QPushButton,
+        QSlider,
+        QSpinBox,
+        QTabWidget,
+        QToolTip,
         QVBoxLayout,
         QWidget,
-        QHBoxLayout,
-        QPlainTextEdit,
-        QGraphicsDropShadowEffect,
-        QTabWidget,
-        QFormLayout,
-        QComboBox,
-        QCheckBox,
-        QSpinBox,
-        QToolTip,
-        QProgressBar,
-        QFileDialog,
-        QSlider,
-        QDoubleSpinBox,
     )
-    from PyQt6.QtGui import QColor, QCursor
-except Exception as exc:  # pragma: no cover - CI or headless environments
-    _QT_IMPORT_ERROR = exc
+except Exception as exc:  # pragma: no cover - CI or headless environments  # noqa: BLE001
+    QT_IMPORT_ERROR = exc
     QLabel = cast(Any, object)
     QLineEdit = cast(Any, object)
     QPushButton = cast(Any, object)
@@ -60,7 +56,7 @@ except Exception as exc:  # pragma: no cover - CI or headless environments
     QFileDialog = cast(Any, None)
     QSlider = cast(Any, None)
     QDoubleSpinBox = cast(Any, None)
-    pyqtSignal = None  # type: ignore[assignment]
+    pyqtSignal = None  # type: ignore[assignment]  # noqa: N816
     QColor = cast(Any, object)
     QCursor = cast(Any, object)
     QTimer = cast(Any, None)
@@ -69,7 +65,7 @@ except Exception as exc:  # pragma: no cover - CI or headless environments
 
 try:  # pragma: no cover - optional plotting dependency
     import pyqtgraph as pg  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover - charting optional
+except Exception:  # pragma: no cover - charting optional  # noqa: BLE001
     pg = cast(Any, None)
 else:  # pragma: no cover - requires PyQtGraph
     pg.setConfigOption("background", "#121212")
@@ -78,7 +74,7 @@ else:  # pragma: no cover - requires PyQtGraph
 
 try:  # pragma: no cover - numpy optional at runtime but bundled with pyqtgraph
     import numpy as np  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover - fallback when numpy missing
+except Exception:  # pragma: no cover - fallback when numpy missing  # noqa: BLE001
     np = cast(Any, None)
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -112,7 +108,7 @@ __all__ = [
     "pg",
     "np",
     "QObject",
-    "_QT_IMPORT_ERROR",
+    "QT_IMPORT_ERROR",
     "_safe_int",
     "_safe_float",
     "extract_latency_histogram",
@@ -121,14 +117,14 @@ __all__ = [
 ]
 
 
-def _safe_int(value: Any) -> Optional[int]:
+def _safe_int(value: Any) -> int | None:
     try:
         return int(value)
     except (TypeError, ValueError):
         return None
 
 
-def _safe_float(value: Any) -> Optional[float]:
+def _safe_float(value: Any) -> float | None:
     if value in {None, "", "+Inf"}:
         if value == "+Inf":
             return math.inf
@@ -142,7 +138,7 @@ def _safe_float(value: Any) -> Optional[float]:
 def extract_latency_histogram(
     payload: Mapping[str, Any],
     series: str = "overall",
-) -> Sequence[Tuple[float, int]]:
+) -> Sequence[tuple[float, int]]:
     """Return per-bucket counts from a cumulative latency histogram payload."""
 
     operations = payload.get("operations")
@@ -152,7 +148,7 @@ def extract_latency_histogram(
     if not isinstance(raw_series, Iterable):
         return []
 
-    buckets: list[Tuple[float, int]] = []
+    buckets: list[tuple[float, int]] = []
     cumulative = 0
     for entry in raw_series:
         if not isinstance(entry, Mapping):
@@ -167,20 +163,20 @@ def extract_latency_histogram(
     return buckets
 
 
-def extract_probe_histogram(payload: Mapping[str, Any]) -> Sequence[Tuple[int, int]]:
+def extract_probe_histogram(payload: Mapping[str, Any]) -> Sequence[tuple[int, int]]:
     """Normalise probe histogram payload to (distance, count) tuples."""
 
     buckets = payload.get("buckets")
     if not isinstance(buckets, Iterable):
         return []
-    output: list[Tuple[int, int]] = []
+    output: list[tuple[int, int]] = []
     for entry in buckets:
-        distance: Optional[int] = None
-        count: Optional[int] = None
+        distance: int | None = None
+        count: int | None = None
         if isinstance(entry, Mapping):
             distance = _safe_int(entry.get("distance"))
             count = _safe_int(entry.get("count"))
-        elif isinstance(entry, (list, tuple)) and len(entry) == 2:
+        elif isinstance(entry, list | tuple) and len(entry) == 2:
             distance = _safe_int(entry[0])
             count = _safe_int(entry[1])
         if distance is None or count is None:

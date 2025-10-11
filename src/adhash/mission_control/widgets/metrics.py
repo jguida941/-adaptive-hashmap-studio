@@ -5,21 +5,25 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
+import sys
 import time
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 from .common import (
-    QFileDialog,
-    QLabel,
     QCheckBox,
     QComboBox,
+    QFileDialog,
     QHBoxLayout,
+    QLabel,
     QPlainTextEdit,
     QPushButton,
     QSlider,
-    QTabWidget,
     Qt,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
     extract_latency_histogram,
@@ -28,6 +32,88 @@ from .common import (
     pg,
     style_plot,
 )
+
+if os.getenv("MUTATION_TESTS") == "1":  # pragma: no mutate - disable during mutation
+    raise ImportError("Mission Control widgets disabled during mutation testing")
+
+# Ensure Qt can operate in headless environments (mutmut, CI containers).
+_HEADLESS_FLAG_ENV = "MISSION_CONTROL_HEADLESS"
+
+
+@dataclass(frozen=True)
+class HeadlessPlatformDecision:
+    """Captured decision about whether to coerce Qt into a headless backend."""
+
+    should_force: bool
+    platform: str | None
+    reason: str
+    applied: bool = False
+
+
+def _detect_headless_decision(environ: Mapping[str, str] | None = None) -> HeadlessPlatformDecision:
+    env = environ or os.environ
+    explicit_flag = env.get(_HEADLESS_FLAG_ENV)
+    if explicit_flag is not None:
+        should_force = explicit_flag.lower() not in {"0", "false", ""}
+        platform = "minimal" if sys.platform == "darwin" else "offscreen"
+        return HeadlessPlatformDecision(
+            should_force=should_force,
+            platform=platform if should_force else None,
+            reason=f"{_HEADLESS_FLAG_ENV} override",
+        )
+
+    if env.get("QT_QPA_PLATFORM"):
+        return HeadlessPlatformDecision(
+            should_force=False,
+            platform=None,
+            reason="explicit QT_QPA_PLATFORM provided",
+        )
+
+    if env.get("CI") or env.get("PYTEST_CURRENT_TEST"):
+        platform = "minimal" if sys.platform == "darwin" else "offscreen"
+        return HeadlessPlatformDecision(
+            should_force=True,
+            platform=platform,
+            reason="headless environment detected",
+        )
+
+    return HeadlessPlatformDecision(
+        should_force=False,
+        platform=None,
+        reason="interactive environment",
+    )
+
+
+_HEADLESS_DECISION = _detect_headless_decision()
+
+
+def get_headless_decision() -> HeadlessPlatformDecision:
+    """Return the cached headless platform decision."""
+
+    return _HEADLESS_DECISION
+
+
+def refresh_headless_decision(environ: Mapping[str, str] | None = None) -> HeadlessPlatformDecision:
+    """Recompute and cache the headless platform decision."""
+
+    global _HEADLESS_DECISION
+    _HEADLESS_DECISION = _detect_headless_decision(environ)
+    return _HEADLESS_DECISION
+
+
+def ensure_headless_platform(
+    decision: HeadlessPlatformDecision | None = None,
+) -> HeadlessPlatformDecision:
+    """Apply the headless Qt platform decision if needed."""
+
+    decision = decision or _HEADLESS_DECISION
+    if not decision.should_force or decision.platform is None:
+        return decision
+    if os.environ.get("QT_QPA_PLATFORM"):
+        return replace(decision, applied=False)
+    os.environ["QT_QPA_PLATFORM"] = decision.platform
+    return replace(decision, applied=True)
+
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +124,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 class MetricsPane(QWidget):  # type: ignore[misc]
     """Displays snapshot summaries and recent events."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:  # type: ignore[override]
+    def __init__(self, parent: QWidget | None = None) -> None:  # type: ignore[override]
         super().__init__(parent)
         self.setObjectName("missionPane")
         self.setProperty("paneKind", "metrics")
@@ -55,8 +141,8 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             self.summary_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.summary_label)
 
-        self._history: List["MetricsSnapshot"] = []
-        self._history_throughput: List[Optional[float]] = []
+        self._history: list[MetricsSnapshot] = []
+        self._history_throughput: list[float | None] = []
         self._history_slider = (
             QSlider(Qt.Orientation.Horizontal) if Qt is not None and QSlider is not None else None  # type: ignore[call-arg]
         )
@@ -64,10 +150,18 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         self._history_label.setObjectName("historyStatusLabel")
         if Qt is not None:
             self._history_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._latency_series_selector = QComboBox() if QComboBox is not None else None  # type: ignore[call-arg]
-        self._latency_metric_selector = QComboBox() if QComboBox is not None else None  # type: ignore[call-arg]
-        self._export_button = QPushButton("Export history") if QPushButton is not None else None  # type: ignore[call-arg]
-        self._accumulate_checkbox = QCheckBox("Keep history between runs") if QCheckBox is not None else None  # type: ignore[call-arg]
+        self._latency_series_selector = (
+            QComboBox() if QComboBox is not None else None  # type: ignore[call-arg]
+        )
+        self._latency_metric_selector = (
+            QComboBox() if QComboBox is not None else None  # type: ignore[call-arg]
+        )
+        self._export_button = (
+            QPushButton("Export history") if QPushButton is not None else None  # type: ignore[call-arg]
+        )
+        self._accumulate_checkbox = (
+            QCheckBox("Keep history between runs") if QCheckBox is not None else None
+        )
         if self._accumulate_checkbox is not None:
             self._accumulate_checkbox.setChecked(False)
 
@@ -103,9 +197,13 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             self._history_slider.sliderPressed.connect(self._on_history_slider_pressed)  # type: ignore[attr-defined]
             self._history_slider.sliderReleased.connect(self._on_history_slider_released)  # type: ignore[attr-defined]
         if self._latency_series_selector is not None:
-            self._latency_series_selector.currentTextChanged.connect(self._on_latency_selector_changed)  # type: ignore[attr-defined]
+            self._latency_series_selector.currentTextChanged.connect(
+                self._on_latency_selector_changed
+            )  # type: ignore[attr-defined]
         if self._latency_metric_selector is not None:
-            self._latency_metric_selector.currentTextChanged.connect(self._on_latency_selector_changed)  # type: ignore[attr-defined]
+            self._latency_metric_selector.currentTextChanged.connect(
+                self._on_latency_selector_changed
+            )  # type: ignore[attr-defined]
         if self._export_button is not None:
             self._export_button.clicked.connect(self._export_history)  # type: ignore[attr-defined]
         if self._accumulate_checkbox is not None:
@@ -117,28 +215,28 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         self._load_curve = None
         self._latency_bars = None
         self._probe_bars = None
-        self._heatmap_item: Optional[Any] = None
+        self._heatmap_item: Any | None = None
         self._ops_x: list[float] = []
         self._ops_y: list[float] = []
         self._load_x: list[float] = []
         self._load_y: list[float] = []
-        self._last_ops: Optional[float] = None
-        self._last_time: Optional[float] = None
-        self._last_throughput: Optional[float] = None
-        self._last_wall_time: Optional[float] = None
-        self._latency_plot: Optional[Any] = None
-        self._probe_plot: Optional[Any] = None
-        self._heatmap_plot: Optional[Any] = None
-        self._latency_status: Optional[QLabel] = None
-        self._probe_status: Optional[QLabel] = None
-        self._heatmap_status: Optional[QLabel] = None
-        self._heatmap_gradient: Optional[Any] = None
-        self._scatter_plot: Optional[Any] = None
-        self._scatter_item: Optional[Any] = None
-        self._fft_plot: Optional[Any] = None
-        self._fft_curve: Optional[Any] = None
-        self._fft_status: Optional[QLabel] = None
-        self._analytics_tabs: Optional[Any] = None
+        self._last_ops: float | None = None
+        self._last_time: float | None = None
+        self._last_throughput: float | None = None
+        self._last_wall_time: float | None = None
+        self._latency_plot: Any | None = None
+        self._probe_plot: Any | None = None
+        self._heatmap_plot: Any | None = None
+        self._latency_status: QLabel | None = None
+        self._probe_status: QLabel | None = None
+        self._heatmap_status: QLabel | None = None
+        self._heatmap_gradient: Any | None = None
+        self._scatter_plot: Any | None = None
+        self._scatter_item: Any | None = None
+        self._fft_plot: Any | None = None
+        self._fft_curve: Any | None = None
+        self._fft_status: QLabel | None = None
+        self._analytics_tabs: Any | None = None
         if self._supports_charts:
             tabs = QTabWidget(self) if Qt is not None and QTabWidget is not None else None  # type: ignore[call-arg]
             if tabs is not None:
@@ -197,7 +295,10 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                 load_layout.setContentsMargins(6, 6, 6, 6)
                 load_layout.addWidget(self._load_plot)
                 idx = tabs.addTab(load_container, "Load")  # type: ignore[attr-defined]
-                tip_load = "Load factor (used vs. total capacity). High load can trigger resizes or collisions."
+                tip_load = (
+                    "Load factor (used vs. total capacity). High load can trigger resizes "
+                    "or collisions."
+                )
                 _set_tab_tooltip(idx, tip_load)
             else:
                 layout.addWidget(self._load_plot)
@@ -290,8 +391,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                     if hasattr(pg, "colormap"):
                         try:
                             cmap = pg.colormap.ColorMap(positions, colors)  # type: ignore[attr-defined]
-                            self._heatmap_item.setLookupTable(cmap.getLookupTable(alpha=False))  # type: ignore[attr-defined]
-                        except Exception:
+                            lookup = cmap.getLookupTable(alpha=False)
+                            self._heatmap_item.setLookupTable(lookup)  # type: ignore[attr-defined]
+                        except (TypeError, ValueError):  # pragma: no cover - defensive
                             cmap = None
                     if cmap is not None and hasattr(pg, "GradientWidget"):
                         legend = pg.GradientWidget(orientation="bottom")  # type: ignore[attr-defined]
@@ -299,11 +401,12 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                             state = {
                                 "mode": "rgb",
                                 "ticks": [
-                                    (p, (r, g, b, 255)) for p, (r, g, b) in zip(positions, colors)
+                                    (p, (r, g, b, 255))
+                                    for p, (r, g, b) in zip(positions, colors, strict=False)
                                 ],
                             }
                             legend.restoreState(state)  # type: ignore[attr-defined]
-                        except Exception as exc:
+                        except (TypeError, ValueError) as exc:
                             logger.debug(
                                 "metrics pane: restoring heatmap legend state failed: %s",
                                 exc,
@@ -360,7 +463,11 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                         axis_color="#8CA3AF",
                         border_color="#3B0764",
                     )
-                    self._scatter_item = pg.ScatterPlotItem(size=8, brush=pg.mkBrush("#A855F7"), pen=pg.mkPen(None))  # type: ignore[attr-defined]
+                    self._scatter_item = pg.ScatterPlotItem(  # type: ignore[attr-defined]
+                        size=8,
+                        brush=pg.mkBrush("#A855F7"),
+                        pen=pg.mkPen(None),
+                    )
                     self._scatter_plot.addItem(self._scatter_item)
                     analytics_layout.addWidget(self._scatter_plot)
 
@@ -433,13 +540,13 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             timestamp = event.get("t", "-")
             lines.append(
                 f"{timestamp:.2f}s — {etype} (backend={backend})"
-                if isinstance(timestamp, (int, float))
+                if isinstance(timestamp, int | float)
                 else f"{etype} (backend={backend})"
             )
         self.events_view.setPlainText("\n".join(lines))
 
     # ------------------------------------------------------------------
-    def _append_history(self, snapshot: "MetricsSnapshot", throughput: Optional[float]) -> None:
+    def _append_history(self, snapshot: MetricsSnapshot, throughput: float | None) -> None:
         self._history.append(snapshot)
         self._history_throughput.append(throughput)
         if len(self._history) > self._max_points:
@@ -554,7 +661,7 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         self._update_probe_chart(snapshot.probe)
         self._update_heatmap(snapshot.heatmap)
 
-    def _current_latency_selection(self) -> Tuple[str, str]:
+    def _current_latency_selection(self) -> tuple[str, str]:
         series = "overall"
         metric = "p99"
         if self._latency_series_selector is not None:
@@ -597,15 +704,15 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         series, metric = self._current_latency_selection()
 
         if self._scatter_item is not None:
-            xs: List[float] = []
-            ys: List[float] = []
-            for snapshot, throughput in zip(self._history, self._history_throughput):
+            xs: list[float] = []
+            ys: list[float] = []
+            for snapshot, throughput in zip(self._history, self._history_throughput, strict=False):
                 if throughput is None:
                     continue
                 load = (
                     snapshot.tick.get("load_factor") if isinstance(snapshot.tick, Mapping) else None
                 )
-                if isinstance(load, (int, float)):
+                if isinstance(load, int | float):
                     xs.append(float(load))
                     ys.append(float(throughput))
             self._scatter_item.setData(x=xs, y=ys)
@@ -613,16 +720,14 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         if self._fft_curve is not None and np is not None:
             if self._fft_plot is not None:
                 metric_label = metric.upper()
-                self._fft_plot.setTitle(
-                    f"Latency FFT – {series} / {metric_label}"
-                )  # type: ignore[attr-defined]
+                self._fft_plot.setTitle(f"Latency FFT – {series} / {metric_label}")  # type: ignore[attr-defined]
                 self._fft_plot.setLabel(
                     "bottom",
                     f"Normalised frequency ({series})",
                     color="#8CA3AF",
                 )  # type: ignore[attr-defined]
 
-            values: List[float] = []
+            values: list[float] = []
             for snapshot in self._history:
                 packet = (
                     snapshot.tick.get("latency_ms") if isinstance(snapshot.tick, Mapping) else None
@@ -631,7 +736,7 @@ class MetricsPane(QWidget):  # type: ignore[misc]
                     series_payload = packet.get(series)
                     if isinstance(series_payload, Mapping):
                         raw = series_payload.get(metric)
-                        if isinstance(raw, (int, float)):
+                        if isinstance(raw, int | float):
                             values.append(float(raw))
 
             if len(values) >= 4:
@@ -665,23 +770,21 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         )  # type: ignore[call-arg]
         if not filename:
             return
-        payload: List[Dict[str, Any]] = []
-        for snapshot, throughput in zip(self._history, self._history_throughput):
-            payload.append(
-                {
-                    "tick": snapshot.tick,
-                    "latency": snapshot.latency,
-                    "probe": snapshot.probe,
-                    "heatmap": snapshot.heatmap,
-                    "events": snapshot.events,
-                    "throughput": throughput,
-                }
-            )
+        payload: list[dict[str, Any]] = []
+        for snapshot, throughput in zip(self._history, self._history_throughput, strict=False):
+            payload.append({
+                "tick": snapshot.tick,
+                "latency": snapshot.latency,
+                "probe": snapshot.probe,
+                "heatmap": snapshot.heatmap,
+                "events": snapshot.events,
+                "throughput": throughput,
+            })
         try:
             Path(filename).write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
-        except Exception as exc:  # pragma: no cover - defensive
+        except OSError as exc:  # pragma: no cover - defensive
             self.events_view.appendPlainText(f"Failed to export history: {exc}")
             return
         self.events_view.appendPlainText(f"Exported {len(payload)} samples to {filename}")
@@ -755,10 +858,10 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         self._update_analytics_panels()
 
     @staticmethod
-    def _first_numeric(payload: Mapping[str, Any], keys: Iterable[str]) -> Optional[float]:
+    def _first_numeric(payload: Mapping[str, Any], keys: Iterable[str]) -> float | None:
         for key in keys:
             value = payload.get(key)
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 return float(value)
         return None
 
@@ -770,25 +873,25 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             return f"{value_ms:.3f} ms"
         return f"{value_ms:.3f} ms"
 
-    def _summarize_snapshot(self, snapshot: MetricsSnapshot, throughput: Optional[float]) -> str:
+    def _summarize_snapshot(self, snapshot: MetricsSnapshot, throughput: float | None) -> str:
         tick = snapshot.tick
         backend = tick.get("backend", "unknown")
         ops = tick.get("ops", 0)
-        segments: List[str] = [f"Backend: {backend}", f"Ops: {ops:,}"]
+        segments: list[str] = [f"Backend: {backend}", f"Ops: {ops:,}"]
 
         load_factor = tick.get("load_factor")
-        if isinstance(load_factor, (int, float)):
+        if isinstance(load_factor, int | float):
             segments.append(f"Load factor: {float(load_factor):.3f}")
         else:
             segments.append("Load factor: —")
 
         display_throughput = throughput
-        if not isinstance(display_throughput, (int, float)):
+        if not isinstance(display_throughput, int | float):
             display_throughput = self._first_numeric(
                 tick,
                 ("ops_per_second_instant", "ops_per_second"),
             )
-        if isinstance(display_throughput, (int, float)):
+        if isinstance(display_throughput, int | float):
             segments.append(f"Ops/s: {display_throughput:,.1f}")
         else:
             segments.append("Ops/s: —")
@@ -803,7 +906,7 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             series_payload = latency_ms.get(series)
             if isinstance(series_payload, Mapping):
                 raw = series_payload.get(metric)
-                if isinstance(raw, (int, float)):
+                if isinstance(raw, int | float):
                     backend_value = float(raw)
 
         loop_latency_value = None
@@ -812,28 +915,28 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             loop_series_payload = latency_loop_ms.get(series)
             if isinstance(loop_series_payload, Mapping):
                 loop_raw = loop_series_payload.get(metric)
-                if isinstance(loop_raw, (int, float)):
+                if isinstance(loop_raw, int | float):
                     loop_latency_value = float(loop_raw)
 
         loop_median_value = None
         loop_median_raw = tick.get("loop_latency_median_ms")
-        if isinstance(loop_median_raw, (int, float)):
+        if isinstance(loop_median_raw, int | float):
             loop_median_value = float(loop_median_raw)
 
         implied_latency = None
-        if isinstance(display_throughput, (int, float)) and display_throughput > 0.0:
+        if isinstance(display_throughput, int | float) and display_throughput > 0.0:
             implied_latency = 1000.0 / display_throughput
         implied_raw = tick.get("implied_latency_ms")
-        if implied_latency is None and isinstance(implied_raw, (int, float)):
+        if implied_latency is None and isinstance(implied_raw, int | float):
             implied_latency = float(implied_raw)
 
         primary_scope = "backend"
-        primary_value: Optional[float] = backend_value
+        primary_value: float | None = backend_value
         if primary_value is None and loop_latency_value is not None:
             primary_scope = "loop"
             primary_value = loop_latency_value
 
-        badges: List[str] = []
+        badges: list[str] = []
         if primary_scope == "backend" and loop_latency_value is not None:
             badges.append(f"[Loop {series} {metric_label}: {fmt_latency(loop_latency_value)}]")
         elif primary_scope == "loop" and backend_value is not None:
@@ -842,7 +945,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         baseline = (
             loop_median_value
             if loop_median_value is not None
-            else loop_latency_value if loop_latency_value is not None else primary_value
+            else loop_latency_value
+            if loop_latency_value is not None
+            else primary_value
         )
         if (
             implied_latency is not None
@@ -864,7 +969,7 @@ class MetricsPane(QWidget):  # type: ignore[misc]
 
         return " | ".join(segments)
 
-    def _update_charts(self, snapshot: MetricsSnapshot, throughput: Optional[float]) -> None:
+    def _update_charts(self, snapshot: MetricsSnapshot, throughput: float | None) -> None:
         if not self._supports_charts:
             return
         tick = snapshot.tick
@@ -952,13 +1057,13 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         else:
             try:
                 data = np.array(matrix, dtype=float)
-            except Exception:
+            except (TypeError, ValueError):
                 data = np.zeros((1, 1), dtype=float)
         max_value = heatmap_payload.get("max")
-        if not isinstance(max_value, (int, float)) or max_value <= 0:
+        if not isinstance(max_value, int | float) or max_value <= 0:
             try:
                 max_value = float(np.max(data))
-            except Exception:
+            except (TypeError, ValueError):
                 max_value = 1.0
         max_value = max(max_value, 1.0)
         self._heatmap_item.setImage(data, levels=(0.0, max_value))  # type: ignore[attr-defined]
@@ -971,9 +1076,9 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             has_data = bool(np.any(data)) if hasattr(np, "any") else True
             self._heatmap_status.setVisible(not has_data)
 
-    def _estimate_throughput(self, snapshot: MetricsSnapshot) -> Optional[float]:
+    def _estimate_throughput(self, snapshot: MetricsSnapshot) -> float | None:
         tick = snapshot.tick
-        throughput: Optional[float] = self._first_numeric(
+        throughput: float | None = self._first_numeric(
             tick,
             ("ops_per_second", "throughput", "ops_per_second_instant"),
         )
@@ -984,14 +1089,14 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         timestamp = tick.get("t")
         now = time.monotonic()
 
-        ops_f = float(ops) if isinstance(ops, (int, float)) else None
-        time_f = float(timestamp) if isinstance(timestamp, (int, float)) else None
+        ops_f = float(ops) if isinstance(ops, int | float) else None
+        time_f = float(timestamp) if isinstance(timestamp, int | float) else None
 
-        delta_ops: Optional[float] = None
+        delta_ops: float | None = None
         if ops_f is not None and self._last_ops is not None:
             delta_ops = ops_f - self._last_ops
 
-        delta_time: Optional[float] = None
+        delta_time: float | None = None
         if time_f is not None and self._last_time is not None:
             delta_time = time_f - self._last_time
         if (delta_time is None or delta_time <= 0.0) and self._last_wall_time is not None:
@@ -1022,7 +1127,7 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         value: Any,
         curve: Any,
     ) -> None:
-        if curve is None or not isinstance(value, (int, float)):
+        if curve is None or not isinstance(value, int | float):
             return
         xs.append(float(self._tick_index))
         ys.append(float(value))

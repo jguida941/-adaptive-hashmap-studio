@@ -18,13 +18,13 @@ import argparse
 import json
 import sys
 from collections import Counter, defaultdict
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Dict, Iterable
 
 
-def parse_mutmut_results(lines: Iterable[str]) -> Dict[str, Dict[str, int]]:
+def parse_mutmut_results(lines: Iterable[str]) -> dict[str, Counter[str]]:
     """Return counters per status for every mutant identifier."""
-    status_by_ident: Dict[str, Counter] = defaultdict(Counter)
+    status_by_ident: defaultdict[str, Counter[str]] = defaultdict(Counter)
     for raw in lines:
         line = raw.strip()
         if not line or ":" not in line:
@@ -32,12 +32,12 @@ def parse_mutmut_results(lines: Iterable[str]) -> Dict[str, Dict[str, int]]:
         ident, status = line.rsplit(":", 1)
         status = status.strip()
         status_by_ident[ident.strip()][status] += 1
-    return status_by_ident
+    return dict(status_by_ident)
 
 
-def bucketize(status_by_ident: Dict[str, Counter]) -> Dict[str, Dict[str, int]]:
+def bucketize(status_by_ident: Mapping[str, Counter[str]]) -> dict[str, dict[str, int]]:
     """Aggregate counts per module bucket."""
-    module_counts: Dict[str, Counter] = defaultdict(Counter)
+    module_counts: defaultdict[str, Counter[str]] = defaultdict(Counter)
     for ident, counts in status_by_ident.items():
         parts = ident.split(".")
         if not parts:
@@ -72,7 +72,7 @@ def main() -> int:
     status_by_ident = parse_mutmut_results(input_path.read_text().splitlines())
     module_counts = bucketize(status_by_ident)
 
-    totals = Counter()
+    totals: Counter[str] = Counter()
     for counts in status_by_ident.values():
         totals.update(counts)
 

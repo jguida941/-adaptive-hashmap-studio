@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+from .benchmark_suite import BenchmarkSuitePane
 from .common import (
-    QColor,
+    QT_IMPORT_ERROR,
     QCheckBox,
+    QColor,
     QComboBox,
     QCursor,
     QFormLayout,
@@ -17,13 +19,12 @@ from .common import (
     QProgressBar,
     QPushButton,
     QSpinBox,
+    Qt,
     QTabWidget,
     QTimer,
     QToolTip,
     QVBoxLayout,
     QWidget,
-    Qt,
-    _QT_IMPORT_ERROR,
     extract_latency_histogram,
     extract_probe_histogram,
     np,
@@ -31,15 +32,13 @@ from .common import (
     pyqtSignal,
     style_plot,
 )
-
-from .benchmark_suite import BenchmarkSuitePane
 from .config_editor import ConfigEditorPane
 from .connection import ConnectionPane
 from .metrics import MetricsPane
-from .snapshot_inspector import SnapshotInspectorPane
-from .run_control import RunControlPane
-from .workload_dna import WorkloadDNAPane
 from .probe_visualizer import ProbeVisualizerPane
+from .run_control import RunControlPane
+from .snapshot_inspector import SnapshotInspectorPane
+from .workload_dna import WorkloadDNAPane
 
 __all__ = [
     "ConnectionPane",
@@ -72,7 +71,7 @@ __all__ = [
     "QCursor",
     "pg",
     "np",
-    "_QT_IMPORT_ERROR",
+    "QT_IMPORT_ERROR",
     "extract_latency_histogram",
     "extract_probe_histogram",
     "style_plot",

@@ -3,15 +3,15 @@ import math
 import time
 from collections import deque
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 
 from adhash.config import WatchdogPolicy
 from adhash.metrics.core import (
-    _coerce_alert_flag,
     Metrics,
     ThresholdWatchdog,
+    _coerce_alert_flag,
     apply_tick_to_metrics,
     format_bucket_label,
     parse_tick_line,
@@ -56,7 +56,7 @@ def test_metrics_initial_state_defaults() -> None:
     assert metrics._last_instant is None
 
 
-def _make_tick() -> Dict[str, Any]:
+def _make_tick() -> dict[str, Any]:
     return {
         "schema": "tick.v1",
         "ops": 10,
@@ -96,7 +96,7 @@ def _make_tick() -> Dict[str, Any]:
     }
 
 
-def test_resolve_ema_alpha_clamps_values(monkeypatch: pytest.MonkeyPatch):
+def test_resolve_ema_alpha_clamps_values(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ADHASH_OPS_ALPHA", "1.5")
     assert resolve_ema_alpha(default=0.2) == 1.0
     monkeypatch.setenv("ADHASH_OPS_ALPHA", "-4")
@@ -105,14 +105,14 @@ def test_resolve_ema_alpha_clamps_values(monkeypatch: pytest.MonkeyPatch):
     assert resolve_ema_alpha(default=0.3) == 0.3
 
 
-def test_resolve_ema_alpha_defaults_and_whitespace(monkeypatch: pytest.MonkeyPatch):
+def test_resolve_ema_alpha_defaults_and_whitespace(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ADHASH_OPS_ALPHA", raising=False)
     assert resolve_ema_alpha() == 0.25
     monkeypatch.setenv("ADHASH_OPS_ALPHA", " 0.6 ")
     assert resolve_ema_alpha(default=0.1) == 0.6
 
 
-def test_apply_tick_updates_metrics_and_render(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_apply_tick_updates_metrics_and_render(_monkeypatch: pytest.MonkeyPatch) -> None:
     metrics = Metrics()
     metrics.history_buffer = deque()
     first_tick = _make_tick()
@@ -342,12 +342,12 @@ def test_apply_tick_only_appends_dict_events() -> None:
     assert list(metrics.events_history) == [{"type": "info"}]
 
 
-def test_format_bucket_label_handles_infinity():
+def test_format_bucket_label_handles_infinity() -> None:
     assert format_bucket_label(math.inf) == "+Inf"
     assert format_bucket_label(1.23456789) == "1.234568"
 
 
-def test_parse_tick_line_filters_invalid_entries(caplog: pytest.LogCaptureFixture):
+def test_parse_tick_line_filters_invalid_entries(_caplog: pytest.LogCaptureFixture) -> None:
     assert parse_tick_line("not-json") is None
     assert parse_tick_line(json.dumps([])) is None
     assert parse_tick_line(json.dumps({"schema": "unknown"})) is None
@@ -357,14 +357,16 @@ def test_parse_tick_line_filters_invalid_entries(caplog: pytest.LogCaptureFixtur
     assert valid == {"schema": TICK_SCHEMA, "ops": 1}
 
 
-def test_stream_metrics_file_handles_missing_path(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+def test_stream_metrics_file_handles_missing_path(
+    tmp_path: Path, _caplog: pytest.LogCaptureFixture
+) -> None:
     missing = tmp_path / "missing.ndjson"
-    calls: List[Dict[str, Any]] = []
+    calls: list[dict[str, Any]] = []
     stream_metrics_file(missing, follow=False, callback=calls.append, poll_interval=0.01)
     assert not calls
 
 
-def test_threshold_watchdog_emits_alerts_and_resets(caplog: pytest.LogCaptureFixture):
+def test_threshold_watchdog_emits_alerts_and_resets(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level("INFO", logger="hashmap_cli")
     policy = WatchdogPolicy(
         enabled=True, load_factor_warn=0.5, avg_probe_warn=1.0, tombstone_ratio_warn=None

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, List
 
 from adhash.config import AppConfig
 from adhash.hashmap_cli import run_config_editor, run_config_wizard
 
 
-def make_input(responses: List[str]) -> Iterator[str]:
-    for response in responses:
-        yield response
+def make_input(responses: list[str]) -> Iterator[str]:
+    yield from responses
     while True:
         yield ""
 
@@ -34,7 +33,9 @@ def test_config_wizard_generates_toml(tmp_path: Path) -> None:
     iterator = make_input(responses)
     path = tmp_path / "custom.toml"
 
-    run_config_wizard(str(path), input_fn=lambda prompt: next(iterator), print_fn=lambda _: None)
+    run_config_wizard(
+        str(path), input_fn=lambda _prompt: next(iterator), print_fn=lambda _msg: None
+    )
 
     text = path.read_text(encoding="utf-8")
     assert 'start_backend = "robinhood"' in text
@@ -68,7 +69,9 @@ def test_config_wizard_allows_none_thresholds(tmp_path: Path) -> None:
     ]
     iterator = make_input(responses)
     path = tmp_path / "defaults.toml"
-    run_config_wizard(str(path), input_fn=lambda prompt: next(iterator), print_fn=lambda _: None)
+    run_config_wizard(
+        str(path), input_fn=lambda _prompt: next(iterator), print_fn=lambda _msg: None
+    )
 
     cfg = AppConfig.load(path)
     assert cfg.watchdog.enabled is False
@@ -125,8 +128,8 @@ tombstone_ratio_warn = 0.35
     run_config_editor(
         str(existing),
         str(output_path),
-        input_fn=lambda prompt: next(iterator),
-        print_fn=lambda _: None,
+        input_fn=lambda _prompt: next(iterator),
+        print_fn=lambda _msg: None,
     )
 
     cfg = AppConfig.load(output_path)
@@ -148,8 +151,8 @@ def test_config_editor_can_save_preset(tmp_path: Path) -> None:
         save_preset_name="baseline",
         presets_dir=str(preset_dir),
         force=True,
-        input_fn=lambda prompt: next(iterator),
-        print_fn=lambda _: None,
+        input_fn=lambda _prompt: next(iterator),
+        print_fn=lambda _msg: None,
     )
 
     preset_path = preset_dir / "baseline.toml"

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from builtins import list as list_type
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 
@@ -11,7 +12,14 @@ pytest.importorskip("pydantic")
 from fastapi.testclient import TestClient
 
 from adhash.service.api import create_app
-from adhash.service.models import JobDetail, JobLogEntryModel, JobState
+from adhash.service.models import (
+    BatchRequest,
+    JobDetail,
+    JobLogEntryModel,
+    JobState,
+    ProfileRequest,
+    RunCsvRequest,
+)
 
 
 @dataclass
@@ -21,10 +29,10 @@ class FakeRecord:
     status: JobState
     created_at: float = 0.0
     updated_at: float = 0.0
-    request: Dict[str, Any] = field(default_factory=dict)
-    result: Dict[str, Any] | None = None
+    request: dict[str, Any] = field(default_factory=dict)
+    result: dict[str, Any] | None = None
     error: str | None = None
-    artifacts: Dict[str, str] = field(default_factory=dict)
+    artifacts: dict[str, str] = field(default_factory=dict)
 
     def to_detail(self) -> JobDetail:
         return JobDetail(
@@ -51,20 +59,20 @@ class FakeLogEntry:
 class StubManager:
     def __init__(self) -> None:
         self.record = FakeRecord(id="job-1", kind="run-csv", status=JobState.PENDING)
-        self.log_entries: List[FakeLogEntry] = [FakeLogEntry("job completed")]  # default log stream
+        self.log_entries: list[FakeLogEntry] = [FakeLogEntry("job completed")]  # default log stream
         self.cancel_result = True
 
     # Interface expected by the API
-    def list(self) -> List[FakeRecord]:
+    def list(self) -> list_type[FakeRecord]:
         return [self.record]
 
-    def run_csv(self, request: Any) -> FakeRecord:
+    def run_csv(self, _request: RunCsvRequest) -> FakeRecord:
         return self.record
 
-    def profile(self, request: Any) -> FakeRecord:
+    def profile(self, _request: ProfileRequest) -> FakeRecord:
         return self.record
 
-    def batch(self, request: Any) -> FakeRecord:
+    def batch(self, _request: BatchRequest) -> FakeRecord:
         return self.record
 
     def get(self, job_id: str) -> FakeRecord:
@@ -72,7 +80,7 @@ class StubManager:
             raise KeyError(job_id)
         return self.record
 
-    def iter_logs(self, job_id: str) -> List[FakeLogEntry]:
+    def iter_logs(self, job_id: str) -> list_type[FakeLogEntry]:
         self.get(job_id)
         return self.log_entries
 
@@ -83,8 +91,7 @@ class StubManager:
 
 def _make_client(manager: StubManager) -> TestClient:
     app = create_app(manager)
-    client = TestClient(app)
-    return client
+    return TestClient(app)
 
 
 def test_list_jobs_without_token(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -119,7 +126,7 @@ def test_run_csv_endpoint_returns_bad_request_on_value_error(
     monkeypatch.setenv("ADHASH_TOKEN", "secret")
 
     class RunCsvErrorManager(StubManager):
-        def run_csv(self, request: Any) -> FakeRecord:  # type: ignore[override]
+        def run_csv(self, _request: RunCsvRequest) -> FakeRecord:
             raise ValueError("invalid csv")
 
     manager = RunCsvErrorManager()
@@ -143,7 +150,7 @@ def test_profile_endpoint_returns_bad_request_on_value_error(
     monkeypatch.setenv("ADHASH_TOKEN", "secret")
 
     class ProfileErrorManager(StubManager):
-        def profile(self, request: Any) -> FakeRecord:  # type: ignore[override]
+        def profile(self, _request: ProfileRequest) -> FakeRecord:
             raise ValueError("profile failed")
 
     manager = ProfileErrorManager()
@@ -165,7 +172,7 @@ def test_batch_endpoint_returns_bad_request_on_value_error(monkeypatch: pytest.M
     monkeypatch.setenv("ADHASH_TOKEN", "secret")
 
     class BatchErrorManager(StubManager):
-        def batch(self, request: Any) -> FakeRecord:  # type: ignore[override]
+        def batch(self, _request: BatchRequest) -> FakeRecord:
             raise ValueError("invalid batch spec")
 
     manager = BatchErrorManager()
@@ -203,7 +210,7 @@ def test_job_logs_unknown_job(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ADHASH_TOKEN", "secret")
 
     class MissingLogsManager(StubManager):
-        def iter_logs(self, job_id: str) -> List[FakeLogEntry]:  # type: ignore[override]
+        def iter_logs(self, job_id: str) -> list_type[FakeLogEntry]:
             raise KeyError(job_id)
 
     manager = MissingLogsManager()

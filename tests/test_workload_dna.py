@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from adhash.workloads import analyze_workload_csv
 from adhash.contracts.error import BadInputError
+from adhash.workloads import analyze_workload_csv
 
 
 def _write_csv(path: Path, rows: list[tuple[str, str, str]]) -> None:

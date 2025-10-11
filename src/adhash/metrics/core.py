@@ -7,8 +7,9 @@ import math
 import os
 import time
 from collections import deque
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
+from typing import Any
 
 from adhash.config import WatchdogPolicy
 
@@ -45,7 +46,7 @@ def _coerce_alert_flag(value: Any) -> bool:
         }:  # pragma: no mutate - exhaustive falsy sentinels
             return False
         return bool(lowered)
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return bool(value)
     return bool(value)
 
@@ -79,15 +80,15 @@ class Metrics:
         self.max_group_len = 0.0
         self.avg_probe_estimate = 0.0
         self.backend_name = "unknown"
-        self.latest_tick: Optional[Dict[str, Any]] = None
+        self.latest_tick: dict[str, Any] | None = None
         self.tombstone_ratio = 0.0
-        self.alert_flags: Dict[str, bool] = {}
-        self.active_alerts: List[Dict[str, Any]] = []
-        self.latency_summary_stats: Dict[str, Dict[str, float]] = {}
-        self.latency_histograms: Dict[str, List[Tuple[float, int]]] = {}
-        self.history_buffer: Optional[Deque[Dict[str, Any]]] = None
-        self.events_history: Deque[Dict[str, Any]] = deque(maxlen=512)
-        self.key_heatmap: Dict[str, Any] = {
+        self.alert_flags: dict[str, bool] = {}
+        self.active_alerts: list[dict[str, Any]] = []
+        self.latency_summary_stats: dict[str, dict[str, float]] = {}
+        self.latency_histograms: dict[str, list[tuple[float, int]]] = {}
+        self.history_buffer: deque[dict[str, Any]] | None = None
+        self.events_history: deque[dict[str, Any]] = deque(maxlen=512)
+        self.key_heatmap: dict[str, Any] = {
             "rows": 0,
             "cols": 0,
             "matrix": [],
@@ -98,9 +99,9 @@ class Metrics:
         }
         self._ema_alpha = resolve_ema_alpha()
         self._ema_ops = 0.0
-        self._ops_prev: Optional[float] = None
-        self._t_prev: Optional[float] = None
-        self._last_instant: Optional[float] = None
+        self._ops_prev: float | None = None
+        self._t_prev: float | None = None
+        self._last_instant: float | None = None
 
     def render(self) -> str:
         lines = [
@@ -171,15 +172,19 @@ class Metrics:
                         quantile_label = _SUMMARY_QUANTILES.get(quantile_key)
                         if quantile_label is None:
                             continue
-                        lines.append(
-                            f'hashmap_latency_ms_summary{{op="{op}",quantile="{quantile_label}"}} {value:.6f}'
+                        metric_line = (
+                            f'hashmap_latency_ms_summary{{op="{op}",quantile="{quantile_label}"}} '
+                            f"{value:.6f}"
                         )
+                        lines.append(metric_line)
                     lines.append(
                         f'hashmap_latency_ms_summary_sum{{op="{op}"}} {stats.get("sum", 0.0):.6f}'
                     )
-                    lines.append(
-                        f'hashmap_latency_ms_summary_count{{op="{op}"}} {int(stats.get("count", 0))}'
+                    count_line = (
+                        f'hashmap_latency_ms_summary_count{{op="{op}"}} '
+                        f"{int(stats.get('count', 0))}"
                     )
+                    lines.append(count_line)
 
             hist_ops = {
                 op: buckets for op, buckets in self.latency_histograms.items() if buckets
@@ -222,16 +227,16 @@ class Metrics:
 
         return "\n".join(lines) + "\n"
 
-    def update_rates(self, tick: Dict[str, Any]) -> None:
+    def update_rates(self, tick: dict[str, Any]) -> None:
         ops_raw = tick.get("ops")
         t_raw = tick.get("t")
-        ops = float(ops_raw) if isinstance(ops_raw, (int, float)) else None
-        t_now = float(t_raw) if isinstance(t_raw, (int, float)) else None
+        ops = float(ops_raw) if isinstance(ops_raw, int | float) else None
+        t_now = float(t_raw) if isinstance(t_raw, int | float) else None
         wall_now = time.time()
         if t_now is None:
             t_now = wall_now
 
-        inst: Optional[float] = None
+        inst: float | None = None
         if ops is not None and self._ops_prev is not None and self._t_prev is not None:
             dt = t_now - self._t_prev
             dt = max(1e-3, min(10.0, dt))
@@ -241,7 +246,7 @@ class Metrics:
         if inst is None:
             for key in ("ops_per_second", "throughput", "ops_per_second_instant"):
                 inst_raw = tick.get(key)
-                if isinstance(inst_raw, (int, float)):
+                if isinstance(inst_raw, int | float):
                     inst = float(inst_raw)
                     break
 
@@ -262,7 +267,7 @@ class Metrics:
         if t_now is not None:
             self._t_prev = t_now
 
-    def build_summary_payload(self) -> Dict[str, Any]:
+    def build_summary_payload(self) -> dict[str, Any]:
         payload = copy.deepcopy(self.latest_tick) if isinstance(self.latest_tick, dict) else {}
         payload["schema"] = SUMMARY_SCHEMA
         payload["generated_at"] = time.time()
@@ -293,7 +298,7 @@ class Metrics:
         return payload
 
 
-def apply_tick_to_metrics(metrics: Metrics, tick: Dict[str, Any]) -> None:
+def apply_tick_to_metrics(metrics: Metrics, tick: dict[str, Any]) -> None:
     """Apply a metrics tick dictionary to the in-memory Metrics object."""
 
     tick = copy.deepcopy(tick)
@@ -322,22 +327,22 @@ def apply_tick_to_metrics(metrics: Metrics, tick: Dict[str, Any]) -> None:
 
     latency_summary_stats = tick.get("latency_summary_stats")
     if isinstance(latency_summary_stats, dict):
-        parsed_summary: Dict[str, Dict[str, float]] = {}
+        parsed_summary: dict[str, dict[str, float]] = {}
         for key, item in latency_summary_stats.items():
             if not isinstance(item, dict):
                 continue
             parsed_summary[str(key)] = {
-                str(k): float(v) for k, v in item.items() if isinstance(v, (int, float))
+                str(k): float(v) for k, v in item.items() if isinstance(v, int | float)
             }
         metrics.latency_summary_stats = parsed_summary
 
     latency_histograms = tick.get("latency_histograms")
     if isinstance(latency_histograms, dict):
-        parsed_hist: Dict[str, List[Tuple[float, int]]] = {}
+        parsed_hist: dict[str, list[tuple[float, int]]] = {}
         for label, buckets in latency_histograms.items():
             if not isinstance(buckets, list):
                 continue
-            parsed: List[Tuple[float, int]] = []
+            parsed: list[tuple[float, int]] = []
             for bucket in buckets:
                 if not isinstance(bucket, dict):
                     continue
@@ -373,7 +378,7 @@ def apply_tick_to_metrics(metrics: Metrics, tick: Dict[str, Any]) -> None:
                 metrics.events_history.append(event)
 
 
-def parse_tick_line(line: str) -> Optional[Dict[str, Any]]:
+def parse_tick_line(line: str) -> dict[str, Any] | None:
     try:
         payload = json.loads(line)
     except json.JSONDecodeError:
@@ -391,7 +396,7 @@ def parse_tick_line(line: str) -> Optional[Dict[str, Any]]:
 def stream_metrics_file(
     path: Path,
     follow: bool,
-    callback: Callable[[Dict[str, Any]], None],
+    callback: Callable[[dict[str, Any]], None],
     poll_interval: float,
 ) -> None:
     waiting_logged = False
@@ -426,9 +431,9 @@ class ThresholdWatchdog:
 
     def __init__(self, policy: WatchdogPolicy) -> None:
         self.policy = policy
-        self._state: Dict[str, bool] = {}
+        self._state: dict[str, bool] = {}
 
-    def evaluate(self, tick: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, bool]]:
+    def evaluate(self, tick: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, bool]]:
         if not self.policy.enabled:
             if any(self._state.values()):
                 logger.info(
@@ -439,8 +444,8 @@ class ThresholdWatchdog:
             return [], {}
 
         backend = str(tick.get("backend", "unknown"))
-        alerts: List[Dict[str, Any]] = []
-        flags: Dict[str, bool] = {}
+        alerts: list[dict[str, Any]] = []
+        flags: dict[str, bool] = {}
 
         checks = [
             (
@@ -508,7 +513,7 @@ class ThresholdWatchdog:
         return alerts, flags
 
     @staticmethod
-    def _safe_float(value: Any) -> Optional[float]:
+    def _safe_float(value: Any) -> float | None:
         if value is None:
             return None
         try:

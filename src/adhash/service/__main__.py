@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import importlib
 import logging
-from typing import Optional
 
 from .api import create_app
 from .jobs import JobManager
@@ -47,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[list[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
 

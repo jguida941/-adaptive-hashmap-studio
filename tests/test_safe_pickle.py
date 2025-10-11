@@ -1,5 +1,5 @@
 import io
-import pickle
+import pickle  # noqa: S403
 
 import pytest
 
@@ -10,7 +10,7 @@ class _ForbiddenObject:
     pass
 
 
-def test_safe_pickle_dump_and_load_roundtrip():
+def test_safe_pickle_dump_and_load_roundtrip() -> None:
     payload = {"alpha": [1, 2, 3], "beta": ("x", "y")}
     buffer = io.BytesIO()
     safe_pickle.dump(payload, buffer)
@@ -18,13 +18,13 @@ def test_safe_pickle_dump_and_load_roundtrip():
     assert safe_pickle.load(buffer) == payload
 
 
-def test_safe_pickle_dumps_and_loads_rejects_disallowed_globals():
+def test_safe_pickle_dumps_and_loads_rejects_disallowed_globals() -> None:
     data = pickle.dumps(_ForbiddenObject())
     with pytest.raises(pickle.UnpicklingError):
         safe_pickle.loads(data)
 
 
-def test_restricted_unpickler_allows_known_types():
+def test_restricted_unpickler_allows_known_types() -> None:
     unpickler = safe_pickle._RestrictedUnpickler(io.BytesIO())
     assert unpickler.find_class("builtins", "dict") is dict
     assert unpickler.find_class("collections", "defaultdict")

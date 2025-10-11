@@ -8,9 +8,10 @@ import io
 import struct
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any
 
-from .safe_pickle import dumps as safe_dumps, loads as safe_loads
+from .safe_pickle import dumps as safe_dumps
+from .safe_pickle import loads as safe_loads
 
 MAGIC = b"ADHSNAP1"
 HEADER_FMT = ">8s H B B H Q"  # magic, version, flags, reserved, checksum length, payload length
@@ -47,7 +48,7 @@ def _pack_header(header: SnapshotHeader) -> bytes:
     )
 
 
-def _unpack_header(data: bytes) -> Tuple[SnapshotHeader, int]:
+def _unpack_header(data: bytes) -> tuple[SnapshotHeader, int]:
     if len(data) < HEADER_SIZE:
         raise ValueError("Header too short")
     magic, version, flags, _reserved, checksum_len, payload_len = struct.unpack(

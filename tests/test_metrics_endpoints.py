@@ -4,34 +4,34 @@ import gzip
 import json
 import time
 from collections import deque
-from typing import Any, Dict
-from urllib.error import HTTPError
+from typing import Any, cast
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import pytest
 
+from adhash.core.maps import TwoLevelChainingMap, collect_key_heatmap
 from adhash.metrics import (
+    ALLOW_ORIGIN,
     ALLOWED_HEADERS,
     ALLOWED_METHODS,
-    ALLOW_ORIGIN,
     CACHE_CONTROL,
     ERROR_SCHEMA,
     EVENTS_SCHEMA,
+    JSON_CONTENT_TYPE,
     KEY_HEATMAP_SCHEMA,
     LATENCY_HISTOGRAM_SCHEMA,
-    Metrics,
     PROBE_HISTOGRAM_SCHEMA,
     SUMMARY_SCHEMA,
     TICK_SCHEMA,
     VARY_HEADER,
-    JSON_CONTENT_TYPE,
+    Metrics,
     start_metrics_server,
 )
-from adhash.core.maps import TwoLevelChainingMap, collect_key_heatmap
 
 
 def wait_for_server(
-    port: int, retries: int = 10, delay: float = 0.05, headers: Dict[str, str] | None = None
+    port: int, retries: int = 10, delay: float = 0.05, headers: dict[str, str] | None = None
 ) -> None:
     """Helper to wait until the HTTP server starts accepting connections."""
 
@@ -41,19 +41,19 @@ def wait_for_server(
                 f"http://127.0.0.1:{port}/api/metrics",
                 headers=headers or {"Accept": "application/json"},
             )
-            with urlopen(request, timeout=0.1):
+            with urlopen(request, timeout=0.1):  # noqa: S310
                 return
         except HTTPError as exc:
             if exc.code == 401:
                 return
             time.sleep(delay)
-        except Exception:
+        except (URLError, OSError, ConnectionError):
             time.sleep(delay)
     raise RuntimeError("metrics server did not start in time")
 
 
 def test_histogram_endpoints_expose_json() -> None:
-    metrics_payload: Dict[str, Any] = {
+    metrics_payload: dict[str, Any] = {
         "schema": TICK_SCHEMA,
         "t": 12.5,
         "latency_hist_ms": {
@@ -89,12 +89,12 @@ def test_histogram_endpoints_expose_json() -> None:
             port, headers={"Authorization": "Bearer secret", "Accept": "application/json"}
         )
 
-        def read_json(path: str) -> Dict[str, Any]:
-            with urlopen(path, timeout=0.5) as response:
+        def read_json(path: str) -> dict[str, Any]:
+            with urlopen(path, timeout=0.5) as response:  # noqa: S310
                 payload = response.read()
                 if response.headers.get("Content-Encoding", "").lower() == "gzip":
                     payload = gzip.decompress(payload)
-            return json.loads(payload.decode("utf-8"))
+            return cast(dict[str, Any], json.loads(payload.decode("utf-8")))
 
         latency = read_json(f"http://127.0.0.1:{port}/api/metrics/histogram/latency")
         assert latency["schema"] == LATENCY_HISTOGRAM_SCHEMA
@@ -117,7 +117,7 @@ def test_histogram_endpoints_expose_json() -> None:
 
 
 def test_metrics_summary_respects_accept_encoding() -> None:
-    metrics_payload: Dict[str, Any] = {
+    metrics_payload: dict[str, Any] = {
         "schema": TICK_SCHEMA,
         "t": 1.0,
         "ops": 10,
@@ -138,7 +138,7 @@ def test_metrics_summary_respects_accept_encoding() -> None:
             f"http://127.0.0.1:{port}/api/metrics",
             headers={"Accept": "application/json"},
         )
-        with urlopen(request_plain, timeout=0.5) as response:
+        with urlopen(request_plain, timeout=0.5) as response:  # noqa: S310
             plain_body = response.read()
             plain_headers = response.headers
         assert plain_headers.get("Content-Encoding", "").lower() not in {"gzip", "x-gzip"}
@@ -162,7 +162,7 @@ def test_metrics_summary_respects_accept_encoding() -> None:
                 "Accept-Encoding": "gzip, deflate",
             },
         )
-        with urlopen(request_gzip, timeout=0.5) as response:
+        with urlopen(request_gzip, timeout=0.5) as response:  # noqa: S310
             compressed_body = response.read()
             gzip_headers = response.headers
         assert gzip_headers.get("Content-Encoding", "").lower() == "gzip"
@@ -198,18 +198,16 @@ def test_collect_key_heatmap_tracks_counts() -> None:
 def test_history_csv_endpoint_returns_rows() -> None:
     metrics = Metrics()
     metrics.history_buffer = deque(maxlen=4)
-    metrics.history_buffer.append(
-        {
-            "t": 0.0,
-            "ops": 0,
-            "ops_per_second_ema": 100.0,
-            "load_factor": 0.1,
-            "avg_probe_estimate": 1.2,
-            "tombstone_ratio": 0.0,
-            "backend": "chaining",
-            "state": "running",
-        }
-    )
+    metrics.history_buffer.append({
+        "t": 0.0,
+        "ops": 0,
+        "ops_per_second_ema": 100.0,
+        "load_factor": 0.1,
+        "avg_probe_estimate": 1.2,
+        "tombstone_ratio": 0.0,
+        "backend": "chaining",
+        "state": "running",
+    })
     metrics.latest_tick = metrics.history_buffer[-1]
 
     try:
@@ -224,7 +222,7 @@ def test_history_csv_endpoint_returns_rows() -> None:
         )
         with urlopen(
             f"http://127.0.0.1:{port}/api/metrics/history.csv?limit=2", timeout=0.5
-        ) as response:
+        ) as response:  # noqa: S310
             assert response.status == 200
             assert response.headers.get("Content-Type", "").startswith("text/csv")
             body = response.read().decode("utf-8")
@@ -251,14 +249,14 @@ def test_dashboard_requires_token_and_embeds_meta(monkeypatch: pytest.MonkeyPatc
         wait_for_server(port)
 
         with pytest.raises(HTTPError) as exc_info:
-            urlopen(f"http://127.0.0.1:{port}/", timeout=0.5)
+            urlopen(f"http://127.0.0.1:{port}/", timeout=0.5)  # noqa: S310
         assert exc_info.value.code == 401
         unauthorized_payload = json.loads(exc_info.value.read().decode("utf-8"))
         assert unauthorized_payload["schema"] == ERROR_SCHEMA
         assert unauthorized_payload["error"] == "unauthorized"
         assert "generated_at" in unauthorized_payload
 
-        with urlopen(f"http://127.0.0.1:{port}/?token=secret", timeout=0.5) as response:
+        with urlopen(f"http://127.0.0.1:{port}/?token=secret", timeout=0.5) as response:  # noqa: S310
             html_body = response.read().decode("utf-8")
         assert '<meta name="adhash-token" content="secret"/>' in html_body
 
@@ -266,7 +264,7 @@ def test_dashboard_requires_token_and_embeds_meta(monkeypatch: pytest.MonkeyPatc
             f"http://127.0.0.1:{port}/api/metrics",
             headers={"Authorization": "Bearer secret", "Accept": "application/json"},
         )
-        with urlopen(request, timeout=0.5) as response:
+        with urlopen(request, timeout=0.5) as response:  # noqa: S310
             assert response.status == 200
     finally:
         stop_server()
@@ -284,12 +282,12 @@ def test_dashboard_serves_static_assets() -> None:
         port = server.server_address[1]
         wait_for_server(port)
 
-        with urlopen(f"http://127.0.0.1:{port}/static/dashboard.css", timeout=0.5) as response:
+        with urlopen(f"http://127.0.0.1:{port}/static/dashboard.css", timeout=0.5) as response:  # noqa: S310
             assert response.status == 200
             css = response.read().decode("utf-8")
         assert ".charts" in css
 
-        with urlopen(f"http://127.0.0.1:{port}/static/dashboard.js", timeout=0.5) as response:
+        with urlopen(f"http://127.0.0.1:{port}/static/dashboard.js", timeout=0.5) as response:  # noqa: S310
             assert response.status == 200
             js = response.read().decode("utf-8")
         assert "function poll(" in js
@@ -316,7 +314,7 @@ def test_metrics_summary_falls_back_to_latest_tick() -> None:
             f"http://127.0.0.1:{port}/api/metrics?limit=5",
             headers={"Accept": "application/json"},
         )
-        with urlopen(request, timeout=0.5) as response:
+        with urlopen(request, timeout=0.5) as response:  # noqa: S310
             payload = json.loads(response.read().decode("utf-8"))
         assert payload["items"]
         assert payload["items"][0]["schema"] == TICK_SCHEMA
@@ -329,7 +327,7 @@ def test_metrics_summary_falls_back_to_latest_tick() -> None:
 
 def test_events_endpoint_applies_limit_and_clamp() -> None:
     metrics = Metrics()
-    metrics.events_history = [{"idx": idx} for idx in range(600)]
+    metrics.events_history = deque([{"idx": idx} for idx in range(600)])
 
     try:
         server, stop_server = start_metrics_server(metrics, 0)
@@ -339,9 +337,9 @@ def test_events_endpoint_applies_limit_and_clamp() -> None:
         port = server.server_address[1]
         wait_for_server(port)
 
-        def fetch(path: str) -> Dict[str, Any]:
-            with urlopen(path, timeout=0.5) as response:
-                return json.loads(response.read().decode("utf-8"))
+        def fetch(path: str) -> dict[str, Any]:
+            with urlopen(path, timeout=0.5) as response:  # noqa: S310
+                return cast(dict[str, Any], json.loads(response.read().decode("utf-8")))
 
         first_event = fetch(f"http://127.0.0.1:{port}/api/events?limit=0")
         assert first_event["schema"] == EVENTS_SCHEMA
@@ -380,7 +378,7 @@ def test_metrics_options_endpoint_exposes_cors_headers() -> None:
             f"http://127.0.0.1:{port}/api/metrics",
             method="OPTIONS",
         )
-        with urlopen(request, timeout=0.5) as response:
+        with urlopen(request, timeout=0.5) as response:  # noqa: S310
             headers = response.headers
             status = response.status
         assert status == 204
@@ -433,7 +431,7 @@ def test_compare_endpoint_serves_payload_and_not_found() -> None:
     try:
         port = server.server_address[1]
         wait_for_server(port)
-        with urlopen(f"http://127.0.0.1:{port}/api/compare", timeout=0.5) as response:
+        with urlopen(f"http://127.0.0.1:{port}/api/compare", timeout=0.5) as response:  # noqa: S310
             assert response.status == 200
             payload = json.loads(response.read().decode("utf-8"))
         assert payload == comparison_payload
@@ -448,7 +446,7 @@ def test_compare_endpoint_serves_payload_and_not_found() -> None:
         port = server.server_address[1]
         wait_for_server(port)
         with pytest.raises(HTTPError) as exc_info:
-            urlopen(f"http://127.0.0.1:{port}/api/compare", timeout=0.5)
+            urlopen(f"http://127.0.0.1:{port}/api/compare", timeout=0.5)  # noqa: S310
         assert exc_info.value.code == 404
         error_payload = json.loads(exc_info.value.read().decode("utf-8"))
         assert error_payload["schema"] == "adhash.compare.none"

@@ -10,10 +10,10 @@ from __future__ import annotations
 import csv
 import math
 from collections import Counter, deque
+from collections.abc import Iterable, Mapping, MutableMapping
 from dataclasses import dataclass
 from hashlib import blake2b
 from pathlib import Path
-from typing import Deque, Dict, Iterable, List, Mapping, MutableMapping, Optional, Tuple
 
 from adhash.contracts.error import BadInputError
 
@@ -35,8 +35,8 @@ class RunningStats:
     count: int = 0
     mean: float = 0.0
     m2: float = 0.0
-    min: Optional[float] = None
-    max: Optional[float] = None
+    min: float | None = None
+    max: float | None = None
 
     def add(self, value: float) -> None:
         if self.count == 0:
@@ -75,7 +75,7 @@ class RunningStats:
 class WorkloadDNAResult:
     schema: str
     csv_path: str
-    file_size_bytes: Optional[int]
+    file_size_bytes: int | None
     total_rows: int
     op_counts: Mapping[str, int]
     op_mix: Mapping[str, float]
@@ -86,13 +86,13 @@ class WorkloadDNAResult:
     value_size_stats: Mapping[str, float]
     key_entropy_bits: float
     key_entropy_normalised: float
-    hot_keys: Tuple[Mapping[str, float | str], ...]
+    hot_keys: tuple[Mapping[str, float | str], ...]
     coverage_targets: Mapping[str, int]
     numeric_key_fraction: float
     sequential_numeric_step_fraction: float
     adjacent_duplicate_fraction: float
     hash_collision_hotspots: Mapping[str, int]
-    bucket_counts: Tuple[int, ...]
+    bucket_counts: tuple[int, ...]
     bucket_percentiles: Mapping[str, float]
     collision_depth_histogram: Mapping[int, int]
     non_empty_buckets: int
@@ -137,7 +137,7 @@ def analyze_workload_csv(
     if not csv_path.exists():
         raise FileNotFoundError(csv_path)
 
-    file_size: Optional[int]
+    file_size: int | None
     try:
         file_size = csv_path.stat().st_size
     except OSError:
@@ -151,13 +151,13 @@ def analyze_workload_csv(
     unique_hashes: set[int] = set()
     unique_keys: int = 0
 
-    prev_key: Optional[str] = None
+    prev_key: str | None = None
     dup_runs = 0
 
     numeric_keys = 0
     numeric_pair_total = 0
     numeric_step_matches = 0
-    prev_numeric_value: Optional[int] = None
+    prev_numeric_value: int | None = None
 
     reader_line = 0
     with csv_path.open(newline="") as handle:
@@ -247,7 +247,7 @@ def analyze_workload_csv(
         if count > 1
     }
 
-    result = WorkloadDNAResult(
+    return WorkloadDNAResult(
         schema="workload_dna.v1",
         csv_path=str(csv_path),
         file_size_bytes=file_size,
@@ -273,7 +273,6 @@ def analyze_workload_csv(
         non_empty_buckets=non_empty_buckets,
         max_bucket_depth=max_bucket_depth,
     )
-    return result
 
 
 def _decay_counter(counter: MutableMapping[str, int]) -> None:
@@ -290,7 +289,7 @@ def _stable_hash(value: str) -> int:
     return int.from_bytes(digest, "big")
 
 
-def _extract_numeric_token(key: str) -> Optional[int]:
+def _extract_numeric_token(key: str) -> int | None:
     if not key:
         return None
     if key.isdigit() or (key[0] == "-" and key[1:].isdigit()):
@@ -298,7 +297,7 @@ def _extract_numeric_token(key: str) -> Optional[int]:
             return int(key)
         except ValueError:
             return None
-    suffix: Deque[str] = deque()
+    suffix: deque[str] = deque()
     for ch in reversed(key):
         if ch.isdigit():
             suffix.appendleft(ch)
@@ -316,20 +315,18 @@ def _format_hot_keys(
     counter: Mapping[str, int],
     limit: int,
     total: int,
-) -> List[Dict[str, float | str]]:
+) -> list[dict[str, float | str]]:
     if not counter:
         return []
     most_common = Counter(counter).most_common(limit)
-    formatted: List[Dict[str, float | str]] = []
+    formatted: list[dict[str, float | str]] = []
     for key, count in most_common:
         share = count / total if total else 0.0
-        formatted.append(
-            {
-                "key": key,
-                "count": float(count),
-                "share": share,
-            }
-        )
+        formatted.append({
+            "key": key,
+            "count": float(count),
+            "share": share,
+        })
     return formatted
 
 
@@ -338,11 +335,9 @@ def _coverage_targets(counter: Mapping[str, int], total: int) -> Mapping[str, in
         return {"p50": 0, "p80": 0, "p95": 0}
     sorted_counts = sorted(counter.values(), reverse=True)
     targets = {0.5: "p50", 0.8: "p80", 0.95: "p95"}
-    result: Dict[str, int] = {label: 0 for label in targets.values()}
+    result: dict[str, int] = dict.fromkeys(targets.values(), 0)
     cumulative = 0
-    idx = 0
-    for count in sorted_counts:
-        idx += 1
+    for idx, count in enumerate(sorted_counts, start=1):
         cumulative += count
         coverage = cumulative / total
         for threshold, label in targets.items():
@@ -356,7 +351,7 @@ def _coverage_targets(counter: Mapping[str, int], total: int) -> Mapping[str, in
 
 def _shannon_entropy(values: Iterable[int]) -> float:
     total = 0
-    accum: List[int] = []
+    accum: list[int] = []
     for value in values:
         if value <= 0:
             continue
@@ -372,7 +367,7 @@ def _shannon_entropy(values: Iterable[int]) -> float:
 
 
 def format_workload_dna(result: WorkloadDNAResult) -> str:
-    lines: List[str] = []
+    lines: list[str] = []
     size_hint = (
         f"{result.file_size_bytes:,} bytes"
         if result.file_size_bytes is not None
@@ -387,7 +382,9 @@ def format_workload_dna(result: WorkloadDNAResult) -> str:
         f"Unique keys ≈ {result.unique_keys_estimated:,} (avg touches {result.key_space_depth:.2f})"
     )
     lines.append(
-        f"Mutating ops: {result.mutation_fraction:.1%}; adj dupes: {result.adjacent_duplicate_fraction:.1%}"
+        "Mutating ops: "
+        f"{result.mutation_fraction:.1%}; "
+        f"adj dupes: {result.adjacent_duplicate_fraction:.1%}"
     )
     lines.append(
         "Key length → "
@@ -402,7 +399,9 @@ def format_workload_dna(result: WorkloadDNAResult) -> str:
             f"max {result.value_size_stats.get('max', 0.0):.0f}B"
         )
     lines.append(
-        f"Numeric keys: {result.numeric_key_fraction:.1%} (sequential step {result.sequential_numeric_step_fraction:.1%})"
+        "Numeric keys: "
+        f"{result.numeric_key_fraction:.1%} "
+        f"(sequential step {result.sequential_numeric_step_fraction:.1%})"
     )
     lines.append(
         f"Entropy: {result.key_entropy_bits:.2f} bits ({result.key_entropy_normalised:.1%} of max)"
@@ -410,7 +409,9 @@ def format_workload_dna(result: WorkloadDNAResult) -> str:
     coverage = result.coverage_targets
     lines.append(
         "Coverage: "
-        f"p50→{coverage.get('p50', 0)}, p80→{coverage.get('p80', 0)}, p95→{coverage.get('p95', 0)} keys"
+        f"p50→{coverage.get('p50', 0)}, "
+        f"p80→{coverage.get('p80', 0)}, "
+        f"p95→{coverage.get('p95', 0)} keys"
     )
     if result.hot_keys:
         lines.append("Hot keys:")
@@ -418,8 +419,8 @@ def format_workload_dna(result: WorkloadDNAResult) -> str:
             key = entry.get("key", "?")
             count_raw = entry.get("count", 0.0)
             share_raw = entry.get("share", 0.0)
-            count_value = float(count_raw) if isinstance(count_raw, (int, float)) else 0.0
-            share_value = float(share_raw) if isinstance(share_raw, (int, float)) else 0.0
+            count_value = float(count_raw) if isinstance(count_raw, int | float) else 0.0
+            share_value = float(share_raw) if isinstance(share_raw, int | float) else 0.0
             lines.append(f"  • {key}: {int(count_value):,} ({_format_share(share_value)})")
     if result.hash_collision_hotspots:
         lines.append("Hash collision hotspots:")
@@ -428,7 +429,7 @@ def format_workload_dna(result: WorkloadDNAResult) -> str:
     return "\n".join(lines)
 
 
-def _materialise_buckets(hash_buckets: Mapping[int, int]) -> List[int]:
+def _materialise_buckets(hash_buckets: Mapping[int, int]) -> list[int]:
     bucket_count = 1 << _HASH_BUCKET_BITS
     counts = [0] * bucket_count
     for bucket, count in hash_buckets.items():
@@ -438,7 +439,7 @@ def _materialise_buckets(hash_buckets: Mapping[int, int]) -> List[int]:
 
 
 def _collision_depth_histogram(bucket_counts: Iterable[int]) -> Mapping[int, int]:
-    histogram: Dict[int, int] = {}
+    histogram: dict[int, int] = {}
     for count in bucket_counts:
         histogram[count] = histogram.get(count, 0) + 1
     return histogram
@@ -449,7 +450,7 @@ def _bucket_percentiles(bucket_counts: Iterable[int]) -> Mapping[str, float]:
     non_zero = [value for value in data if value > 0.0]
     target = non_zero if non_zero else data
     if not target:
-        return {key: 0.0 for key in ("p50", "p75", "p90", "p95", "p99")}
+        return dict.fromkeys(("p50", "p75", "p90", "p95", "p99"), 0.0)
     sorted_vals = sorted(target)
     return {
         "p50": _percentile(sorted_vals, 0.5),
@@ -460,7 +461,7 @@ def _bucket_percentiles(bucket_counts: Iterable[int]) -> Mapping[str, float]:
     }
 
 
-def _percentile(sorted_values: List[float], q: float) -> float:
+def _percentile(sorted_values: list[float], q: float) -> float:
     if not sorted_values:
         return 0.0
     if len(sorted_values) == 1:

@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import json
-import subprocess
+import os
 import sys
 from pathlib import Path
-from typing import List
+from typing import Any, NoReturn
 
 import pytest
 
 from adhash.batch.runner import BatchRunner, BatchSpec, JobResult, JobSpec, load_spec
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("MUTATION_TESTS") == "1",
+    reason="Skipped during mutation testing to avoid spawning subprocesses",
+)
 
 
 def _locate_workload(name: str) -> Path:
@@ -31,7 +36,7 @@ def spec_file(tmp_path: Path) -> Path:
     csv = _locate_workload("w_uniform.csv")
     spec = tmp_path / "batch.toml"
     spec.write_text(
-        """
+        f"""
         [batch]
         hashmap_cli = "-m hashmap_cli"
         report = "report.md"
@@ -49,14 +54,12 @@ def spec_file(tmp_path: Path) -> Path:
         json_summary = "uniform.json"
         latency_sample_k = 128
         latency_sample_every = 16
-        """.format(
-            csv=csv
-        )
+        """
     )
     return spec
 
 
-def test_batch_runner_executes_jobs(spec_file: Path, tmp_path: Path) -> None:
+def test_batch_runner_executes_jobs(spec_file: Path) -> None:
     spec = load_spec(spec_file)
     runner = BatchRunner(spec, python_executable=sys.executable)
     results = runner.run()
@@ -126,7 +129,7 @@ def test_metrics_summary_is_capped(tmp_path: Path) -> None:
     )
     runner = BatchRunner(spec)
 
-    results: List[JobResult] = []
+    results: list[JobResult] = []
     for idx in range(BatchRunner._MAX_SUMMARY_ROWS + 50):
         job_spec = JobSpec(name=f"job-{idx}", command="run-csv", csv=Path("input.csv"))
         summary = {
@@ -149,7 +152,7 @@ def test_metrics_summary_is_capped(tmp_path: Path) -> None:
 
     markdown = spec.report_path.read_text()
     capture = False
-    table_lines: List[str] = []
+    table_lines: list[str] = []
     for line in markdown.splitlines():
         if line.startswith("## Comparative Summary"):
             capture = True
@@ -178,10 +181,10 @@ def test_run_job_handles_launch_failures(
     )
     runner = BatchRunner(spec)
 
-    def _raise(*_args, **_kwargs):
+    def _raise(*_args: Any, **_kwargs: Any) -> NoReturn:
         raise FileNotFoundError("python not found")
 
-    monkeypatch.setattr(subprocess, "run", _raise)
+    monkeypatch.setattr("adhash._safe_subprocess.safe_run", _raise)
 
     caplog.set_level("ERROR")
     result = runner._run_job(job_spec)

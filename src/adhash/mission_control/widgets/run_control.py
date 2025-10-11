@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import os
 import shlex
+import sys
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from ..process_manager import ProcessManager
 from .common import (
     QColor,
-    QGraphicsDropShadowEffect,
     QFormLayout,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -48,11 +48,26 @@ CLI_MODULE_FLAG = "-m"
 CLI_OPTION_TERMINATOR = "--"
 RUN_CSV_SUBCOMMAND = "run-csv"
 
+_DEFAULT_EXECUTABLE = str(Path(sys.executable).resolve())
+_DEFAULT_EXEC_TOKENS: tuple[str, ...] = (_DEFAULT_EXECUTABLE, CLI_MODULE_FLAG, "hashmap_cli")
+_DEFAULT_COMMAND_ARGS: tuple[str, ...] = (
+    *_DEFAULT_EXEC_TOKENS,
+    "--mode",
+    "adaptive",
+    RUN_CSV_SUBCOMMAND,
+    "--csv",
+    "data/workloads/w_uniform.csv",
+    "--metrics-port",
+    "9090",
+)
+_DEFAULT_COMMAND_TEXT = shlex.join(_DEFAULT_COMMAND_ARGS)
+_DEFAULT_EXEC_TEXT = shlex.join(_DEFAULT_EXEC_TOKENS)
+
 
 class RunControlPane(QWidget):  # type: ignore[misc]
     """Controls for launching run-csv commands."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:  # type: ignore[override]
+    def __init__(self, parent: QWidget | None = None) -> None:  # type: ignore[override]
         super().__init__(parent)
         self.setObjectName("missionPane")
         self.setProperty("paneKind", "run")
@@ -70,10 +85,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         layout.addWidget(self.config_label)
         self._set_config_label(None)
 
-        self.command_edit = QLineEdit(
-            f"python {CLI_MODULE_FLAG} hashmap_cli --mode adaptive {RUN_CSV_SUBCOMMAND} "
-            "--csv data/workloads/w_uniform.csv --metrics-port 9090"
-        )  # type: ignore[call-arg]
+        self.command_edit = QLineEdit(_DEFAULT_COMMAND_TEXT)  # type: ignore[call-arg]
         self.start_button = QPushButton(f"Start {RUN_CSV_SUBCOMMAND}")  # type: ignore[call-arg]
         self.start_button.setObjectName("startButton")
         self.stop_button = QPushButton("Stop")  # type: ignore[call-arg]
@@ -95,7 +107,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         if self._timer is not None:
             self._timer.setInterval(200)
             self._timer.timeout.connect(self._on_timer_tick)  # type: ignore[attr-defined]
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
         self._state = _RunStatus.IDLE
         layout.addWidget(self.command_edit)
         layout.addWidget(self.start_button)
@@ -109,7 +121,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
 
         builder_form = QFormLayout()  # type: ignore[call-arg]
         builder_form.setContentsMargins(4, 4, 4, 4)
-        self.exec_edit = QLineEdit(f"python {CLI_MODULE_FLAG} hashmap_cli")  # type: ignore[call-arg]
+        self.exec_edit = QLineEdit(_DEFAULT_EXEC_TEXT)  # type: ignore[call-arg]
         self.config_builder_edit = QLineEdit()  # type: ignore[call-arg]
         self.mode_edit = QLineEdit("adaptive")  # type: ignore[call-arg]
         self.csv_edit = QLineEdit("data/workloads/w_uniform.csv")  # type: ignore[call-arg]
@@ -220,16 +232,18 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         text = self.command_edit.text().strip()
         if not text:
             default_command = [
-                "python",
-                CLI_MODULE_FLAG,
-                "hashmap_cli",
+                *_DEFAULT_EXEC_TOKENS,
                 "--config",
                 resolved,
+                "--mode",
+                "adaptive",
                 RUN_CSV_SUBCOMMAND,
                 "--csv",
                 "data/workloads/w_uniform.csv",
+                "--metrics-port",
+                "9090",
             ]
-            self.command_edit.setText(" ".join(shlex.quote(part) for part in default_command))
+            self.command_edit.setText(shlex.join(default_command))
             self._populate_builder_from_command()
             return
 
@@ -241,15 +255,15 @@ class RunControlPane(QWidget):  # type: ignore[misc]
             return
 
         if not args:
-            args = ["python", CLI_MODULE_FLAG, "hashmap_cli"]
+            args = list(_DEFAULT_EXEC_TOKENS)
 
         self._inject_config_option(args, resolved)
 
-        rebuilt = " ".join(shlex.quote(part) for part in args)
+        rebuilt = shlex.join(args)
         self.command_edit.setText(rebuilt)
         self._populate_builder_from_command()
 
-    def _set_config_label(self, value: Optional[str]) -> None:
+    def _set_config_label(self, value: str | None) -> None:
         if value:
             text = f"Config: {value}"
             status = "connected"
@@ -270,13 +284,13 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         style.polish(widget)  # type: ignore[attr-defined]
 
     @staticmethod
-    def _inject_config_option(args: List[str], config_path: str) -> None:
+    def _inject_config_option(args: list[str], config_path: str) -> None:
         """Ensure ``--config`` appears before the CLI subcommand."""
 
         RunControlPane._ensure_config_option(args, config_path, allow_wrapped=True)
 
     @staticmethod
-    def _ensure_config_option(args: List[str], config_path: str, *, allow_wrapped: bool) -> None:
+    def _ensure_config_option(args: list[str], config_path: str, *, allow_wrapped: bool) -> None:
         """Internal helper that optionally rewrites wrapped commands."""
 
         # Remove any existing --config occurrences to avoid duplicates.
@@ -290,7 +304,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
             i += 1
 
         if not args:
-            args.extend(["python", CLI_MODULE_FLAG, "hashmap_cli"])
+            args.extend(_DEFAULT_EXEC_TOKENS)
 
         scan_start = RunControlPane._locate_cli_scan_start(args)
         insert_idx = RunControlPane._find_config_insert_index(args, scan_start)
@@ -305,7 +319,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         args[insert_idx:insert_idx] = ["--config", config_path]
 
     @staticmethod
-    def _inject_into_wrapped_command(args: List[str], config_path: str) -> bool:
+    def _inject_into_wrapped_command(args: list[str], config_path: str) -> bool:
         """Try to inject the config option into a wrapped shell command."""
 
         wrappers = {"bash", "sh", "zsh", "ksh", "fish"}
@@ -332,7 +346,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         return False
 
     @staticmethod
-    def _locate_shell_command_argument(args: List[str], start_idx: int) -> Optional[int]:
+    def _locate_shell_command_argument(args: list[str], start_idx: int) -> int | None:
         """Locate the shell command string for wrappers like ``bash -lc``."""
 
         command_flags = {"-c", "-lc"}
@@ -350,7 +364,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         return None
 
     @staticmethod
-    def _locate_cli_scan_start(args: List[str]) -> int:
+    def _locate_cli_scan_start(args: list[str]) -> int:
         # Prefer explicit module invocation (python -m hashmap_cli)
         for idx, token in enumerate(args):
             if token == CLI_MODULE_FLAG and idx + 1 < len(args):
@@ -376,7 +390,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         return len(args)
 
     @staticmethod
-    def _find_config_insert_index(args: List[str], start_idx: int) -> int:
+    def _find_config_insert_index(args: list[str], start_idx: int) -> int:
         i = start_idx
         while i < len(args):
             token = args[i]
@@ -398,7 +412,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
 
         return len(args)
 
-    def _parse_command_args(self) -> Optional[List[str]]:
+    def _parse_command_args(self) -> list[str] | None:
         text = self.command_edit.text().strip()
         if not text:
             return None
@@ -407,11 +421,11 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         except ValueError:
             return None
 
-    def _split_command(self, args: List[str]) -> Tuple[List[str], Dict[str, str], List[str], bool]:
+    def _split_command(self, args: list[str]) -> tuple[list[str], dict[str, str], list[str], bool]:
         option_keys = {"--config", "--mode", "--csv", "--metrics-port"}
-        exec_tokens: List[str] = []
-        options: Dict[str, str] = {}
-        extras: List[str] = []
+        exec_tokens: list[str] = []
+        options: dict[str, str] = {}
+        extras: list[str] = []
         idx = 0
         while idx < len(args):
             token = args[idx]
@@ -442,12 +456,12 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         if not args:
             return
         exec_tokens, options, extras, seen_run = self._split_command(args)
-        self.exec_edit.setText(" ".join(exec_tokens))
+        self.exec_edit.setText(shlex.join(exec_tokens))
         self.config_builder_edit.setText(options.get("--config", ""))
         self.mode_edit.setText(options.get("--mode", ""))
         self.csv_edit.setText(options.get("--csv", ""))
         self.metrics_port_edit.setText(options.get("--metrics-port", ""))
-        self.extra_args_edit.setText(" ".join(extras))
+        self.extra_args_edit.setText(shlex.join(extras))
         if options.get("--config"):
             self._set_config_label(options["--config"])
         elif self.config_builder_edit.text().strip() == "":
@@ -462,9 +476,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
 
     def _apply_builder_to_command(self) -> None:
         exec_text = self.exec_edit.text().strip()
-        exec_tokens = (
-            shlex.split(exec_text) if exec_text else ["python", CLI_MODULE_FLAG, "hashmap_cli"]
-        )
+        exec_tokens = shlex.split(exec_text) if exec_text else list(_DEFAULT_EXEC_TOKENS)
 
         config_value = self.config_builder_edit.text().strip()
         mode_value = self.mode_edit.text().strip()
@@ -473,7 +485,7 @@ class RunControlPane(QWidget):  # type: ignore[misc]
         extras_text = self.extra_args_edit.text().strip()
         extra_tokens = shlex.split(extras_text) if extras_text else []
 
-        parts: List[str] = list(exec_tokens)
+        parts: list[str] = list(exec_tokens)
         if config_value:
             parts += ["--config", config_value]
         if mode_value:
@@ -485,6 +497,6 @@ class RunControlPane(QWidget):  # type: ignore[misc]
             parts += ["--metrics-port", metrics_value]
         parts.extend(extra_tokens)
 
-        self.command_edit.setText(" ".join(shlex.quote(part) for part in parts))
+        self.command_edit.setText(shlex.join(parts))
         self._set_config_label(config_value or None)
         self._populate_builder_from_command()

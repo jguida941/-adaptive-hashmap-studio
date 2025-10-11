@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any
 
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from adhash.core.maps import RobinHoodMap
 
@@ -31,7 +33,7 @@ def _value_strategy() -> st.SearchStrategy[int]:
     return st.integers(-1_000, 1_000)
 
 
-def _operation_strategy() -> st.SearchStrategy[Tuple[str, Any | None, int | None]]:
+def _operation_strategy() -> st.SearchStrategy[tuple[str, Any | None, int | None]]:
     key = _key_strategy()
     value = _value_strategy()
     put_op = st.tuples(st.just("put"), key, value)
@@ -41,17 +43,17 @@ def _operation_strategy() -> st.SearchStrategy[Tuple[str, Any | None, int | None
     return st.one_of(put_op, get_op, delete_op, compact_op)
 
 
-def _items_to_dict(items: Iterable[Tuple[Any, Any]]) -> Dict[Any, Any]:
+def _items_to_dict(items: Iterable[tuple[Any, Any]]) -> dict[Any, Any]:
     return dict(items)
 
 
 @settings(max_examples=150, deadline=None)
 @given(st.lists(_operation_strategy(), min_size=1, max_size=120))
 def test_robinhood_map_behaves_like_dict(
-    operations: list[Tuple[str, Any | None, int | None]]
+    operations: list[tuple[str, Any | None, int | None]],
 ) -> None:
     map_impl = RobinHoodMap(initial_capacity=8)
-    model: Dict[Any, int] = {}
+    model: dict[Any, int] = {}
     seen_keys: set[Any] = set()
 
     for op, key, maybe_value in operations:

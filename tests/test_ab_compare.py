@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import json
+from pathlib import Path
 
 from adhash.config_toolkit import clone_config
 from adhash.hashmap_cli import APP_CONFIG, run_ab_compare
@@ -45,7 +44,7 @@ def test_ab_compare_generates_artifacts(tmp_path: Path) -> None:
     assert markdown_path.exists()
     assert "A/B Comparison" in markdown_path.read_text(encoding="utf-8")
 
-    assert APP_CONFIG == before_cfg
+    assert before_cfg == APP_CONFIG
 
     # metrics artifacts should exist when a directory was provided
     assert any(artifacts_dir.rglob("*.json"))

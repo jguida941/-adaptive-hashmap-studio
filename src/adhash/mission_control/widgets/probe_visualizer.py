@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from adhash.analysis import format_trace_lines
 
@@ -24,7 +24,7 @@ from .common import (
 class ProbeVisualizerPane(QWidget):  # type: ignore[misc]
     """Load and display probe traces exported by the CLI."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:  # type: ignore[override]
+    def __init__(self, parent: QWidget | None = None) -> None:  # type: ignore[override]
         super().__init__(parent)
         self.setObjectName("probeVisualizerPane")
         layout = QVBoxLayout(self)  # type: ignore[call-arg]
@@ -60,17 +60,17 @@ class ProbeVisualizerPane(QWidget):  # type: ignore[misc]
         self._text.setObjectName("traceOutput")
         layout.addWidget(self._text, 1)
 
-        self._current_path: Optional[Path] = None
-        self._trace: Optional[Dict[str, Any]] = None
+        self._current_path: Path | None = None
+        self._trace: dict[str, Any] | None = None
 
     def display_trace(
         self,
-        trace: Dict[str, Any],
+        trace: dict[str, Any],
         *,
-        source: Optional[Path] = None,
-        snapshot: Optional[str] = None,
-        seeds: Optional[list[str]] = None,
-        export_path: Optional[Path] = None,
+        source: Path | None = None,
+        snapshot: str | None = None,
+        seeds: list[str] | None = None,
+        export_path: Path | None = None,
     ) -> None:
         """Render ``trace`` in the text box."""
 
@@ -109,7 +109,7 @@ class ProbeVisualizerPane(QWidget):  # type: ignore[misc]
             self._info_label.setText(f"Failed to load trace: {exc}")
             self._text.setPlainText("")
             return
-        trace: Optional[Dict[str, Any]]
+        trace: dict[str, Any] | None
         if isinstance(data, dict) and "trace" in data and isinstance(data["trace"], dict):
             trace = data["trace"]
             seeds = data.get("seed_entries") if isinstance(data.get("seed_entries"), list) else None

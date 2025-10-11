@@ -111,7 +111,8 @@ jobs:
           set -euo pipefail
           mkdir -p .mutmut-ci
           set +e
-          xvfb-run -s "-screen 0 1920x1080x24" -a bash -lc "mutmut run --paths-to-mutate '${{ steps.scope.outputs.paths }}' --max-children 2" | tee .mutmut-ci/mutmut_run.log
+          MUTMUT_TIMEOUT="${MUTMUT_TIMEOUT:-8}"
+          xvfb-run -s "-screen 0 1920x1080x24" -a bash -lc "mutmut run --paths-to-mutate '${{ steps.scope.outputs.paths }}' --max-children 2 --timeout ${MUTMUT_TIMEOUT}" | tee .mutmut-ci/mutmut_run.log
           exit_code=${PIPESTATUS[0]}
           set -e
           mutmut results > .mutmut-ci/mutmut_results.txt || echo "::warning::mutmut results failed"

@@ -1,13 +1,13 @@
 import json
 import logging
 import logging.handlers
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from adhash.config import AppConfig, AdaptivePolicy
-from adhash.metrics import Metrics
+from adhash.config import AdaptivePolicy, AppConfig
 from adhash.hashmap_cli import (
     HybridAdaptiveHashMap,
     MetricsSink,
@@ -19,17 +19,18 @@ from adhash.hashmap_cli import (
     logger,
     set_app_config,
 )
+from adhash.metrics import Metrics
 
 
 @pytest.fixture(autouse=True)
-def _reset_logging_state():
+def _reset_logging_state() -> Iterator[None]:
     handlers = list(logger.handlers)
     yield
     logger.handlers = handlers
     logger.setLevel(logging.INFO)
 
 
-def test_configure_logging_sets_handlers_and_optionally_rotating(tmp_path: Path):
+def test_configure_logging_sets_handlers_and_optionally_rotating(tmp_path: Path) -> None:
     log_path = tmp_path / "hashmap.log"
     configure_logging(use_json=True, log_file=str(log_path), max_bytes=1024, backup_count=1)
 
@@ -45,7 +46,9 @@ def test_configure_logging_sets_handlers_and_optionally_rotating(tmp_path: Path)
     assert log_path.exists()
 
 
-def test_emit_success_prints_json_when_enabled(capsys: Any, monkeypatch: pytest.MonkeyPatch):
+def test_emit_success_prints_json_when_enabled(
+    capsys: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr("adhash.hashmap_cli.OUTPUT_JSON", True, raising=False)
     emit_success("put", text="ack", data={"key": "alpha"})
     output = capsys.readouterr().out.strip()
@@ -85,7 +88,7 @@ def test_build_map_supports_modes(mode: str, expected_cls: type) -> None:
     assert isinstance(m, expected_cls)
 
 
-def test_build_map_rejects_unknown_mode():
+def test_build_map_rejects_unknown_mode() -> None:
     set_app_config(AppConfig())
     with pytest.raises(ValueError):
         build_map("invalid-mode")

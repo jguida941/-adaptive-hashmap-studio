@@ -5,30 +5,31 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
 
 from adhash.batch.runner import BatchSpec, JobSpec, load_spec
+from adhash.contracts.error import BadInputError
 from adhash.workloads import WorkloadDNAResult
 
 from .metrics_client import HttpPoller, MetricsSnapshot
 from .process_manager import ProcessManager
 from .widgets import (
+    BenchmarkSuitePane,
     ConfigEditorPane,
     ConnectionPane,
     MetricsPane,
-    RunControlPane,
-    BenchmarkSuitePane,
-    WorkloadDNAPane,
-    SnapshotInspectorPane,
     ProbeVisualizerPane,
+    RunControlPane,
+    SnapshotInspectorPane,
+    WorkloadDNAPane,
 )
 
 try:  # pragma: no cover - only available when PyQt6 is installed
     from PyQt6.QtCore import QObject, pyqtSignal  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover - headless environments
+except ImportError:  # pragma: no cover - headless environments
     QObject = None  # type: ignore[assignment]
-    pyqtSignal = None  # type: ignore[assignment]
+    pyqtSignal = None  # type: ignore[assignment]  # noqa: N816
 
 
 if QObject is not None:  # pragma: no cover - requires PyQt6
@@ -63,11 +64,11 @@ class MissionControlController:
         connection: ConnectionPane,
         metrics: MetricsPane,
         run_control: RunControlPane,
-        config_editor: Optional[ConfigEditorPane] = None,
-        suite_manager: Optional[BenchmarkSuitePane] = None,
-        dna_panel: Optional[WorkloadDNAPane] = None,
-        snapshot_panel: Optional[SnapshotInspectorPane] = None,
-        probe_panel: Optional[ProbeVisualizerPane] = None,
+        config_editor: ConfigEditorPane | None = None,
+        suite_manager: BenchmarkSuitePane | None = None,
+        dna_panel: WorkloadDNAPane | None = None,
+        snapshot_panel: SnapshotInspectorPane | None = None,
+        probe_panel: ProbeVisualizerPane | None = None,
         poll_interval: float = 2.0,
     ) -> None:
         self._connection = connection
@@ -79,11 +80,11 @@ class MissionControlController:
         self._snapshot_pane = snapshot_panel
         self._probe_pane = probe_panel
         self._poll_interval = poll_interval
-        self._poller: Optional[HttpPoller] = None
+        self._poller: HttpPoller | None = None
         self._process = ProcessManager(self._handle_process_output, self._handle_process_exit)
         self._suite_process = ProcessManager(self._handle_suite_output, self._handle_suite_exit)
-        self._active_suite_spec: Optional[BatchSpec] = None
-        self._active_suite_path: Optional[Path] = None
+        self._active_suite_spec: BatchSpec | None = None
+        self._active_suite_path: Path | None = None
         self._ui = _UiBridge()
 
         self._connection.connect_button.clicked.connect(self._on_connect_clicked)  # type: ignore[attr-defined]
@@ -163,13 +164,13 @@ class MissionControlController:
         if hasattr(self._metrics, "prepare_for_new_run"):
             try:
                 self._metrics.prepare_for_new_run()
-            except Exception:  # pragma: no cover - defensive
+            except Exception:  # pragma: no cover - defensive  # noqa: BLE001
                 self._run_control.append_log("Warning: failed to reset metrics history before run.")
         try:
             self._process.start(args)
             self._run_control.set_running(True)
             self._run_control.append_log(f"Started: {' '.join(args)}")
-        except Exception as exc:  # noqa: BLE001
+        except (ValueError, RuntimeError, OSError) as exc:
             self._run_control.append_log(f"Failed to start: {exc}")
 
     def _on_run_stop(self) -> None:
@@ -236,7 +237,7 @@ class MissionControlController:
 
         try:
             spec = load_spec(spec_path)
-        except Exception as exc:
+        except (ValueError, BadInputError) as exc:
             self._suite_pane.set_status(f"Spec error: {exc}", "error")
             return
 
@@ -248,7 +249,7 @@ class MissionControlController:
         command = [sys.executable, "-m", "adhash.batch", "--spec", str(spec_path)]
         try:
             self._suite_process.start(command)
-        except Exception as exc:  # noqa: BLE001
+        except (ValueError, RuntimeError, OSError) as exc:
             self._suite_pane.append_log(f"Failed to start suite: {exc}")
             self._suite_pane.set_running(False)
             self._suite_pane.set_status(f"Launch error: {exc}", "error")

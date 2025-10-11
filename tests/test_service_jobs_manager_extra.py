@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from concurrent.futures import CancelledError
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, cast
 
 import pytest
 
-from adhash.service.jobs import JobManager, JobState
+from adhash.service.jobs import JobLogEntry, JobManager, JobRecord, JobState
+from adhash.service.models import BatchRequest
+from adhash.service.worker import JobWorker
 
 
-def _read_json(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
+def _read_json(path: Path) -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def test_job_manager_warns_on_invalid_max_jobs(
@@ -87,8 +90,8 @@ def test_job_manager_batch_schedules_job(monkeypatch: pytest.MonkeyPatch, tmp_pa
             job_id: str,
             manager: JobManager,
             description: str,
-            target,
-            args: Tuple[Any, ...],
+            target: Callable[..., Any],
+            args: tuple[Any, ...],
         ) -> None:
             self.job_id = job_id
             self.manager = manager
@@ -96,27 +99,20 @@ def test_job_manager_batch_schedules_job(monkeypatch: pytest.MonkeyPatch, tmp_pa
             self.target = target
             self.args = args
 
-        def __call__(self):
+        def __call__(self) -> Any:
             return self.target(*self.args)
 
-    captured: Dict[str, Any] = {}
+    captured: dict[str, Any] = {}
 
-    def fake_submit(record, worker):
+    def fake_submit(record: Any, worker: Any) -> None:
         captured["record"] = record
         captured["worker"] = worker
 
     monkeypatch.setattr("adhash.service.jobs.JobWorker", lambda **kwargs: FakeWorker(**kwargs))
     monkeypatch.setattr(manager, "_submit", fake_submit)
 
-    class BatchRequestStub:
-        def __init__(self):
-            self.spec_path = "spec.toml"
-
-        def model_dump(self):
-            return {"spec_path": self.spec_path}
-
     try:
-        job_record = manager.batch(BatchRequestStub())
+        job_record = manager.batch(BatchRequest(spec_path="spec.toml"))
         worker = captured["worker"]
         assert captured["record"].id == job_record.id
         assert worker.job_id == job_record.id
@@ -126,63 +122,124 @@ def test_job_manager_batch_schedules_job(monkeypatch: pytest.MonkeyPatch, tmp_pa
         manager.shutdown()
 
 
-def test_submit_cleanup_and_cancel(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_submit_cleanup_and_cancel(_monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     manager = JobManager(base_dir=tmp_path / "jobs")
 
     class FakeFuture:
         def __init__(self) -> None:
-            self._callbacks: List[Any] = []
+            self._callbacks: list[Callable[[FakeFuture], None]] = []
             self._cancelled = False
 
-        def add_done_callback(self, cb):
+        def add_done_callback(self, cb: Callable[[FakeFuture], None]) -> None:
             self._callbacks.append(cb)
 
-        def cancel(self):
+        def cancel(self) -> bool:
             self._cancelled = True
             return True
 
-        def exception(self):
+        def exception(self) -> Any:
             if self._cancelled:
                 raise CancelledError()
             return None
 
-        def result(self, timeout=None):
+        def result(self, _timeout: object | None = None) -> Any:
             if self._cancelled:
                 raise CancelledError()
             return None
 
-        def run_callbacks(self):
+        def run_callbacks(self) -> None:
             for cb in list(self._callbacks):
                 cb(self)
 
     class FakeExecutor:
-        def __init__(self):
-            self.submitted: List[Any] = []
+        def __init__(self) -> None:
+            self.submitted: list[Any] = []
 
-        def submit(self, worker):
+        def submit(self, worker: Any) -> FakeFuture:
             self.submitted.append(worker)
             return FakeFuture()
 
-        def shutdown(self, wait=True, cancel_futures=False):
+        def shutdown(self, _wait: bool = True, _cancel_futures: bool = False) -> None:
             return None
 
-    manager._executor = FakeExecutor()
+    fake_executor = FakeExecutor()
+    manager._executor = cast(Any, fake_executor)
 
     try:
         record = manager._create_job("test", {"value": 1})
 
-        manager._submit(record, lambda: None)
+        worker = JobWorker(
+            job_id=record.id,
+            manager=manager,
+            description="noop",
+            target=lambda: ({"status": "ok"}, {}),
+        )
+        manager._submit(record, worker)
         future = manager._futures[record.id]
-        assert manager._executor.submitted  # type: ignore[attr-defined]
-        future.run_callbacks()
+        assert fake_executor.submitted
+        cast(FakeFuture, future).run_callbacks()
         assert record.id not in manager._futures
 
-        manager._submit(record, lambda: None)
+        worker2 = JobWorker(
+            job_id=record.id,
+            manager=manager,
+            description="noop",
+            target=lambda: ({"status": "done"}, {}),
+        )
+        manager._submit(record, worker2)
         future2 = manager._futures[record.id]
         assert manager.cancel(record.id) is True
         cancelled_record = manager.get(record.id)
         assert cancelled_record.status == JobState.CANCELLED
-        future2.run_callbacks()
+        cast(FakeFuture, future2).run_callbacks()
         assert record.id not in manager._futures
+    finally:
+        manager.shutdown()
+
+
+def test_job_log_entry_and_record_models(tmp_path: Path) -> None:
+    entry = JobLogEntry(timestamp=123.0, level="INFO", message="hello")
+    model = entry.to_model()
+    assert model.level == "INFO"
+    assert model.message == "hello"
+
+    record = JobRecord(
+        id="job-1",
+        kind="run-csv",
+        status=JobState.PENDING,
+        request={"csv": "data.csv"},
+        created_at=1.0,
+        updated_at=2.0,
+        path=tmp_path,
+        result={"status": "ok"},
+        error=None,
+        artifacts={"report": "report.txt"},
+    )
+    detail = record.to_detail()
+    assert detail.id == "job-1"
+    assert detail.artifacts["report"] == "report.txt"
+
+
+def test_job_manager_wait_handles_future(tmp_path: Path) -> None:
+    manager = JobManager(base_dir=tmp_path / "jobs", max_workers=1)
+    try:
+        record = manager._create_job("test", {"value": 1})
+
+        class FutureStub:
+            def __init__(self) -> None:
+                self.waited = False
+
+            def result(self, timeout: float | None = None) -> None:  # noqa: ARG002
+                self.waited = True
+
+        stub = FutureStub()
+        manager._futures[record.id] = stub  # type: ignore[assignment]
+        waited = manager.wait(record.id)
+        assert waited.id == record.id
+        assert stub.waited is True
+
+        manager._futures.pop(record.id, None)
+        waited_again = manager.wait(record.id)
+        assert waited_again.id == record.id
     finally:
         manager.shutdown()

@@ -1,0 +1,69 @@
+tests/test_cli_workload_dna.py:12: error: Module "adhash.cli.commands" has no
+attribute "_configure_workload_dna"  [attr-defined]
+    from adhash.cli.commands import CLIContext, _configure_workload_dna
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tests/test_run_csv_env.py:11: error: Module "adhash.cli.commands" has no
+attribute "_configure_run_csv"  [attr-defined]
+    from adhash.cli.commands import CLIContext, _configure_run_csv
+    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:78: error: Module has no attribute
+"_configure_ab_compare"  [attr-defined]
+        handler_factory = commands._configure_ab_compare
+                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:135: error: Module has no attribute
+"_configure_ab_compare"  [attr-defined]
+        handler_factory = commands._configure_ab_compare
+                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:168: error: Module has no attribute
+"_configure_profile"  [attr-defined]
+        handler_factory = commands._configure_profile
+                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:190: error: Module has no attribute
+"_configure_profile"  [attr-defined]
+        handler = commands._configure_profile(parser, ctx)
+                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:196: error: Module has no attribute "Exit"
+[attr-defined]
+        assert result == int(commands.Exit.OK)
+                             ^~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:216: error: Module has no attribute
+"_configure_profile"  [attr-defined]
+        handler = commands._configure_profile(parser, ctx)
+                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:220: error: Module has no attribute "Exit"
+[attr-defined]
+        assert result == int(commands.Exit.OK)
+                             ^~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:236: error: Module has no attribute
+"_configure_put"  [attr-defined]
+        handler = commands._configure_put(parser, ctx)
+                  ^~~~~~~~~~~~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:239: error: Module has no attribute "Exit"
+[attr-defined]
+        assert result == int(commands.Exit.OK)
+                             ^~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:260: error: Module has no attribute
+"_configure_get"  [attr-defined]
+        handler = commands._configure_get(parser, ctx)
+                  ^~~~~~~~~~~~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:263: error: Module has no attribute "Exit"
+[attr-defined]
+        assert result == int(commands.Exit.OK)
+                             ^~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:283: error: Module has no attribute
+"_configure_del"  [attr-defined]
+        handler = commands._configure_del(parser, ctx)
+                  ^~~~~~~~~~~~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:286: error: Module has no attribute "Exit"
+[attr-defined]
+        assert result == int(commands.Exit.OK)
+                             ^~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:306: error: Module has no attribute
+"_configure_items"  [attr-defined]
+        handler = commands._configure_items(parser, ctx)
+                  ^~~~~~~~~~~~~~~~~~~~~~~~~
+tests/test_cli_commands_handlers.py:309: error: Module has no attribute "Exit"
+[attr-defined]
+        assert result == int(commands.Exit.OK)
+                             ^~~~~~~~~~~~~
+Found 17 errors in 3 files (checked 120 source files)

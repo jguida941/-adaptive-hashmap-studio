@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class JobState(str, Enum):
+class JobState(StrEnum):
     """Lifecycle states for asynchronous jobs."""
 
     PENDING = "pending"
@@ -23,27 +23,28 @@ class RunCsvRequest(BaseModel):
 
     csv: str = Field(..., description="CSV workload to replay.")
     mode: str = Field(default="adaptive", description="Hash map backend/mode to execute with.")
-    metrics_port: Optional[int] = Field(
+    metrics_port: int | None = Field(
         default=None, description="Optional metrics/dashboard port (set 0 for ephemeral)."
     )
-    metrics_host: Optional[str] = Field(
+    metrics_host: str | None = Field(
         default=None,
-        description="Optional host/interface override for metrics server (defaults to ADHASH_METRICS_HOST or 127.0.0.1).",
+        description=(
+            "Optional host/interface override for metrics server "
+            "(defaults to ADHASH_METRICS_HOST or 127.0.0.1)."
+        ),
     )
-    snapshot_in: Optional[str] = Field(
-        default=None, description="Existing snapshot to resume from."
-    )
-    snapshot_out: Optional[str] = Field(
+    snapshot_in: str | None = Field(default=None, description="Existing snapshot to resume from.")
+    snapshot_out: str | None = Field(
         default=None,
         description="Snapshot path to write on completion (auto gzip by suffix or --compress).",
     )
     compress_out: bool = Field(
         default=False, description="Enable gzip compression for snapshot writes."
     )
-    compact_interval: Optional[float] = Field(
+    compact_interval: float | None = Field(
         default=None, description="Seconds between proactive compactions (None disables)."
     )
-    json_summary_out: Optional[str] = Field(
+    json_summary_out: str | None = Field(
         default=None, description="Optional JSON summary output path for CI/reporting."
     )
     latency_sample_k: int = Field(
@@ -56,15 +57,17 @@ class RunCsvRequest(BaseModel):
         default="default",
         description="Latency histogram preset identifier (see docs/metrics_schema.md).",
     )
-    metrics_out_dir: Optional[str] = Field(
+    metrics_out_dir: str | None = Field(
         default=None, description="Directory where metrics.ndjson should be written."
     )
-    metrics_max_ticks: Optional[int] = Field(
+    metrics_max_ticks: int | None = Field(
         default=None, description="Retention cap for metrics.ndjson when running with --follow."
     )
     dry_run: bool = Field(
         default=False,
-        description="Validate the workload without executing operations (ensures CSV schema compliance).",
+        description=(
+            "Validate the workload without executing operations (ensures CSV schema compliance)."
+        ),
     )
     csv_max_rows: int = Field(
         default=5_000_000,
@@ -84,7 +87,7 @@ class RunCsvRequest(BaseModel):
         default=False,
         description="Populate the in-memory metrics history buffer (used for A/B comparisons).",
     )
-    working_dir: Optional[str] = Field(
+    working_dir: str | None = Field(
         default=None,
         description="Override working directory for this job (defaults to current process CWD).",
     )
@@ -107,7 +110,7 @@ class ProfileRequest(BaseModel):
         gt=0,
         description="Sample size when determining the recommended backend/mode.",
     )
-    working_dir: Optional[str] = Field(
+    working_dir: str | None = Field(
         default=None,
         description="Override working directory for this job (defaults to current process CWD).",
     )
@@ -125,7 +128,7 @@ class BatchRequest(BaseModel):
     """Launch a batch spec leveraging the existing batch runner."""
 
     spec_path: str = Field(..., description="Path to a batch TOML spec.")
-    working_dir: Optional[str] = Field(
+    working_dir: str | None = Field(
         default=None,
         description="Optional working directory passed to the batch runner.",
     )
@@ -162,13 +165,13 @@ class JobDetail(BaseModel):
     status: JobState
     created_at: float
     updated_at: float
-    request: Dict[str, Any]
-    result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    artifacts: Dict[str, str] = Field(default_factory=dict)
+    request: dict[str, Any]
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    artifacts: dict[str, str] = Field(default_factory=dict)
 
 
 class JobStatusResponse(BaseModel):
     """Lightweight summary for listing jobs."""
 
-    jobs: List[JobDetail]
+    jobs: list[JobDetail]

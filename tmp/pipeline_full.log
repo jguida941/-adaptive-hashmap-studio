@@ -1,0 +1,72 @@
+== Mode: full ==
+All checks passed!
+134 files already formatted
+Success: no issues found in 120 source files
+== Build wheel ==
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - setuptools>=65
+  - wheel
+> /Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/bin/python -m
+  pip --python /private/var/folders/6_/_15pvmxd7yq5qrnmzr92dkr00000gn/T/build-
+  env-4dzhsyvb/bin/python install --use-pep517 --no-warn-script-location --no-
+  compile -r /var/folders/6_/_15pvmxd7yq5qrnmzr92dkr00000gn/T/build-reqs-
+  qb6sucss.txt
+< WARNING: The directory '/Users/jguida941/Library/Caches/pip' or its parent
+  directory is not owned or is not writable by the current user. The cache has
+  been disabled. Check the permissions and owner of that directory. If
+  executing pip with sudo, you should use sudo's -H flag.
+< WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None,
+  status=None)) after connection broken by
+  'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object
+  at 0x103b02790>: Failed to establish a new connection: [Errno 8] nodename
+  nor servname provided, or not known')': /simple/wheel/
+< WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None,
+  status=None)) after connection broken by
+  'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object
+  at 0x103b03090>: Failed to establish a new connection: [Errno 8] nodename
+  nor servname provided, or not known')': /simple/wheel/
+< WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None,
+  status=None)) after connection broken by
+  'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object
+  at 0x103b03c50>: Failed to establish a new connection: [Errno 8] nodename
+  nor servname provided, or not known')': /simple/wheel/
+< WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None,
+  status=None)) after connection broken by
+  'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object
+  at 0x103b08810>: Failed to establish a new connection: [Errno 8] nodename
+  nor servname provided, or not known')': /simple/wheel/
+< WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None,
+  status=None)) after connection broken by
+  'NewConnectionError('<pip._vendor.urllib3.connection.HTTPSConnection object
+  at 0x103b092d0>: Failed to establish a new connection: [Errno 8] nodename
+  nor servname provided, or not known')': /simple/wheel/
+< ERROR: Could not find a version that satisfies the requirement wheel (from
+  versions: none)
+< ERROR: No matching distribution found for wheel
+
+Traceback (most recent call last):
+  File "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/lib/python3.11/site-packages/build/__main__.py", line 179, in _handle_build_error
+    yield
+  File "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/lib/python3.11/site-packages/build/__main__.py", line 460, in main
+    built = build_call(
+            ^^^^^^^^^^^
+  File "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/lib/python3.11/site-packages/build/__main__.py", line 239, in build_package
+    out = _build(isolation, srcdir, outdir, distribution, config_settings, skip_dependency_check, installer)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/lib/python3.11/site-packages/build/__main__.py", line 171, in _build
+    return _build_in_isolated_env(srcdir, outdir, distribution, config_settings, installer)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/lib/python3.11/site-packages/build/__main__.py", line 136, in _build_in_isolated_env
+    env.install(builder.build_system_requires)
+  File "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/lib/python3.11/site-packages/build/env.py", line 137, in install
+    self._env_backend.install_requirements(requirements)
+  File "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/lib/python3.11/site-packages/build/env.py", line 286, in install_requirements
+    run_subprocess(cmd)
+  File "/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/lib/python3.11/site-packages/build/_ctx.py", line 72, in run_subprocess
+    subprocess.run(cmd, capture_output=True, check=True, env=env)
+  File "/opt/homebrew/Cellar/python@3.11/3.11.13_1/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/bin/python', '-m', 'pip', '--python', '/private/var/folders/6_/_15pvmxd7yq5qrnmzr92dkr00000gn/T/build-env-4dzhsyvb/bin/python', 'install', '--use-pep517', '--no-warn-script-location', '--no-compile', '-r', '/var/folders/6_/_15pvmxd7yq5qrnmzr92dkr00000gn/T/build-reqs-qb6sucss.txt']' returned non-zero exit status 1.
+
+ERROR Command '['/Users/jguida941/Dev/GitHubProject/AdaptiveHashMapCli/.venv/bin/python', '-m', 'pip', '--python', '/private/var/folders/6_/_15pvmxd7yq5qrnmzr92dkr00000gn/T/build-env-4dzhsyvb/bin/python', 'install', '--use-pep517', '--no-warn-script-location', '--no-compile', '-r', '/var/folders/6_/_15pvmxd7yq5qrnmzr92dkr00000gn/T/build-reqs-qb6sucss.txt']' returned non-zero exit status 1.

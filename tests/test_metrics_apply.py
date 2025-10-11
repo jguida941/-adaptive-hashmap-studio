@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import Deque, Dict
 
-from adhash.metrics import Metrics, TICK_SCHEMA, apply_tick_to_metrics
+from adhash.metrics import TICK_SCHEMA, Metrics, apply_tick_to_metrics
 
 
 def test_apply_tick_to_metrics_updates_counters() -> None:
     metrics = Metrics()
-    history: Deque[Dict[str, object]] = deque(maxlen=3)
+    history: deque[dict[str, object]] = deque(maxlen=3)
     metrics.history_buffer = history
 
     tick = {

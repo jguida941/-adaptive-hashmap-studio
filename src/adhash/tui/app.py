@@ -3,33 +3,45 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
+import logging
 import math
 import os
 import socket
-from pathlib import Path
-from datetime import datetime
+from collections.abc import Callable, Iterable
+from datetime import UTC, datetime
 from itertools import pairwise
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from adhash.analysis import format_trace_lines
 from adhash.metrics import SUMMARY_SCHEMA, TICK_SCHEMA
 
-_TEXTUAL_ERR: Optional[Exception] = None
+logger = logging.getLogger(__name__)
+
+_CLIENT_USER_AGENT = "AdaptiveHashMapCLI/1.0"
+_MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5 MiB cap to prevent runaway responses.
+_LOOPBACK_HOST_LABELS = {"localhost"}
+
+_TEXTUAL_ERR: Exception | None = None
 if TYPE_CHECKING:  # pragma: no cover - only for static analysis
-    from textual.app import App as AppBase, ComposeResult
+    from textual.app import App as AppBase
+    from textual.app import ComposeResult
     from textual.binding import Binding
     from textual.reactive import reactive
     from textual.widgets import Footer, Header, Static
 else:  # pragma: no cover - guarded runtime import
     try:
-        from textual.app import App as AppBase, ComposeResult  # type: ignore[import-not-found]
+        from textual.app import App as AppBase  # type: ignore[import-not-found]
+        from textual.app import ComposeResult
         from textual.binding import Binding  # type: ignore[import-not-found]
         from textual.reactive import reactive  # type: ignore[import-not-found]
         from textual.widgets import Footer, Header, Static  # type: ignore[import-not-found]
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001
         _TEXTUAL_ERR = exc
         AppBase = cast(Any, object)
         ComposeResult = cast(Any, object)
@@ -39,32 +51,306 @@ else:  # pragma: no cover - guarded runtime import
         Header = cast(Any, object)
         Static = cast(Any, object)
 
+ALLOWED_ENDPOINT_SCHEMES = {"http", "https"}
 
-def fetch_metrics(endpoint: str, timeout: float = 1.0) -> Optional[Dict[str, Any]]:
+
+def _env_allows_localhost() -> bool:
+    value = os.getenv("ADHASH_ALLOW_LOCALHOST", "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _effective_allow_localhost(flag: bool | None) -> bool:
+    return _env_allows_localhost() if flag is None else flag
+
+
+def _env_allows_private() -> bool:
+    value = os.getenv("ADHASH_ALLOW_PRIVATE_IPS", "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _effective_allow_private(flag: bool | None) -> bool:
+    return _env_allows_private() if flag is None else flag
+
+
+def _is_local_host(hostname: str) -> bool:
+    """Return ``True`` if ``hostname`` refers to a loopback or unspecified address."""
+
+    if not hostname:
+        return False
+    try:
+        ip_obj = ipaddress.ip_address(hostname)
+    except ValueError:
+        return hostname.lower() in _LOOPBACK_HOST_LABELS
+    return ip_obj.is_loopback or ip_obj.is_unspecified
+
+
+def _content_type_allows_json(content_type: str) -> bool:
+    """Return ``True`` if the response ``Content-Type`` is JSON or plain text."""
+
+    if not content_type:
+        return True
+    lowered = content_type.lower()
+    return "json" in lowered or lowered.startswith("text/")
+
+
+def _charset_from_content_type(content_type: str) -> str | None:
+    """Extract a ``charset`` parameter from ``Content-Type`` if present."""
+
+    if not content_type:
+        return None
+    for part in content_type.split(";"):
+        part = part.strip()
+        if part.lower().startswith("charset="):
+            charset = part.split("=", 1)[1].strip().strip('"').strip("'")
+            if charset:
+                return charset
+    return None
+
+
+def _ensure_ip_allowed(
+    address: str | ipaddress.IPv4Address | ipaddress.IPv6Address,
+    *,
+    allow_localhost: bool,
+    allow_private: bool,
+) -> None:
+    if isinstance(address, ipaddress.IPv4Address | ipaddress.IPv6Address):
+        ip_obj = address
+    else:
+        try:
+            ip_obj = ipaddress.ip_address(address)
+        except ValueError as exc:
+            raise ValueError(f"Unable to parse IP address '{address}'") from exc
+    if ip_obj.is_loopback:
+        if allow_localhost:
+            return
+        raise ValueError("Endpoints targeting localhost are not allowed")
+    if ip_obj.is_private and not allow_private:
+        raise ValueError("Endpoint host resolves to a private address")
+    if ip_obj.is_link_local or ip_obj.is_reserved or ip_obj.is_multicast or ip_obj.is_unspecified:
+        raise ValueError("Endpoint host resolves to an internal address")
+
+
+def _resolve_hostname(hostname: str, port: int | None) -> tuple[tuple[Any, ...], ...]:
+    return tuple(socket.getaddrinfo(hostname, port))
+
+
+def _validated_endpoint(
+    endpoint: str, *, allow_localhost: bool | None = None, allow_private: bool | None = None
+) -> str:
+    parsed = urlparse(endpoint)
+    if parsed.scheme.lower() not in ALLOWED_ENDPOINT_SCHEMES:
+        raise ValueError(f"Unsupported endpoint scheme '{parsed.scheme}' (allowed: http, https)")
+    if not parsed.netloc:
+        raise ValueError("Endpoint must include a host")
+    hostname = parsed.hostname or ""
+    local_ok = _effective_allow_localhost(allow_localhost)
+    private_ok = _effective_allow_private(allow_private)
+    if not local_ok and _is_local_host(hostname):
+        raise ValueError("Endpoints targeting localhost are not allowed")
+    try:
+        infos = _resolve_hostname(hostname, parsed.port or None)
+    except (TimeoutError, socket.gaierror) as exc:
+        raise ValueError(f"Endpoint host '{hostname}' cannot be resolved") from exc
+    parsed_any = False
+    for info in infos:
+        address = info[4][0]
+        try:
+            ip_obj = ipaddress.ip_address(address)
+        except ValueError:
+            continue
+        parsed_any = True
+        _ensure_ip_allowed(ip_obj, allow_localhost=local_ok, allow_private=private_ok)
+    if not parsed_any:
+        raise ValueError(f"Endpoint host '{hostname}' did not yield any valid IP addresses")
+    return endpoint
+
+
+def _response_is_trusted(
+    response: Any, *, allow_localhost: bool | None = None, allow_private: bool | None = None
+) -> bool:
+    local_ok = _effective_allow_localhost(allow_localhost)
+    private_ok = _effective_allow_private(allow_private)
+    geturl = getattr(response, "geturl", None)
+    if callable(geturl):
+        final_url = geturl()
+        if isinstance(final_url, str):
+            try:
+                _validated_endpoint(final_url, allow_localhost=local_ok, allow_private=private_ok)
+            except ValueError:
+                return local_ok
+    raw = getattr(response, "fp", None)
+    if raw is not None:
+        raw = getattr(raw, "raw", raw)
+        sock = getattr(raw, "_sock", None) or getattr(raw, "socket", None)
+        if sock is not None:
+            try:
+                peer = sock.getpeername()
+            except OSError:
+                peer = None
+            if peer:
+                address = peer[0] if isinstance(peer, tuple) else peer
+                try:
+                    _ensure_ip_allowed(address, allow_localhost=local_ok, allow_private=private_ok)
+                except ValueError:
+                    return False
+    return True
+
+
+def _read_json_response(
+    request: Request,
+    timeout: float,
+    *,
+    allow_localhost: bool | None = None,
+    allow_private: bool | None = None,
+) -> tuple[bytes, str] | None:
+    """Fetch a JSON/text response with basic safety validation."""
+
+    try:
+        with urlopen(request, timeout=timeout) as response:  # nosec B310  # noqa: S310
+            if not _response_is_trusted(
+                response, allow_localhost=allow_localhost, allow_private=allow_private
+            ):
+                return None
+            headers = getattr(response, "headers", None)
+            header_get = getattr(headers, "get", None) if headers is not None else None
+            if callable(header_get):
+                content_type = header_get("Content-Type", "") or ""
+            else:
+                getheader = getattr(response, "getheader", None)
+                content_type = getheader("Content-Type", "") if callable(getheader) else ""
+                if content_type is None:
+                    content_type = ""
+            if not _content_type_allows_json(content_type):
+                return None
+            reader = getattr(response, "read", None)
+            if not callable(reader):
+                return None
+            try:
+                payload = reader(_MAX_RESPONSE_BYTES + 1)
+            except TypeError:
+                payload = reader()
+            if payload is None:
+                return None
+            if not isinstance(payload, bytes | bytearray):
+                return None
+            if len(payload) > _MAX_RESPONSE_BYTES:
+                return None
+            encoding = "utf-8"
+            charset_getter = (
+                getattr(headers, "get_content_charset", None) if headers is not None else None
+            )
+            if callable(charset_getter):
+                detected = charset_getter()
+                if isinstance(detected, str) and detected:
+                    encoding = detected
+            if encoding == "utf-8" and content_type:
+                charset = _charset_from_content_type(content_type)
+                if charset:
+                    encoding = charset
+            payload_bytes = bytes(payload)
+            return payload_bytes, encoding
+    except PermissionError:
+        return None
+    except (HTTPError, URLError, TimeoutError, ConnectionError, OSError) as exc:
+        logger.debug("Network fetch failed: %s", exc)
+        return None
+
+
+T = TypeVar("T")
+
+
+def _call_with_network_flags(
+    func: Callable[..., T],
+    endpoint: str,
+    timeout: float,
+    allow_localhost: bool | None,
+    allow_private: bool | None,
+) -> T:
+    """Invoke ``func`` while aligning keyword names with internal callers and test doubles."""
+
+    try:
+        return func(
+            endpoint,
+            timeout,
+            allow_localhost=allow_localhost,
+            allow_private=allow_private,
+        )
+    except TypeError as exc:
+        message = str(exc)
+        if "unexpected keyword argument" not in message:
+            raise
+        try:
+            return func(
+                endpoint,
+                timeout,
+                _allow_localhost=allow_localhost,
+                _allow_private=allow_private,
+            )
+        except TypeError as fallback_exc:
+            if "unexpected keyword argument" in str(fallback_exc):
+                return func(endpoint, timeout)
+            raise
+
+
+def fetch_metrics(
+    endpoint: str,
+    timeout: float = 1.0,
+    *,
+    allow_localhost: bool | None = None,
+    allow_private: bool | None = None,
+) -> dict[str, Any] | None:
     """Return the latest metrics JSON from ``endpoint`` or ``None`` on error."""
 
-    request = Request(endpoint, headers=_build_headers("application/json"))
     try:
-        with urlopen(request, timeout=timeout) as response:  # nosec: B310 (local HTTP only)
-            payload = response.read()
-    except (HTTPError, URLError, TimeoutError, socket.timeout, ConnectionError):
+        safe_endpoint = _validated_endpoint(
+            endpoint, allow_localhost=allow_localhost, allow_private=allow_private
+        )
+    except ValueError:
         return None
+
+    request = Request(safe_endpoint, headers=_build_headers("application/json"))  # noqa: S310
+    result = _read_json_response(
+        request,
+        timeout,
+        allow_localhost=allow_localhost,
+        allow_private=allow_private,
+    )
+    if result is None:
+        return None
+    payload, encoding = result
     try:
-        data = json.loads(payload.decode("utf-8"))
+        data = json.loads(payload.decode(encoding))
     except (UnicodeDecodeError, json.JSONDecodeError):
         return None
     return data if isinstance(data, dict) else None
 
 
-def fetch_history(endpoint: str, timeout: float = 1.0) -> Optional[List[Dict[str, Any]]]:
-    request = Request(endpoint, headers=_build_headers("application/json"))
+def fetch_history(
+    endpoint: str,
+    timeout: float = 1.0,
+    *,
+    allow_localhost: bool | None = None,
+    allow_private: bool | None = None,
+) -> list[dict[str, Any]] | None:
     try:
-        with urlopen(request, timeout=timeout) as response:  # nosec: B310
-            payload = response.read()
-    except (HTTPError, URLError, TimeoutError, socket.timeout, ConnectionError):
+        safe_endpoint = _validated_endpoint(
+            endpoint, allow_localhost=allow_localhost, allow_private=allow_private
+        )
+    except ValueError:
         return None
+
+    request = Request(safe_endpoint, headers=_build_headers("application/json"))  # noqa: S310
+    result = _read_json_response(
+        request,
+        timeout,
+        allow_localhost=allow_localhost,
+        allow_private=allow_private,
+    )
+    if result is None:
+        return None
+    payload, encoding = result
     try:
-        data = json.loads(payload.decode("utf-8"))
+        data = json.loads(payload.decode(encoding))
     except (UnicodeDecodeError, json.JSONDecodeError):
         return None
     if isinstance(data, list) and all(isinstance(item, dict) for item in data):
@@ -72,15 +358,15 @@ def fetch_history(endpoint: str, timeout: float = 1.0) -> Optional[List[Dict[str
     return None
 
 
-def _build_headers(accept: str) -> Dict[str, str]:
-    headers = {"Accept": accept}
+def _build_headers(accept: str) -> dict[str, str]:
+    headers = {"Accept": accept, "User-Agent": _CLIENT_USER_AGENT}
     token = os.getenv("ADHASH_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
     return headers
 
 
-def _safe_float(value: Any) -> Optional[float]:
+def _safe_float(value: Any) -> float | None:
     try:
         out = float(value)
     except (TypeError, ValueError):
@@ -88,7 +374,7 @@ def _safe_float(value: Any) -> Optional[float]:
     return out if math.isfinite(out) else None
 
 
-def _format_latency(packet: Dict[str, Any]) -> str:
+def _format_latency(packet: dict[str, Any]) -> str:
     pieces = []
     for key in ("p50", "p90", "p99"):
         value = _safe_float(packet.get(key))
@@ -111,7 +397,7 @@ def _format_alerts(alerts: Any) -> str:
     return "\n".join(lines) if lines else "No active alerts."
 
 
-def _format_summary(tick: Dict[str, Any]) -> str:
+def _format_summary(tick: dict[str, Any]) -> str:
     backend = tick.get("backend", "unknown")
     ops = int(tick.get("ops", 0))
     ops_by_type = tick.get("ops_by_type", {}) if isinstance(tick.get("ops_by_type"), dict) else {}
@@ -131,7 +417,7 @@ def _format_summary(tick: Dict[str, Any]) -> str:
         if isinstance(packet, dict):
             latency_packet = packet
 
-    def fmt(value: Optional[float], precision: int = 3) -> str:
+    def fmt(value: float | None, precision: int = 3) -> str:
         return f"{value:.{precision}f}" if value is not None else "n/a"
 
     lines = [
@@ -148,7 +434,7 @@ def _format_summary(tick: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _format_history(history: Iterable[Dict[str, Any]]) -> str:
+def _format_history(history: Iterable[dict[str, Any]]) -> str:
     items = list(history)[-10:]
     if not items:
         return "History window empty — waiting for samples."
@@ -160,7 +446,7 @@ def _format_history(history: Iterable[Dict[str, Any]]) -> str:
         "  ".join(f"{val:.2f}" for val in load_series) if load_series else "n/a"
     )
 
-    throughputs: List[float] = []
+    throughputs: list[float] = []
     for prev, curr in pairwise(items):
         t0 = _safe_float(prev.get("t"))
         t1 = _safe_float(curr.get("t"))
@@ -185,8 +471,8 @@ if _TEXTUAL_ERR is None:
     class AdaptiveMetricsApp(AppBase[None]):
         """Minimal Textual application that polls and renders Adaptive Hash Map metrics."""
 
-        latest_tick: reactive[Optional[Dict[str, Any]]] = reactive(None)
-        last_updated: reactive[Optional[datetime]] = reactive(None)
+        latest_tick: reactive[dict[str, Any] | None] = reactive(None)
+        last_updated: reactive[datetime | None] = reactive(None)
 
         CSS = """
         Screen { layout: vertical; }
@@ -205,19 +491,23 @@ if _TEXTUAL_ERR is None:
         def __init__(
             self,
             metrics_endpoint: str,
-            history_endpoint: Optional[str] = None,
+            history_endpoint: str | None = None,
             poll_interval: float = 2.0,
             timeout: float = 1.0,
-            probe_trace: Optional[str] = None,
+            probe_trace: str | None = None,
+            allow_localhost: bool | None = None,
+            allow_private: bool | None = None,
         ) -> None:
             super().__init__()
             self.metrics_endpoint = metrics_endpoint
             self.history_endpoint = history_endpoint
             self.poll_interval = poll_interval
             self.timeout = timeout
-            self._probe_path: Optional[Path] = (
+            self._probe_path: Path | None = (
                 Path(probe_trace).expanduser().resolve() if probe_trace else None
             )
+            self._allow_localhost = _effective_allow_localhost(allow_localhost)
+            self._allow_private = _effective_allow_private(allow_private)
 
         def compose(self) -> ComposeResult:
             yield Header(show_clock=True)
@@ -250,7 +540,7 @@ if _TEXTUAL_ERR is None:
 
         async def _poll_and_render(self, initial: bool = False) -> None:
             tick, history, error = await self._fetch_tick_and_history()
-            now = datetime.now()
+            now = datetime.now(tz=UTC)
             if tick is not None:
                 self.latest_tick = tick
                 self.last_updated = now
@@ -270,17 +560,24 @@ if _TEXTUAL_ERR is None:
                 self._status.update(message)
                 if initial:
                     self._status.update(
-                        f"Waiting for metrics at {self.metrics_endpoint}. Launch `python -m hashmap_cli`"
-                        " with `--metrics-port` to start streaming."
+                        "Waiting for metrics at "
+                        f"{self.metrics_endpoint}. "
+                        "Launch `python -m hashmap_cli` with `--metrics-port` to start streaming."
                     )
 
         async def _fetch_tick_and_history(
             self,
-        ) -> Tuple[Optional[Dict[str, Any]], Optional[List[Dict[str, Any]]], Optional[str]]:
+        ) -> tuple[dict[str, Any] | None, list[dict[str, Any]] | None, str | None]:
             loop = asyncio.get_running_loop()
 
-            def _load() -> Optional[Dict[str, Any]]:
-                return fetch_metrics(self.metrics_endpoint, timeout=self.timeout)
+            def _load() -> dict[str, Any] | None:
+                return _call_with_network_flags(
+                    fetch_metrics,
+                    self.metrics_endpoint,
+                    self.timeout,
+                    self._allow_localhost,
+                    self._allow_private,
+                )
 
             tick = await loop.run_in_executor(None, _load)
             if tick is None:
@@ -288,14 +585,21 @@ if _TEXTUAL_ERR is None:
             if tick.get("schema") not in {None, TICK_SCHEMA, SUMMARY_SCHEMA}:
                 return None, None, f"Unsupported schema: {tick.get('schema')}"
 
-            history_data: Optional[List[Dict[str, Any]]] = None
+            history_data: list[dict[str, Any]] | None = None
             endpoint = self.history_endpoint
             if endpoint is None and "/api/metrics" in self.metrics_endpoint:
                 base = self.metrics_endpoint.rsplit("/api/metrics", 1)[0]
                 endpoint = f"{base}/api/metrics/history?limit=120"
             if endpoint is not None:
                 history_data = await loop.run_in_executor(
-                    None, lambda: fetch_history(endpoint, timeout=self.timeout)
+                    None,
+                    lambda: _call_with_network_flags(
+                        fetch_history,
+                        endpoint,
+                        self.timeout,
+                        self._allow_localhost,
+                        self._allow_private,
+                    ),
                 )
 
             return tick, history_data or [], None
@@ -306,7 +610,8 @@ if _TEXTUAL_ERR is None:
             if self._probe_path is None:
                 if initial:
                     self._probe.update(
-                        "Probe visualiser inactive. Export a trace with `hashmap-cli probe-visualize --export-json` "
+                        "Probe visualiser inactive. Export a trace with `hashmap-cli "
+                        "probe-visualize --export-json` "
                         "and launch the TUI with `--probe-json /path/to/trace.json`."
                     )
                 return
@@ -319,7 +624,7 @@ if _TEXTUAL_ERR is None:
                 data = json.loads(self._probe_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as exc:
                 return f"Failed to load probe trace: {exc}"
-            trace: Optional[Dict[str, Any]]
+            trace: dict[str, Any] | None
             seeds = None
             snapshot = None
             export_path = None
@@ -346,7 +651,7 @@ if _TEXTUAL_ERR is None:
 else:  # pragma: no cover - exercised only when Textual is absent
 
     class AdaptiveMetricsApp:  # type: ignore[no-redef]
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
             raise ImportError(
                 "The Textual TUI requires the 'textual' extra. Install with `pip install .[ui]`."
             ) from _TEXTUAL_ERR
@@ -354,12 +659,34 @@ else:  # pragma: no cover - exercised only when Textual is absent
 
 def run_tui(
     metrics_endpoint: str = "http://127.0.0.1:9090/api/metrics",
-    history_endpoint: Optional[str] = None,
+    history_endpoint: str | None = None,
     poll_interval: float = 2.0,
     timeout: float = 1.0,
-    probe_trace: Optional[str] = None,
+    probe_trace: str | None = None,
+    allow_localhost: bool | None = None,
+    allow_private: bool | None = None,
 ) -> None:
     """Launch the Textual TUI against the given metrics endpoint."""
+
+    host = urlparse(metrics_endpoint).hostname or ""
+    env_local_configured = "ADHASH_ALLOW_LOCALHOST" in os.environ
+    env_private_configured = "ADHASH_ALLOW_PRIVATE_IPS" in os.environ
+
+    try:
+        host_ip = ipaddress.ip_address(host)
+    except ValueError:
+        host_ip = None
+
+    if allow_localhost is None and not env_local_configured and _is_local_host(host):
+        allow_localhost = True
+
+    if (
+        allow_private is None
+        and not env_private_configured
+        and host_ip is not None
+        and host_ip.is_private
+    ):
+        allow_private = True
 
     app = AdaptiveMetricsApp(
         metrics_endpoint=metrics_endpoint,
@@ -367,6 +694,8 @@ def run_tui(
         poll_interval=poll_interval,
         timeout=timeout,
         probe_trace=probe_trace,
+        allow_localhost=_effective_allow_localhost(allow_localhost),
+        allow_private=_effective_allow_private(allow_private),
     )
     app.run()
 

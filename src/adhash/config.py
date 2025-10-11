@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import os
 import tomllib
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional, Callable
+from typing import Any
 
 from .contracts.error import BadInputError
 
@@ -48,9 +49,9 @@ class AdaptivePolicy:
 @dataclass
 class WatchdogPolicy:
     enabled: bool = True
-    load_factor_warn: Optional[float] = 0.9
-    avg_probe_warn: Optional[float] = 8.0
-    tombstone_ratio_warn: Optional[float] = 0.35
+    load_factor_warn: float | None = 0.9
+    avg_probe_warn: float | None = 8.0
+    tombstone_ratio_warn: float | None = 0.35
 
     def validate(self) -> None:
         if self.load_factor_warn is not None and not 0.0 <= self.load_factor_warn <= 1.0:
@@ -67,7 +68,7 @@ class AppConfig:
     watchdog: WatchdogPolicy = field(default_factory=WatchdogPolicy)
 
     @classmethod
-    def load(cls, path: Optional[Path]) -> "AppConfig":
+    def load(cls, path: Path | None) -> AppConfig:
         if path is None:
             cfg = cls()
         else:
@@ -83,7 +84,7 @@ class AppConfig:
         return cfg
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AppConfig":
+    def from_dict(cls, data: dict[str, Any]) -> AppConfig:
         adaptive_data = data.get("adaptive", {})
         if not isinstance(adaptive_data, dict):
             raise BadInputError("[adaptive] section must be a table")
@@ -91,7 +92,7 @@ class AppConfig:
         watchdog_data = data.get("watchdog", {})
         if not isinstance(watchdog_data, dict):
             raise BadInputError("[watchdog] section must be a table")
-        watchdog_kwargs: Dict[str, Any] = {}
+        watchdog_kwargs: dict[str, Any] = {}
 
         if "enabled" in watchdog_data:
             raw_enabled = watchdog_data["enabled"]
@@ -131,7 +132,7 @@ class AppConfig:
         return cls(adaptive=adaptive, watchdog=watchdog)
 
     def apply_env_overrides(self, env: Mapping[str, str]) -> None:
-        adaptive_mapping: Dict[str, tuple[str, Callable[[str], Any]]] = {
+        adaptive_mapping: dict[str, tuple[str, Callable[[str], Any]]] = {
             "ADAPTIVE_START_BACKEND": ("start_backend", str),
             "ADAPTIVE_INITIAL_BUCKETS": ("initial_buckets", int),
             "ADAPTIVE_GROUPS_PER_BUCKET": ("groups_per_bucket", int),
@@ -163,7 +164,7 @@ class AppConfig:
             else:
                 raise BadInputError(f"Invalid env override WATCHDOG_ENABLED={raw_enabled!r}")
 
-        float_overrides: Dict[str, str] = {
+        float_overrides: dict[str, str] = {
             "WATCHDOG_LOAD_FACTOR_WARN": "load_factor_warn",
             "WATCHDOG_AVG_PROBE_WARN": "avg_probe_warn",
             "WATCHDOG_TOMBSTONE_WARN": "tombstone_ratio_warn",
@@ -186,6 +187,6 @@ class AppConfig:
 DEFAULT_CONFIG = AppConfig()
 
 
-def load_app_config(path: Optional[str]) -> AppConfig:
+def load_app_config(path: str | None) -> AppConfig:
     config_path = Path(path) if path else None
     return AppConfig.load(config_path)

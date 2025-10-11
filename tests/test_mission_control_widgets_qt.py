@@ -4,19 +4,21 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import List, cast
+from typing import Any, cast
 
 import pytest
 
+pytestmark = pytest.mark.qt
+
 try:  # pragma: no cover - optional dependency in CI
+    import pyqtgraph as pg  # noqa: F401 - ensure pyqtgraph is importable
     from PyQt6.QtWidgets import QApplication
-    import pyqtgraph as pg  # type: ignore[import]  # noqa: F401 - ensure pyqtgraph is importable
+
     from adhash.mission_control import widgets
     from adhash.workloads import analyze_workload_csv
-except Exception:  # pragma: no cover - skip when Qt missing
+except Exception:  # pragma: no cover - skip when Qt missing  # noqa: BLE001
     pytestmark = pytest.mark.skip(reason="PyQt6/pyqtgraph not available")
 else:
-
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
     from adhash.batch.runner import load_spec
@@ -28,15 +30,13 @@ else:
             return cast(QApplication, app)
         return QApplication([])
 
-    def test_update_events_renders_latest_entries(qt_app: QApplication) -> None:
+    def test_update_events_renders_latest_entries(_qt_app: QApplication) -> None:
         pane = widgets.MetricsPane()
 
-        pane.update_events(
-            [
-                {"type": "start", "backend": "chaining", "t": 0.0},
-                {"type": "complete", "backend": "chaining", "t": 12.3456},
-            ]
-        )
+        pane.update_events([
+            {"type": "start", "backend": "chaining", "t": 0.0},
+            {"type": "complete", "backend": "chaining", "t": 12.3456},
+        ])
 
         rendered = pane.events_view.toPlainText().splitlines()
 
@@ -44,7 +44,7 @@ else:
         assert rendered[1] == "0.00s — start (backend=chaining)"
 
     def test_builders_construct_controller_and_window(
-        qt_app: QApplication,
+        _qt_app: QApplication,
     ) -> None:
         from adhash.mission_control import build_controller, build_widgets, build_window
 
@@ -84,11 +84,12 @@ else:
         assert hasattr(window, "centralWidget")
         central = window.centralWidget()
         assert central is not None
-        if hasattr(central, "count"):
-            assert central.count() >= 5  # type: ignore[attr-defined]
+        central_any = cast(Any, central)
+        if hasattr(central_any, "count"):
+            assert central_any.count() >= 5
 
     def test_config_editor_save_and_presets(
-        qt_app: QApplication,
+        _qt_app: QApplication,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -115,9 +116,9 @@ else:
 
         preset_path = preset_dir / "demo.toml"
         assert preset_path.exists()
-        assert pane.preset_combo.findData("demo") >= 0  # type: ignore[attr-defined]
+        assert cast(Any, pane.preset_combo).findData("demo") >= 0
 
-    def test_run_control_builder_round_trip(qt_app: QApplication, tmp_path: Path) -> None:
+    def test_run_control_builder_round_trip(_qt_app: QApplication, tmp_path: Path) -> None:
         pane = widgets.RunControlPane()
 
         exec_path = tmp_path / "hashmap_cli.py"
@@ -142,7 +143,9 @@ else:
 
         # Mutate the command directly and ensure the builder fields stay in sync.
         pane.command_edit.setText(
-            f"python alt_cli.py --config {config_path} run-csv --csv {csv_path} --mode chaining --metrics-port 4321"
+            "python alt_cli.py "
+            f"--config {config_path} run-csv --csv {csv_path} "
+            "--mode chaining --metrics-port 4321"
         )
         pane._populate_builder_from_command()
 
@@ -160,10 +163,10 @@ else:
         monkeypatch.setattr(
             pane,
             "_run_background",
-            lambda work, success, error: success(work()),
+            lambda work, success, _error: success(work()),
         )
 
-        def slow_discover() -> List[Path]:
+        def slow_discover() -> list[Path]:
             time.sleep(0.05)
             return []
 
@@ -194,30 +197,36 @@ else:
         monkeypatch.setattr(
             pane,
             "_run_background",
-            lambda work, success, error: success(work()),
+            lambda work, success, _error: success(work()),
         )
         dna_pane = widgets.WorkloadDNAPane()
         pane.add_analysis_callback(
             lambda result, job, spec: dna_pane.set_primary_result(result, job.name, spec)
         )
 
-        repo_root = Path(__file__).resolve().parents[1]
-        csv_path = repo_root / "data" / "workloads" / "w_uniform.csv"
+        repo_root = Path(__file__).resolve().parent
+        csv_path = None
+        for candidate in [repo_root, *repo_root.parents]:
+            maybe = candidate / "data" / "workloads" / "w_uniform.csv"
+            if maybe.exists():
+                csv_path = maybe
+                break
+        if csv_path is None:
+            pytest.skip("w_uniform.csv not available for benchmark suite test")
+
         report_path = tmp_path / "report.md"
         spec_path = tmp_path / "suite.toml"
         spec_path.write_text(
-            "\n".join(
-                [
-                    "[batch]",
-                    'hashmap_cli = "-m hashmap_cli"',
-                    f'report = "{report_path.name}"',
-                    "",
-                    "[[batch.jobs]]",
-                    'name = "demo"',
-                    'command = "run-csv"',
-                    f'csv = "{csv_path.as_posix()}"',
-                ]
-            ),
+            "\n".join([
+                "[batch]",
+                'hashmap_cli = "-m hashmap_cli"',
+                f'report = "{report_path.name}"',
+                "",
+                "[[batch.jobs]]",
+                'name = "demo"',
+                'command = "run-csv"',
+                f'csv = "{csv_path.as_posix()}"',
+            ]),
             encoding="utf-8",
         )
 
@@ -247,28 +256,26 @@ else:
         dna_pane.pin_baseline(baseline_result, "baseline")
         assert "Baseline" in dna_pane.baseline_label.text()
 
-    def test_probe_visualizer_loads_trace(tmp_path: Path, qt_app: QApplication) -> None:
+    def test_probe_visualizer_loads_trace(tmp_path: Path, _qt_app: QApplication) -> None:
         pane = widgets.ProbeVisualizerPane()
 
         trace_path = tmp_path / "trace.json"
         trace_path.write_text(
-            json.dumps(
-                {
-                    "trace": {
-                        "backend": "robinhood",
-                        "operation": "get",
-                        "key_repr": "'K1'",
-                        "found": True,
-                        "terminal": "match",
-                        "path": [
-                            {"step": 0, "slot": 3, "state": "occupied", "matches": True},
-                        ],
-                    },
-                    "snapshot": "snapshot.pkl",
-                    "seed_entries": ["A=1"],
-                    "export_json": str(trace_path),
-                }
-            ),
+            json.dumps({
+                "trace": {
+                    "backend": "robinhood",
+                    "operation": "get",
+                    "key_repr": "'K1'",
+                    "found": True,
+                    "terminal": "match",
+                    "path": [
+                        {"step": 0, "slot": 3, "state": "occupied", "matches": True},
+                    ],
+                },
+                "snapshot": "snapshot.pkl",
+                "seed_entries": ["A=1"],
+                "export_json": str(trace_path),
+            }),
             encoding="utf-8",
         )
 
@@ -278,7 +285,7 @@ else:
         assert "Seed entries" in pane._text.toPlainText()
         assert trace_path.as_posix() in pane._info_label.text()
 
-    def test_probe_visualizer_handles_bad_json(tmp_path: Path, qt_app: QApplication) -> None:
+    def test_probe_visualizer_handles_bad_json(tmp_path: Path, _qt_app: QApplication) -> None:
         pane = widgets.ProbeVisualizerPane()
 
         bad_path = tmp_path / "bad.json"

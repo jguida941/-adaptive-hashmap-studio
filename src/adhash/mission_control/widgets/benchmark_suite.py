@@ -2,56 +2,58 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import time
+from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar
-
-from concurrent.futures import ThreadPoolExecutor, Future
+from typing import Any, TypeVar
 
 from adhash.batch.runner import BatchSpec, JobSpec, load_spec
 from adhash.contracts.error import BadInputError
 from adhash.workloads import WorkloadDNAResult, analyze_workload_csv, format_workload_dna
 
 from .common import (
-    QColor,
     QCheckBox,
+    QColor,
     QComboBox,
     QCursor,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QObject,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QSpinBox,
-    QToolTip,
     Qt,
     QTimer,
+    QToolTip,
     QVBoxLayout,
     QWidget,
-    pg,
     np,
+    pg,
     pyqtSignal,
-    QObject,
 )
 
-
 T = TypeVar("T")
+
+logger = logging.getLogger(__name__)
 
 
 class _BaseMainThreadInvoker:
     """Common typing surface for both Qt and stub implementations."""
 
-    def __init__(self, parent: Optional[object] = None) -> None:
+    def __init__(self, parent: object | None = None) -> None:
         self._parent = parent
 
     def submit(self, func: Callable[[], None]) -> None:
         raise NotImplementedError
 
 
-_MainThreadInvoker: Type[_BaseMainThreadInvoker]
+_MainThreadInvoker: type[_BaseMainThreadInvoker]
 
 
 if QObject is not None and pyqtSignal is not None:  # type: ignore[truthy-bool]
@@ -61,7 +63,7 @@ if QObject is not None and pyqtSignal is not None:  # type: ignore[truthy-bool]
 
         call = pyqtSignal(object)  # type: ignore[call-arg]
 
-        def __init__(self, parent: Optional[QObject] = None) -> None:  # type: ignore[override]
+        def __init__(self, parent: QObject | None = None) -> None:  # type: ignore[override]
             super().__init__(parent)
             self.call.connect(self._dispatch)  # type: ignore[attr-defined]
 
@@ -77,7 +79,7 @@ if QObject is not None and pyqtSignal is not None:  # type: ignore[truthy-bool]
 else:  # pragma: no cover - PyQt6 missing in test envs
 
     class _StubMainThreadInvoker(_BaseMainThreadInvoker):  # type: ignore[too-few-public-methods]
-        def __init__(self, parent: Optional[object] = None) -> None:
+        def __init__(self, parent: object | None = None) -> None:
             super().__init__(parent)
 
         def submit(self, func: Callable[[], None]) -> None:
@@ -91,12 +93,14 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
 
     _HISTORY_LIMIT = 20
 
-    if pyqtSignal is not None:  # type: ignore[truthy-bool]
-        analysisCompleted = pyqtSignal(object, object, object)  # type: ignore[call-arg]
+    if pyqtSignal is not None:  # type: ignore[truthy-bool]  # noqa: SIM108
+        analysis_completed = pyqtSignal(object, object, object)  # type: ignore[call-arg]
+        analysisCompleted = analysis_completed  # Backward compatibility  # noqa: N815
     else:  # pragma: no cover - signals only exist when Qt is available
-        analysisCompleted = None  # type: ignore[assignment]
+        analysis_completed = None  # type: ignore[assignment]
+        analysisCompleted = None  # type: ignore[assignment]  # noqa: N815
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:  # type: ignore[override]
+    def __init__(self, parent: QWidget | None = None) -> None:  # type: ignore[override]
         super().__init__(parent)
         self.setObjectName("missionPane")
         self.setProperty("paneKind", "suite")
@@ -218,21 +222,21 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
         if self._timer is not None:
             self._timer.setInterval(200)
             self._timer.timeout.connect(self._on_timer_tick)  # type: ignore[attr-defined]
-        self._start_time: Optional[float] = None
+        self._start_time: float | None = None
 
-        self._history: List[str] = []
-        self._current_spec: Optional[BatchSpec] = None
-        self._current_spec_path: Optional[Path] = None
-        self._active_spec: Optional[BatchSpec] = None
-        self._active_spec_path: Optional[Path] = None
-        self._job_lookup: Dict[str, JobSpec] = {}
-        self._job_order: List[JobSpec] = []
-        self._analysis_callbacks: List[Callable[[WorkloadDNAResult, JobSpec, Path], None]] = []
+        self._history: list[str] = []
+        self._current_spec: BatchSpec | None = None
+        self._current_spec_path: Path | None = None
+        self._active_spec: BatchSpec | None = None
+        self._active_spec_path: Path | None = None
+        self._job_lookup: dict[str, JobSpec] = {}
+        self._job_order: list[JobSpec] = []
+        self._analysis_callbacks: list[Callable[[WorkloadDNAResult, JobSpec, Path], None]] = []
         self._discovering_specs = False
         self._loading_spec = False
         self._discovery_token = 0
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="suite-pane")
-        self._active_future: Optional[Future[Any]] = None
+        self._active_future: Future[Any] | None = None
         self._main_thread = _MainThreadInvoker(self if Qt is not None else None)
 
         self.load_button.clicked.connect(self._on_load_clicked)  # type: ignore[attr-defined]
@@ -274,7 +278,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
         if not self._loading_spec:
             self.load_button.setEnabled(False)
 
-        def on_complete(specs: List[Path]) -> None:
+        def on_complete(specs: list[Path]) -> None:
             if token != self._discovery_token:
                 return
             self._finalize_discovery(cancelled=False)
@@ -288,12 +292,12 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
 
         self._run_background(self._discover_specs, on_complete, on_error)
 
-    def _discover_specs(self) -> List[Path]:
+    def _discover_specs(self) -> list[Path]:
         roots = [
             Path.cwd() / "docs" / "examples",
             Path.cwd() / "docs" / "benchmarks",
         ]
-        found: List[Path] = []
+        found: list[Path] = []
         seen: set[Path] = set()
         for root in roots:
             if not root.exists():
@@ -304,7 +308,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
                     continue
                 try:
                     load_spec(resolved)
-                except Exception:
+                except (ValueError, BadInputError, OSError):
                     continue
                 seen.add(resolved)
                 found.append(resolved)
@@ -333,7 +337,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
         self,
         work: Callable[[], T],
         on_success: Callable[[T], None],
-        on_error: Optional[Callable[[Exception], None]] = None,
+        on_error: Callable[[Exception], None] | None = None,
     ) -> None:
         future = self._executor.submit(work)
         self._active_future = future
@@ -342,11 +346,11 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
             self._active_future = None
             try:
                 result = fut.result()
-            except Exception as exc:
+            except Exception as exc:  # pragma: no cover - background worker failure  # noqa: BLE001
                 if on_error is not None:
                     self._invoke_main_thread(partial(on_error, exc))
-            else:
-                self._invoke_main_thread(lambda: on_success(result))
+                return
+            self._invoke_main_thread(lambda: on_success(result))
 
         future.add_done_callback(handle_future)
 
@@ -367,7 +371,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
             resolved = path.resolve()
             cwd = Path.cwd().resolve()
             label = str(resolved.relative_to(cwd))
-        except Exception:
+        except (OSError, ValueError):
             label = str(path)
         return label
 
@@ -411,7 +415,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
 
         self._run_background(load_work, on_loaded, on_error)
 
-    def _populate_spec_selector(self, specs: List[Path], select_first: bool) -> None:
+    def _populate_spec_selector(self, specs: list[Path], select_first: bool) -> None:
         if self.spec_selector is None:
             return
         current = self.spec_selector.currentData() if self.spec_selector.count() else None  # type: ignore[attr-defined]
@@ -454,7 +458,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
         self.analysis_view.setPlainText("Select a job and run analysis to view workload DNA.")
 
     def _format_spec_details(self, spec: BatchSpec) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
         lines.append(f"Working directory: {self._relativize(spec.working_dir)}")
         lines.append(f"CLI invocation: {' '.join(spec.hashmap_cli)}")
         lines.append(f"Report: {self._relativize(spec.report_path)}")
@@ -482,7 +486,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
             resolved = path.resolve()
             cwd = Path.cwd().resolve()
             return str(resolved.relative_to(cwd))
-        except Exception:
+        except (OSError, ValueError):
             return str(path)
 
     def _populate_jobs(self, spec: BatchSpec) -> None:
@@ -510,7 +514,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
                 self.job_selector.setCurrentIndex(idx)  # type: ignore[attr-defined]
                 return
 
-    def _get_selected_job(self) -> Optional[JobSpec]:
+    def _get_selected_job(self) -> JobSpec | None:
         if self.job_selector is not None and self.job_selector.count():  # type: ignore[attr-defined]
             data = self.job_selector.currentData()  # type: ignore[attr-defined]
             if isinstance(data, JobSpec):
@@ -532,7 +536,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
         except BadInputError as exc:
             self._show_analysis_message(str(exc), error=True)
             return
-        except Exception as exc:  # pragma: no cover - defensive guard
+        except (RuntimeError, ValueError) as exc:  # pragma: no cover - defensive guard
             self._show_analysis_message(f"Analysis failed: {exc}", error=True)
             return
 
@@ -547,7 +551,7 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
         if error:
             self.set_status(message, "error")
 
-    def get_spec_path(self) -> Optional[Path]:
+    def get_spec_path(self) -> Path | None:
         text = self.spec_edit.text().strip()
         if not text:
             return None
@@ -636,11 +640,11 @@ class BenchmarkSuitePane(QWidget):  # type: ignore[misc]
         self.timer_label.setText(f"Elapsed: {elapsed:.1f}s")
 
     def _emit_analysis(self, result: WorkloadDNAResult, job: JobSpec, spec_path: Path) -> None:
-        if self.analysisCompleted is not None:  # type: ignore[truthy-bool]
+        if self.analysis_completed is not None:  # type: ignore[truthy-bool]
             try:
-                self.analysisCompleted.emit(result, job, spec_path)  # type: ignore[attr-defined]
-            except Exception:  # pragma: no cover
-                pass
+                self.analysis_completed.emit(result, job, spec_path)  # type: ignore[attr-defined]
+            except (RuntimeError, TypeError) as exc:  # pragma: no cover - Qt emit may fail
+                logger.debug("analysis emit failed: %s", exc)
         for callback in list(self._analysis_callbacks):
             callback(result, job, spec_path)
 
@@ -654,29 +658,29 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
     _VIEW_DEPTH = "Depth histogram"
     _DEFAULT_LIMIT = 32
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:  # type: ignore[override]
+    def __init__(self, parent: QWidget | None = None) -> None:  # type: ignore[override]
         super().__init__(parent)
         self.setObjectName("missionPane")
         self.setProperty("paneKind", "dna")
 
         self._supports_charts = Qt is not None and pg is not None and np is not None
-        self._primary_plot: Optional[pg.PlotWidget] = None  # type: ignore[assignment]
-        self._comparison_plot: Optional[pg.PlotWidget] = None  # type: ignore[assignment]
-        self._current_result: Optional[WorkloadDNAResult] = None
+        self._primary_plot: pg.PlotWidget | None = None  # type: ignore[assignment]
+        self._comparison_plot: pg.PlotWidget | None = None  # type: ignore[assignment]
+        self._current_result: WorkloadDNAResult | None = None
         self._current_label: str = ""
-        self._baseline_result: Optional[WorkloadDNAResult] = None
-        self._baseline_label: Optional[str] = None
+        self._baseline_result: WorkloadDNAResult | None = None
+        self._baseline_label: str | None = None
         self._bucket_limit = self._DEFAULT_LIMIT
         self._view_mode = self._VIEW_BUCKETS_ID
-        self._bucket_entries: List[Tuple[int, str, int, float]] = []
+        self._bucket_entries: list[tuple[int, str, int, float]] = []
         self._bucket_total: float = 0.0
-        self._heatmap_counts: Optional[List[float]] = None
+        self._heatmap_counts: list[float] | None = None
         self._heatmap_side: int = 0
         self._heatmap_total: float = 0.0
-        self._heatmap_image: Optional[Any] = None
-        self._heatmap_overlay: Optional[Any] = None
-        self._hover_bucket_index: Optional[int] = None
-        self._hover_heatmap_index: Optional[int] = None
+        self._heatmap_image: Any | None = None
+        self._heatmap_overlay: Any | None = None
+        self._hover_bucket_index: int | None = None
+        self._hover_heatmap_index: int | None = None
 
         layout = QVBoxLayout(self)  # type: ignore[call-arg]
         layout.setContentsMargins(16, 16, 16, 16)
@@ -863,7 +867,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
             comparison_plot.hide()
 
     def _render_plot(
-        self, plot: Optional[pg.PlotWidget], result: Optional[WorkloadDNAResult], title: str
+        self, plot: pg.PlotWidget | None, result: WorkloadDNAResult | None, title: str
     ) -> None:
         if plot is None:
             return
@@ -927,7 +931,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
 
         max_labels = 14
         step = max(1, len(display_entries) // max_labels)
-        ticks: List[Tuple[int, str]] = []
+        ticks: list[tuple[int, str]] = []
         for idx, entry in enumerate(display_entries):
             should_label = idx % step == 0 or idx == len(display_entries) - 1
             if not should_label:
@@ -975,9 +979,9 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
         clip = result.bucket_percentiles.get("p95", 0.0)
         try:
             max_value = float(np.max(grid))
-        except Exception:
+        except (TypeError, ValueError, RuntimeError):
             max_value = 0.0
-        if clip is None or not isinstance(clip, (int, float)) or clip <= 0.0:
+        if clip is None or not isinstance(clip, int | float) or clip <= 0.0:
             clip_value = max_value if max_value > 0.0 else 1.0
         else:
             clip_value = float(clip)
@@ -1051,7 +1055,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
         limit: int,
         *,
         store_total: bool = True,
-    ) -> List[Tuple[int, str, int, float]]:
+    ) -> list[tuple[int, str, int, float]]:
         counts = list(result.bucket_counts)
         total = sum(counts)
         if store_total:
@@ -1063,7 +1067,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
         buckets = list(enumerate(counts))
         buckets.sort(key=lambda item: item[1], reverse=True)
         limit = max(1, limit)
-        entries: List[Tuple[int, str, int, float]] = []
+        entries: list[tuple[int, str, int, float]] = []
         for idx, count in buckets:
             if count <= 0 and entries:
                 break
@@ -1082,7 +1086,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
         color = QColor.fromHsv(hue, 255, 255)
         return pg.mkBrush(color)
 
-    def _set_heatmap_overlay(self, plot: pg.PlotWidget, message: Optional[str]) -> None:
+    def _set_heatmap_overlay(self, plot: pg.PlotWidget, message: str | None) -> None:
         if pg is None:
             return
         if message:
@@ -1172,12 +1176,11 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
             return False
         if self._hover_bucket_index == index:
             return True
-        bucket_index, bucket_label, count, share = self._bucket_entries[index]
+        _bucket_index, bucket_label, count, share = self._bucket_entries[index]
         if self._view_mode == self._VIEW_BUCKETS_SORTED:
             rank = index + 1
             tooltip = (
-                f"Rank {rank}: {count} keys ({self._format_share(share)})"
-                f" — bucket {bucket_label}"
+                f"Rank {rank}: {count} keys ({self._format_share(share)}) — bucket {bucket_label}"
             )
         else:
             tooltip = f"{bucket_label} → {count} keys ({self._format_share(share)})"

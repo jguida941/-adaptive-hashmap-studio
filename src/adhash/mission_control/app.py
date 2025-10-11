@@ -9,22 +9,30 @@ incrementally build the Mission Control experience. When PyQt6 is unavailable
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from contextlib import suppress
 from importlib import resources
-from typing import Optional, Sequence, Any, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
-from .builders import build_app as _build_app, build_controller, build_widgets, build_window
+from .builders import build_app as _build_app
+from .builders import build_controller, build_widgets, build_window
 
 if TYPE_CHECKING:
     from .controller import MissionControlController
 
-_QT_IMPORT_ERROR: Optional[Exception] = None
+QT_IMPORT_ERROR: Exception | None = None
 
 try:  # pragma: no cover - only executed when PyQt6 is installed
-    from PyQt6.QtWidgets import QApplication, QMainWindow  # type: ignore[import-not-found]
     from PyQt6.QtCore import Qt, QTimer  # type: ignore[import-not-found]
-    from PyQt6.QtGui import QPalette, QColor, QLinearGradient, QBrush  # type: ignore[import-not-found]
-except Exception as exc:  # pragma: no cover - most environments won't have PyQt6
-    _QT_IMPORT_ERROR = exc
+    from PyQt6.QtGui import (  # type: ignore[import-not-found]
+        QBrush,
+        QColor,
+        QLinearGradient,
+        QPalette,
+    )
+    from PyQt6.QtWidgets import QApplication, QMainWindow  # type: ignore[import-not-found]
+except Exception as exc:  # pragma: no cover - most environments won't have PyQt6  # noqa: BLE001
+    QT_IMPORT_ERROR = exc
     QApplication = cast(Any, object)
     QMainWindow = cast(Any, object)
     Qt = None  # type: ignore[assignment]
@@ -39,16 +47,16 @@ if Qt is not None:  # pragma: no cover - only when PyQt6 is present
     class MissionControlWindow(QMainWindow):  # type: ignore[misc]
         def __init__(self) -> None:
             super().__init__()
-            self._controller: Optional["MissionControlController"] = None
+            self._controller: MissionControlController | None = None
             self._gradient_angle = 0
-            self._gradient_timer: Optional[QTimer] = None
+            self._gradient_timer: QTimer | None = None
             self.setAutoFillBackground(True)
             self._install_gradient()
 
-        def set_controller(self, controller: "MissionControlController") -> None:
+        def set_controller(self, controller: MissionControlController) -> None:
             self._controller = controller
 
-        def closeEvent(self, event) -> None:  # type: ignore[override]
+        def closeEvent(self, event) -> None:  # type: ignore[override]  # noqa: N802
             if self._controller is not None:
                 self._controller.shutdown()
             if self._gradient_timer is not None:
@@ -56,7 +64,7 @@ if Qt is not None:  # pragma: no cover - only when PyQt6 is present
                 self._gradient_timer.deleteLater()
             super().closeEvent(event)
 
-        def resizeEvent(self, event) -> None:  # type: ignore[override]
+        def resizeEvent(self, event) -> None:  # type: ignore[override]  # noqa: N802
             super().resizeEvent(event)
             self._update_gradient()
 
@@ -102,10 +110,11 @@ def _load_stylesheet() -> str:
 
 
 def _require_qt() -> None:
-    if _QT_IMPORT_ERROR is not None:
+    if QT_IMPORT_ERROR is not None:
         raise RuntimeError(
-            "Mission Control requires PyQt6. Install with `pip install .[gui]` or `pip install PyQt6`."
-        ) from _QT_IMPORT_ERROR
+            "Mission Control requires PyQt6. Install with `pip install .[gui]`"
+            " or `pip install PyQt6`."
+        ) from QT_IMPORT_ERROR
 
 
 def _create_app(argv: Sequence[str] | None) -> QApplication:
@@ -116,10 +125,8 @@ def _create_app(argv: Sequence[str] | None) -> QApplication:
 
 
 def _apply_futuristic_theme(app: QApplication) -> None:
-    try:
+    with suppress(Exception):  # pragma: no cover - style might be missing  # noqa: BLE001
         app.setStyle("Fusion")
-    except Exception:  # pragma: no cover - style might be missing
-        pass
 
     palette = QPalette()
     base = QColor("#121212")
@@ -187,7 +194,10 @@ def _apply_futuristic_theme(app: QApplication) -> None:
         }
         QPushButton:hover {
             border-color: #00FFAA;
-            background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #1F1F1F, stop: 1 #2F2F2F);
+            background: qlineargradient(
+                x1: 0, y1: 0, x2: 1, y2: 0,
+                stop: 0 #1F1F1F, stop: 1 #2F2F2F
+            );
         }
         QPushButton:disabled {
             background: #151515;
@@ -354,7 +364,11 @@ def _apply_futuristic_theme(app: QApplication) -> None:
             padding: 8px;
             background: #141414;
         }
-        QWidget#opsPlot, QWidget#loadPlot, QWidget#latencyPlot, QWidget#probePlot, QWidget#heatmapPlot {
+        QWidget#opsPlot,
+        QWidget#loadPlot,
+        QWidget#latencyPlot,
+        QWidget#probePlot,
+        QWidget#heatmapPlot {
             border: 1px solid #2D2D2D;
             border-radius: 12px;
             background-color: #11141d;
@@ -435,6 +449,14 @@ def run_mission_control(argv: Sequence[str] | None = None) -> int:
 
     Returns the Qt exit code. Raises ``RuntimeError`` when PyQt6 is missing.
     """
+
+    try:
+        from .widgets.metrics import ensure_headless_platform
+    except ImportError:
+        ensure_headless_platform = None  # type: ignore[assignment]
+
+    if ensure_headless_platform is not None:
+        ensure_headless_platform()
 
     _require_qt()
     app = _create_app(argv)

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from .constants import (
-    ALLOWED_HEADERS,
-    AUTH_HEADER,
-    ALLOWED_METHODS,
     ALLOW_ORIGIN,
+    ALLOWED_HEADERS,
+    ALLOWED_METHODS,
+    AUTH_HEADER,
     CACHE_CONTROL,
     ERROR_SCHEMA,
     EVENTS_SCHEMA,

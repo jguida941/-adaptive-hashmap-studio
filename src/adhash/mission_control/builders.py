@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Tuple, TYPE_CHECKING, Any, Type, cast
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, cast
 
 from . import widgets
 from .controller import MissionControlController
@@ -11,7 +12,11 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from PyQt6.QtCore import Qt as QtNamespace
     from PyQt6.QtWidgets import (
         QApplication as QApplicationLike,
+    )
+    from PyQt6.QtWidgets import (
         QMainWindow as QMainWindowLike,
+    )
+    from PyQt6.QtWidgets import (
         QWidget as QWidgetLike,
     )
 else:  # pragma: no cover - fallback aliases
@@ -21,8 +26,9 @@ else:  # pragma: no cover - fallback aliases
     QWidgetLike = Any  # type: ignore[assignment]
 
 try:  # pragma: no cover - optional dependency in headless environments
-    from PyQt6 import QtCore as _QtCore, QtWidgets as _QtWidgets  # type: ignore[import-not-found]
-except Exception:  # pragma: no cover - fallback when PyQt6 unavailable
+    from PyQt6 import QtCore as _QtCore  # type: ignore[import-not-found]
+    from PyQt6 import QtWidgets as _QtWidgets
+except ImportError:  # pragma: no cover - fallback when PyQt6 unavailable
     _QtCore = None  # type: ignore[assignment]
     _QtWidgets = None  # type: ignore[assignment]
 
@@ -31,17 +37,15 @@ _QMainWindow = getattr(_QtWidgets, "QMainWindow", None)
 _QWidget = getattr(_QtWidgets, "QWidget", None)
 _Qt = getattr(_QtCore, "Qt", None)
 
-QAPPLICATION_CLS: Optional[Type[QApplicationLike]] = cast(
-    Optional[Type[QApplicationLike]], _QApplication
-)
-QMAINWINDOW_CLS: Optional[Type[QMainWindowLike]] = cast(
-    Optional[Type[QMainWindowLike]], _QMainWindow
-)
-QWIDGET_CLS: Optional[Type[QWidgetLike]] = cast(Optional[Type[QWidgetLike]], _QWidget)
-QT_NAMESPACE: Optional[QtNamespace] = cast(Optional[QtNamespace], _Qt)
+QAPPLICATION_CLS: type[QApplicationLike] | None = cast(type[QApplicationLike] | None, _QApplication)
+QMAINWINDOW_CLS: type[QMainWindowLike] | None = cast(type[QMainWindowLike] | None, _QMainWindow)
+QWIDGET_CLS: type[QWidgetLike] | None = cast(type[QWidgetLike] | None, _QWidget)
+QT_NAMESPACE: QtNamespace | None = cast(QtNamespace | None, _Qt)
 
 
-def build_widgets(parent: Optional[QWidgetLike] = None) -> Tuple[
+def build_widgets(
+    parent: QWidgetLike | None = None,
+) -> tuple[
     widgets.ConnectionPane,
     widgets.RunControlPane,
     widgets.ConfigEditorPane,
@@ -116,17 +120,18 @@ def build_window(
     if QMAINWINDOW_CLS is None:  # pragma: no cover - PyQt6 missing
         raise RuntimeError("PyQt6 not available")
 
-    mission_window_cls: Optional[Type[QMainWindowLike]] = None
+    mission_window_cls: type[QMainWindowLike] | None = None
     if QT_NAMESPACE is not None:
-        try:  # lazy import to avoid circular reference
-            from .app import MissionControlWindow  # type: ignore
-
-            mission_window_cls = cast(Type[QMainWindowLike], MissionControlWindow)
-        except Exception:  # pragma: no cover - fallback when custom subclass unavailable
+        try:  # pragma: no cover - lazy import to avoid circular reference
+            from .app import MissionControlWindow
+        except ImportError:
             mission_window_cls = None
+        else:
+            mission_window_cls = cast(type[QMainWindowLike], MissionControlWindow)
 
     window_cls = mission_window_cls or QMAINWINDOW_CLS
-    assert window_cls is not None  # for mypy
+    if window_cls is None:
+        raise RuntimeError("Unable to resolve Mission Control window class")
     window = window_cls()  # type: ignore[call-arg]
     window.setObjectName("missionWindow")
     window.resize(1280, 720)
@@ -156,7 +161,7 @@ def build_window(
         window.addDockWidget(dock_area, dock_run)  # type: ignore[attr-defined]
         dock_run.setFeatures(dock_run.features() & ~dock_run.DockWidgetFeature.DockWidgetClosable)  # type: ignore[attr-defined]
     else:
-        setattr(window, "_controller", controller_ref)
+        window._controller = controller_ref
 
     if not window.windowTitle():
         window.setWindowTitle("Adaptive Hash Map – Mission Control")

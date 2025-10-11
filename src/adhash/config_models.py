@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .config import AppConfig
 
@@ -19,7 +19,7 @@ class AdaptiveConfigModel:
     max_tombstone_ratio: float
     large_map_warn_threshold: int
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "start_backend": self.start_backend,
             "initial_buckets": self.initial_buckets,
@@ -37,11 +37,11 @@ class AdaptiveConfigModel:
 @dataclass(frozen=True)
 class WatchdogConfigModel:
     enabled: bool
-    load_factor_warn: Optional[float]
-    avg_probe_warn: Optional[float]
-    tombstone_ratio_warn: Optional[float]
+    load_factor_warn: float | None
+    avg_probe_warn: float | None
+    tombstone_ratio_warn: float | None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "load_factor_warn": self.load_factor_warn,
@@ -55,7 +55,7 @@ class AppConfigSchema:
     adaptive: AdaptiveConfigModel
     watchdog: WatchdogConfigModel
 
-    def to_app_config_dict(self) -> Dict[str, Any]:
+    def to_app_config_dict(self) -> dict[str, Any]:
         return {
             "adaptive": self.adaptive.to_dict(),
             "watchdog": self.watchdog.to_dict(),
@@ -67,7 +67,7 @@ class AppConfigSchema:
         return cfg
 
     @classmethod
-    def from_app_config(cls, cfg: AppConfig) -> "AppConfigSchema":
+    def from_app_config(cls, cfg: AppConfig) -> AppConfigSchema:
         adaptive = cfg.adaptive
         watchdog = cfg.watchdog
         return cls(

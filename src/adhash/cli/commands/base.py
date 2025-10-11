@@ -4,27 +4,27 @@ from __future__ import annotations
 
 import argparse
 import ast
+import inspect
 import io
 import json
 import logging
+import os
 import threading
 import time
 from collections import deque
-from contextlib import redirect_stdout
+from collections.abc import Callable, Iterable, Mapping, Sized
+from contextlib import redirect_stdout, suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Tuple, Type, cast
-
-import os
+from typing import Any, cast
 
 from adhash.analysis import format_trace_lines, trace_probe_get, trace_probe_put
-
-from adhash.contracts.error import BadInputError, Exit, IOErrorEnvelope, InvariantError, PolicyError
 from adhash.config_toolkit import list_presets, resolve_presets_dir
+from adhash.contracts.error import BadInputError, Exit, InvariantError, IOErrorEnvelope, PolicyError
+from adhash.core.maps import HybridAdaptiveHashMap, RobinHoodMap, TwoLevelChainingMap
 from adhash.io.snapshot import atomic_map_save, load_snapshot_any
 from adhash.io.snapshot_header import describe_snapshot
 from adhash.metrics import Metrics, apply_tick_to_metrics, start_metrics_server, stream_metrics_file
-from adhash.core.maps import HybridAdaptiveHashMap, RobinHoodMap, TwoLevelChainingMap
 from adhash.workloads import WorkloadDNAResult, format_workload_dna
 
 
@@ -34,34 +34,34 @@ class CLIContext:
 
     emit_success: Callable[..., None]
     build_map: Callable[[str], Any]
-    run_op: Callable[..., Optional[str]]
+    run_op: Callable[..., str | None]
     profile_csv: Callable[[str], str]
-    run_csv: Callable[..., Dict[str, Any]]
+    run_csv: Callable[..., dict[str, Any]]
     generate_csv: Callable[..., None]
     run_config_wizard: Callable[[str], Path]
-    run_config_editor: Callable[..., Dict[str, Any]]
-    run_ab_compare: Callable[..., Dict[str, Any]]
+    run_config_editor: Callable[..., dict[str, Any]]
+    run_ab_compare: Callable[..., dict[str, Any]]
     verify_snapshot: Callable[..., int]
     analyze_workload: Callable[[str, int, int], WorkloadDNAResult]
-    invoke_main: Callable[[List[str]], int]
+    invoke_main: Callable[[list[str]], int]
     logger: logging.Logger
     json_enabled: Callable[[], bool]
-    robinhood_cls: Type[Any]
+    robinhood_cls: type[Any]
     guard: Callable[[Callable[[argparse.Namespace], int]], Callable[[argparse.Namespace], int]]
-    latency_bucket_choices: List[str]
+    latency_bucket_choices: list[str]
 
 
 def register_subcommands(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
     ctx: CLIContext,
-) -> Dict[str, Callable[[argparse.Namespace], int]]:
+) -> dict[str, Callable[[argparse.Namespace], int]]:
     """Define CLI subcommands and return their handlers."""
 
-    handlers: Dict[str, Callable[[argparse.Namespace], int]] = {}
+    handlers: dict[str, Callable[[argparse.Namespace], int]] = {}
 
     def _register(
         name: str,
-        help_text: Optional[str],
+        help_text: str | None,
         configure: Callable[[argparse.ArgumentParser], Callable[[argparse.Namespace], int]],
     ) -> None:
         parser = subparsers.add_parser(name, help=help_text)  # pragma: no mutate
@@ -199,9 +199,8 @@ def _configure_del(
 
 
 def _configure_items(
-    parser: argparse.ArgumentParser, ctx: CLIContext
+    _parser: argparse.ArgumentParser, ctx: CLIContext
 ) -> Callable[[argparse.Namespace], int]:
-
     def handler(args: argparse.Namespace) -> int:
         m = ctx.build_map(args.mode)
         out = ctx.run_op(m, "items", None, None)
@@ -290,6 +289,47 @@ def _parse_port(raw: str) -> int:
     return port
 
 
+def _resolve_port(
+    cli_value: Any | None,
+    env_var_name: str,
+    *,
+    default: int | None = None,
+    cli_flag: str | None = None,
+) -> int | None:
+    """Resolve a port value from CLI arguments or environment."""
+
+    flag = cli_flag or "--port"
+    hint_cli = "Provide an integer 0-65535 or 'auto'"
+    hint_env = f"Set {env_var_name} to an integer 0-65535 or 'auto'."
+
+    if cli_value is not None:
+        raw = str(cli_value).strip()
+        if raw.lower() == "auto":
+            return 0
+        try:
+            return _parse_port(raw)
+        except ValueError as exc:
+            raise BadInputError(
+                f"Invalid {flag} '{raw}'",
+                hint=hint_cli,
+            ) from exc
+
+    env_port = os.getenv(env_var_name)
+    if env_port:
+        raw_env = env_port.strip()
+        if raw_env.lower() == "auto":
+            return 0
+        try:
+            return _parse_port(raw_env)
+        except ValueError as exc:
+            raise BadInputError(
+                f"Invalid {env_var_name} '{env_port}'",
+                hint=hint_env,
+            ) from exc
+
+    return default
+
+
 def _configure_run_csv(
     parser: argparse.ArgumentParser, ctx: CLIContext
 ) -> Callable[[argparse.Namespace], int]:
@@ -297,7 +337,9 @@ def _configure_run_csv(
     parser.add_argument(
         "--metrics-port",
         default=None,
-        help="Port to expose metrics/dashboard (env: ADHASH_METRICS_PORT, use 'auto' for ephemeral)",
+        help=(
+            "Port to expose metrics/dashboard (env: ADHASH_METRICS_PORT, use 'auto' for ephemeral)"
+        ),
     )
     parser.add_argument(
         "--metrics-host",
@@ -360,35 +402,11 @@ def _configure_run_csv(
     )
 
     def handler(args: argparse.Namespace) -> int:
-        if args.metrics_port is None:
-            metrics_port: Optional[int] = None
-        else:
-            raw = str(args.metrics_port).strip()
-            if raw.lower() == "auto":
-                metrics_port = 0
-            else:
-                try:
-                    metrics_port = _parse_port(raw)
-                except ValueError as exc:
-                    raise BadInputError(
-                        f"Invalid --metrics-port '{raw}'",
-                        hint="Provide an integer 0-65535 or 'auto'",
-                    ) from exc
-
-        if metrics_port is None:
-            env_port = os.getenv("ADHASH_METRICS_PORT")
-            if env_port:
-                try:
-                    env_value = env_port.strip()
-                    if env_value.lower() == "auto":
-                        metrics_port = 0
-                    else:
-                        metrics_port = _parse_port(env_value)
-                except ValueError as exc:
-                    raise BadInputError(
-                        f"Invalid ADHASH_METRICS_PORT '{env_port}'",
-                        hint="Set ADHASH_METRICS_PORT to an integer 0-65535 or 'auto'.",
-                    ) from exc
+        metrics_port = _resolve_port(
+            args.metrics_port,
+            "ADHASH_METRICS_PORT",
+            cli_flag="--metrics-port",
+        )
 
         metrics_host = args.metrics_host or os.getenv("ADHASH_METRICS_HOST") or "127.0.0.1"
 
@@ -484,16 +502,16 @@ def _configure_inspect_snapshot(
 
         try:
             descriptor = describe_snapshot(path)
-        except Exception as exc:  # pragma: no cover - defensive
+        except (ValueError, OSError, RuntimeError) as exc:  # pragma: no cover - defensive
             raise IOErrorEnvelope(f"Failed to parse snapshot header: {exc}") from exc
 
         try:
             payload = load_snapshot_any(str(path))
-        except Exception as exc:  # pragma: no cover - defensive
+        except (ValueError, OSError, RuntimeError) as exc:  # pragma: no cover - defensive
             raise IOErrorEnvelope(f"Failed to load snapshot payload: {exc}") from exc
 
         header = descriptor.header
-        header_data: Dict[str, Any] = {
+        header_data: dict[str, Any] = {
             "version": header.version,
             "compressed": descriptor.compressed,
             "checksum_hex": descriptor.checksum_hex,
@@ -502,16 +520,12 @@ def _configure_inspect_snapshot(
             "file_bytes": path.stat().st_size,
         }
 
-        object_data: Dict[str, Any] = {"type": type(payload).__name__}
-        try:
-            object_data["size"] = len(payload)  # type: ignore[arg-type]
-        except Exception:
-            pass
+        object_data: dict[str, Any] = {"type": type(payload).__name__}
+        if isinstance(payload, Sized):
+            object_data["size"] = len(payload)
         if hasattr(payload, "backend_name"):
-            try:
+            with suppress(TypeError, AttributeError):
                 object_data["backend"] = payload.backend_name()
-            except Exception:
-                pass
         for attr, label in (
             ("load_factor", "load_factor"),
             ("tombstone_ratio", "tombstone_ratio"),
@@ -521,14 +535,14 @@ def _configure_inspect_snapshot(
             if callable(fn):
                 try:
                     value = fn()
-                except Exception:
+                except (TypeError, AttributeError, ValueError):
                     continue
-                if isinstance(value, (int, float)):
+                if isinstance(value, int | float):
                     object_data[label] = float(value)
 
         limit = max(args.limit, 1)
         filter_text = (args.contains or "").strip().lower() or None
-        preview: List[Dict[str, Any]] = []
+        preview: list[dict[str, Any]] = []
         try:
             for key, value in _iter_snapshot_items(payload):
                 key_text = str(key)
@@ -537,10 +551,10 @@ def _configure_inspect_snapshot(
                 preview.append({"key": key_text, "value": _repr_trim(value)})
                 if len(preview) >= limit:
                     break
-        except Exception as exc:  # pragma: no cover - defensive
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
             preview = [{"error": f"Failed to iterate snapshot entries: {exc}"}]
 
-        key_result: Optional[Dict[str, Any]] = None
+        key_result: dict[str, Any] | None = None
         if args.key:
             parsed = _parse_literal(args.key)
             value, found = _lookup_snapshot_value(payload, parsed)
@@ -551,7 +565,7 @@ def _configure_inspect_snapshot(
                 "value": _repr_trim(value) if found else None,
             }
 
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "path": str(path),
             "header": header_data,
             "object": object_data,
@@ -593,28 +607,28 @@ def _configure_inspect_snapshot(
     return handler
 
 
-def _iter_snapshot_items(payload: Any) -> Iterable[Tuple[Any, Any]]:
+def _iter_snapshot_items(payload: Any) -> Iterable[tuple[Any, Any]]:
     items = getattr(payload, "items", None)
     if callable(items):
         try:
             it = items()
             if isinstance(it, Iterable):
                 return it
-        except Exception:
+        except (TypeError, AttributeError, ValueError):
             pass
     if isinstance(payload, dict):
         return payload.items()
     return []
 
 
-def _lookup_snapshot_value(payload: Any, key: Any) -> Tuple[Any, bool]:
+def _lookup_snapshot_value(payload: Any, key: Any) -> tuple[Any, bool]:
     getter = getattr(payload, "get", None)
     if callable(getter):
         try:
             value = getter(key)
             if value is not None:
                 return value, True
-        except Exception:
+        except (TypeError, ValueError, KeyError):
             pass
     for candidate, value in _iter_snapshot_items(payload):
         if candidate == key:
@@ -630,7 +644,7 @@ def _repr_trim(value: Any, limit: int = 160) -> str:
 def _parse_literal(text: str) -> Any:
     try:
         return ast.literal_eval(text)
-    except Exception:
+    except (ValueError, SyntaxError):
         return text
 
 
@@ -666,7 +680,9 @@ def _configure_config_edit(
     parser.add_argument(
         "--outfile",
         default=None,
-        help="Where to write the updated config (default: overwrite --infile or config/config.toml)",
+        help=(
+            "Where to write the updated config (default: overwrite --infile or config/config.toml)"
+        ),
     )
     parser.add_argument(
         "--apply-preset",
@@ -789,8 +805,8 @@ def _configure_ab_compare(
             markdown_out = out_dir / f"{comparison_slug}.md"
 
         if args.no_artifacts:
-            metrics_dir: Optional[Path] = None
-            markdown_path: Optional[str] = (
+            metrics_dir: Path | None = None
+            markdown_path: str | None = (
                 None if args.markdown_out is None else markdown_out.as_posix()
             )
         else:
@@ -825,13 +841,14 @@ def _configure_ab_compare(
 
 
 def _configure_mission_control(
-    parser: argparse.ArgumentParser, ctx: CLIContext
+    _parser: argparse.ArgumentParser, ctx: CLIContext
 ) -> Callable[[argparse.Namespace], int]:
-
-    def handler(args: argparse.Namespace) -> int:
+    def handler(_args: argparse.Namespace) -> int:
         from adhash.mission_control.app import run_mission_control
 
-        return int(run_mission_control([]))
+        exit_code = int(run_mission_control([]))
+        ctx.emit_success("mission-control", data={"exit_code": exit_code})
+        return exit_code
 
     return handler
 
@@ -842,7 +859,10 @@ def _configure_serve(
     parser.add_argument(
         "--port",
         default=None,
-        help="Port for the metrics server (env fallback: ADHASH_METRICS_PORT, default: 9090, 'auto' allowed)",
+        help=(
+            "Port for the metrics server (env fallback: ADHASH_METRICS_PORT, "
+            "default: 9090, 'auto' allowed)"
+        ),
     )
     parser.add_argument(
         "--host",
@@ -865,7 +885,7 @@ def _configure_serve(
 
     def handler(args: argparse.Namespace) -> int:
         history_limit = args.history_limit if args.history_limit and args.history_limit > 0 else 360
-        history: Deque[Dict[str, Any]] = deque(maxlen=history_limit)
+        history: deque[dict[str, Any]] = deque(maxlen=history_limit)
 
         metrics = Metrics()
         metrics.history_buffer = history
@@ -881,34 +901,14 @@ def _configure_serve(
             ctx.logger.info("Loaded comparison summary from %s", compare_path)
 
         host = args.host or os.getenv("ADHASH_METRICS_HOST") or "127.0.0.1"
-        if args.port is not None:
-            raw_port = str(args.port).strip()
-            if raw_port.lower() == "auto":
-                port = 0
-            else:
-                try:
-                    port = _parse_port(raw_port)
-                except ValueError as exc:
-                    raise BadInputError(
-                        f"Invalid --port '{raw_port}'",
-                        hint="Provide an integer 0-65535 or 'auto'",
-                    ) from exc
-        else:
-            env_port = os.getenv("ADHASH_METRICS_PORT")
-            if env_port:
-                try:
-                    env_value = env_port.strip()
-                    if env_value.lower() == "auto":
-                        port = 0
-                    else:
-                        port = _parse_port(env_value)
-                except ValueError as exc:
-                    raise BadInputError(
-                        f"Invalid ADHASH_METRICS_PORT '{env_port}'",
-                        hint="Set ADHASH_METRICS_PORT to an integer 0-65535 or 'auto'.",
-                    ) from exc
-            else:
-                port = 9090
+        port = _resolve_port(
+            args.port,
+            "ADHASH_METRICS_PORT",
+            default=9090,
+            cli_flag="--port",
+        )
+        if port is None:
+            port = 9090
 
         server, stop_server = start_metrics_server(
             metrics, port, host=host, comparison=comparison_payload
@@ -923,19 +923,30 @@ def _configure_serve(
         )
         print(f"Dashboard: http://{host.replace('127.0.0.1', 'localhost')}:{bound_port}/")
 
-        def ingest(tick: Dict[str, Any]) -> None:
+        def ingest(tick: dict[str, Any]) -> None:
             apply_tick_to_metrics(metrics, tick)
 
         if args.source:
             source_path = Path(args.source).expanduser().resolve()
 
             def worker_target() -> None:
-                stream_metrics_file(
-                    source_path,
-                    follow=args.follow,
-                    callback=ingest,
-                    poll_interval=args.poll_interval,
-                )
+                kwargs: dict[str, Any] = {
+                    "follow": args.follow,
+                    "poll_interval": args.poll_interval,
+                }
+                try:
+                    parameters: Mapping[str, inspect.Parameter]
+                    parameters = inspect.signature(stream_metrics_file).parameters
+                except (TypeError, ValueError):
+                    parameters = cast(Mapping[str, inspect.Parameter], {})
+                for name in ("callback", "_callback"):
+                    if name in parameters:
+                        kwargs[name] = ingest
+                        break
+                else:
+                    kwargs["callback"] = ingest
+
+                stream_metrics_file(source_path, **kwargs)
 
             threading.Thread(target=worker_target, daemon=True).start()
 
@@ -1107,7 +1118,7 @@ def _configure_probe_visualize(
             if args.apply:
                 map_obj.put(args.key, args.value)
 
-        snapshot_text: Optional[str] = None
+        snapshot_text: str | None = None
         if args.snapshot:
             snapshot_text = str(Path(args.snapshot).expanduser().resolve())
 
@@ -1124,7 +1135,7 @@ def _configure_probe_visualize(
             )
         )
 
-        payload: Dict[str, Any] = {"trace": cast(Any, trace)}
+        payload: dict[str, Any] = {"trace": cast(Any, trace)}
         if snapshot_text is not None:
             payload["snapshot"] = snapshot_text
         if args.seed:
@@ -1145,15 +1156,15 @@ def _resolve_probe_map(args: argparse.Namespace, ctx: CLIContext) -> Any:
             loaded = load_snapshot_any(str(snapshot_path))
         except FileNotFoundError as exc:
             raise IOErrorEnvelope(str(exc)) from exc
-        except Exception as exc:  # noqa: BLE001
+        except (ValueError, OSError, RuntimeError) as exc:
             raise InvariantError(f"Failed to load snapshot: {exc}") from exc
 
-        if isinstance(loaded, (TwoLevelChainingMap, RobinHoodMap, HybridAdaptiveHashMap)):
+        if isinstance(loaded, TwoLevelChainingMap | RobinHoodMap | HybridAdaptiveHashMap):
             return loaded
         if isinstance(loaded, dict) and "backend" in loaded:
             try:
                 return HybridAdaptiveHashMap.load(str(snapshot_path))
-            except Exception as exc:  # noqa: BLE001
+            except (ValueError, OSError, RuntimeError) as exc:
                 raise PolicyError(
                     f"Unsupported snapshot payload for probe visualizer: {exc}"
                 ) from exc
@@ -1163,7 +1174,7 @@ def _resolve_probe_map(args: argparse.Namespace, ctx: CLIContext) -> Any:
     return ctx.build_map(mode)
 
 
-def _seed_map_for_probe(map_obj: Any, seeds: List[str]) -> None:
+def _seed_map_for_probe(map_obj: Any, seeds: list[str]) -> None:
     if not seeds:
         return
     put_fn = getattr(map_obj, "put", None)
@@ -1176,10 +1187,10 @@ def _seed_map_for_probe(map_obj: Any, seeds: List[str]) -> None:
         put_fn(key, value)
 
 
-def _parse_items_output(raw: Optional[str]) -> List[Dict[str, str]]:
+def _parse_items_output(raw: str | None) -> list[dict[str, str]]:
     if not raw:
         return []
-    items: List[Dict[str, str]] = []
+    items: list[dict[str, str]] = []
     for line in raw.splitlines():
         if not line:
             continue

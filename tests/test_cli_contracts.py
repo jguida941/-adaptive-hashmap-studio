@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -16,7 +17,7 @@ import hashmap_cli
 CLI = [sys.executable, "-m", "hashmap_cli"]
 
 
-def run_cli(cmd: str, cwd: Path | None = None):
+def run_cli(cmd: str, cwd: Path | None = None) -> tuple[int, str, str]:
     argv = shlex.split(cmd)
     stdout = io.StringIO()
     stderr = io.StringIO()
@@ -41,13 +42,13 @@ def run_cli(cmd: str, cwd: Path | None = None):
     return code, stdout.getvalue().strip(), stderr.getvalue().strip()
 
 
-def parse_error(stderr: str) -> dict:
+def parse_error(stderr: str) -> dict[str, Any]:
     if not stderr.strip():
         return {}
-    return json.loads(stderr.splitlines()[-1])
+    return cast(dict[str, Any], json.loads(stderr.splitlines()[-1]))
 
 
-def test_run_csv_missing_file_returns_io(tmp_path: Path) -> None:
+def test_run_csv_missing_file_returns_io() -> None:
     code, _, err = run_cli("run-csv --csv missing.csv")
     env = parse_error(err)
     assert code == 5
@@ -89,13 +90,13 @@ def test_run_csv_row_limit(tmp_path: Path) -> None:
 def test_run_csv_dry_run(tmp_path: Path) -> None:
     ok = tmp_path / "ok.csv"
     ok.write_text("op,key,value\nput,K1,1\nget,K1,\n", encoding="utf-8")
-    code, out, err = run_cli(f"run-csv --csv {ok} --dry-run")
+    code, _out, err = run_cli(f"run-csv --csv {ok} --dry-run")
     assert code == 0
     assert "validation successful" in err.lower()
 
 
 def test_put_json_output() -> None:
-    code, out, err = run_cli("--json put K1 V1")
+    code, out, _err = run_cli("--json put K1 V1")
     assert code == 0
     payload = json.loads(out)
     assert payload["ok"] is True
@@ -108,7 +109,7 @@ def test_put_json_output() -> None:
 def test_run_csv_dry_run_json(tmp_path: Path) -> None:
     ok = tmp_path / "ok.csv"
     ok.write_text("op,key,value\nput,K1,1\nget,K1,\n", encoding="utf-8")
-    code, out, err = run_cli(f"--json run-csv --csv {ok} --dry-run")
+    code, out, _err = run_cli(f"--json run-csv --csv {ok} --dry-run")
     assert code == 0
     payload = json.loads(out)
     assert payload["ok"] is True
@@ -121,7 +122,7 @@ def test_run_csv_dry_run_json(tmp_path: Path) -> None:
 def test_run_csv_accepts_zero_metrics_port(tmp_path: Path) -> None:
     csv_path = tmp_path / "work.csv"
     csv_path.write_text("op,key,value\nput,K1,1\n", encoding="utf-8")
-    code, out, err = run_cli(f"--json run-csv --csv {csv_path} --dry-run --metrics-port 0")
+    code, out, _err = run_cli(f"--json run-csv --csv {csv_path} --dry-run --metrics-port 0")
     assert code == 0
     payload = json.loads(out)
     assert payload["status"] == "validated"
@@ -131,7 +132,7 @@ def test_run_csv_json_with_snapshot(tmp_path: Path) -> None:
     csv_path = tmp_path / "work.csv"
     csv_path.write_text("op,key,value\nput,K1,1\nget,K1,\n", encoding="utf-8")
     snapshot_path = tmp_path / "snap.pkl"
-    code, out, err = run_cli(f"--json run-csv --csv {csv_path} --snapshot-out {snapshot_path}")
+    code, out, _err = run_cli(f"--json run-csv --csv {csv_path} --snapshot-out {snapshot_path}")
     assert code == 0
     payload = json.loads(out)
     assert payload["ok"] is True
@@ -143,7 +144,7 @@ def test_run_csv_json_with_snapshot(tmp_path: Path) -> None:
     assert summary["total_ops"] == 2
     assert isinstance(summary["final_backend"], str)
 
-    code, out, err = run_cli(f"--json verify-snapshot --in {snapshot_path}")
+    code, out, _err = run_cli(f"--json verify-snapshot --in {snapshot_path}")
     assert code == 0
     verify_payload = json.loads(out)
     assert verify_payload["ok"] is True
@@ -162,12 +163,12 @@ def test_inspect_snapshot_cli(tmp_path: Path) -> None:
     map_obj.put("K2", "V2")
     save_snapshot_any(map_obj, str(snapshot_path), compress=True)
 
-    code, out, err = run_cli(f"inspect-snapshot --in {snapshot_path} --limit 5")
+    code, out, _err = run_cli(f"inspect-snapshot --in {snapshot_path} --limit 5")
     assert code == 0
     assert "Snapshot:" in out
     assert str(snapshot_path) in out
 
-    code, out_json, err_json = run_cli(
+    code, out_json, _err_json = run_cli(
         f"--json inspect-snapshot --in {snapshot_path} --key K1 --limit 3"
     )
     assert code == 0
@@ -184,7 +185,7 @@ def test_inspect_snapshot_cli(tmp_path: Path) -> None:
 def test_serve_auto_reports_bound_port(port_arg: str) -> None:
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
-    proc = subprocess.Popen(
+    proc = subprocess.Popen(  # noqa: S603
         CLI + ["serve", "--port", port_arg, "--host", "127.0.0.1"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

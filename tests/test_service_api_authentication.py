@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, Iterator, List, Optional
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
-from typing import cast
-
-from adhash.service.jobs import JobManager
 
 from adhash.service.api import create_app
+from adhash.service.jobs import JobManager
 from adhash.service.models import (
     BatchRequest,
     JobDetail,
@@ -37,10 +36,10 @@ class _StubRecord:
     id: str
     kind: str = "run-csv"
     status: JobState = JobState.PENDING
-    request: Dict[str, str] = field(default_factory=dict)
-    result: Optional[Dict[str, str]] = None
-    error: Optional[str] = None
-    artifacts: Dict[str, str] = field(default_factory=dict)
+    request: dict[str, str] = field(default_factory=dict)
+    result: dict[str, str] | None = None
+    error: str | None = None
+    artifacts: dict[str, str] = field(default_factory=dict)
 
     def to_detail(self) -> JobDetail:
         return JobDetail(
@@ -58,15 +57,15 @@ class _StubRecord:
 
 class _StubManager:
     def __init__(self) -> None:
-        self.records: Dict[str, _StubRecord] = {
+        self.records: dict[str, _StubRecord] = {
             "job1": _StubRecord("job1", status=JobState.PENDING, request={"kind": "run"}),
             "done": _StubRecord("done", status=JobState.COMPLETED),
         }
-        self.logs: Dict[str, List[_StubLog]] = {"job1": [_StubLog(1.0, "INFO", "hello world")]}
-        self.cancelled: List[str] = []
+        self.logs: dict[str, list[_StubLog]] = {"job1": [_StubLog(1.0, "INFO", "hello world")]}
+        self.cancelled: list[str] = []
 
     # API used by routes
-    def list(self) -> List[_StubRecord]:
+    def list(self) -> list[_StubRecord]:
         return list(self.records.values())
 
     def run_csv(self, request: RunCsvRequest) -> _StubRecord:
@@ -119,7 +118,7 @@ def auth_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
         client.close()
 
 
-def _auth_headers() -> Dict[str, str]:
+def _auth_headers() -> dict[str, str]:
     return {"Authorization": "Bearer secret"}
 
 

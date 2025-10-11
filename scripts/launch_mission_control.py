@@ -14,18 +14,18 @@ def main() -> int:
         from adhash.mission_control import run_mission_control
     except ModuleNotFoundError as exc:  # PyQt6 or package missing
         missing = exc.name or "dependency"
-        print(
-            f"Mission Control dependency '{missing}' is missing. Install with pip install '.[gui]'.",
-            file=sys.stderr,
+        message = (
+            f"Mission Control dependency '{missing}' is missing. Install with pip install '.[gui]'."
         )
+        print(message, file=sys.stderr)
         return 2
-    except Exception as exc:
+    except (ImportError, RuntimeError) as exc:
         print(f"Failed to import Mission Control: {exc}", file=sys.stderr)
         return 1
 
     try:
         return run_mission_control(sys.argv[1:])
-    except Exception as exc:
+    except (RuntimeError, OSError) as exc:
         print(f"Mission Control exited with an error: {exc}", file=sys.stderr)
         return 1
 

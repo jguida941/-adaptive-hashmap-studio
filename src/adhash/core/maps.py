@@ -3,11 +3,12 @@ from __future__ import annotations
 import logging
 import math
 from collections import defaultdict
-from dataclasses import dataclass, asdict
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, TYPE_CHECKING
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING, Any, cast
 
-from adhash.io.snapshot import load_snapshot_any, open_snapshot_for_write
 from adhash.io.safe_pickle import dump as safe_dump
+from adhash.io.snapshot import load_snapshot_any, open_snapshot_for_write
 
 if TYPE_CHECKING:  # pragma: no cover
     from adhash.metrics import Metrics
@@ -42,7 +43,7 @@ class TwoLevelChainingMap:
             raise ValueError("groups_per_bucket must be a power of two")
         self.M = initial_buckets
         self.G = groups_per_bucket
-        self._buckets: List[List[List[_Entry]]] = [
+        self._buckets: list[list[list[_Entry]]] = [
             [[] for _ in range(self.G)] for _ in range(self.M)
         ]
         self._size = 0
@@ -57,7 +58,7 @@ class TwoLevelChainingMap:
         x = hash((key, _HASH_GOLDEN_64))
         return x ^ (x >> 16)
 
-    def _index_group(self, key: Any) -> Tuple[int, int]:
+    def _index_group(self, key: Any) -> tuple[int, int]:
         i = self._h1(key) & (self.M - 1)
         g = self._h2(key) & (self.G - 1)
         return i, g
@@ -65,9 +66,9 @@ class TwoLevelChainingMap:
     def load_factor(self) -> float:
         return self._size / self.M if self.M else 0.0
 
-    def _rehash(self, new_M: int) -> None:
+    def _rehash(self, new_capacity: int) -> None:
         old = self._buckets
-        self.M = new_M
+        self.M = new_capacity
         self._buckets = [[[] for _ in range(self.G)] for _ in range(self.M)]
         for groups in old:
             for grp in groups:
@@ -87,7 +88,7 @@ class TwoLevelChainingMap:
         if self.load_factor() > 0.8:
             self._rehash(self.M * 2)
 
-    def get(self, key: Any) -> Optional[Any]:
+    def get(self, key: Any) -> Any | None:
         i, g = self._index_group(key)
         for entry in self._buckets[i][g]:
             if entry.key == key:
@@ -105,7 +106,7 @@ class TwoLevelChainingMap:
                 return True
         return False
 
-    def items(self) -> Iterator[Tuple[Any, Any]]:
+    def items(self) -> Iterator[tuple[Any, Any]]:
         for groups in self._buckets:
             for grp in groups:
                 for entry in grp:
@@ -123,7 +124,7 @@ class TwoLevelChainingMap:
             safe_dump(self, fh)
 
     @staticmethod
-    def load(filepath: str) -> "TwoLevelChainingMap":
+    def load(filepath: str) -> TwoLevelChainingMap:
         obj = load_snapshot_any(filepath)
         if not isinstance(obj, TwoLevelChainingMap):
             raise TypeError("Snapshot is not a TwoLevelChainingMap")
@@ -153,7 +154,7 @@ class RobinHoodMap:
             raise ValueError("initial_capacity must be a power of two")
         self._cap = initial_capacity
         self._mask = initial_capacity - 1
-        self._table: List[Optional[Any]] = [None] * initial_capacity
+        self._table: list[Any | None] = [None] * initial_capacity
         self._size = 0
         self._tombstones = 0
 
@@ -194,7 +195,7 @@ class RobinHoodMap:
         cur = _RHEntry(key, value)
         inserted_new = False
         dist = 0
-        first_tombstone: Optional[int] = None
+        first_tombstone: int | None = None
         while True:
             slot = self._table[idx]
             if slot is None:
@@ -237,7 +238,7 @@ class RobinHoodMap:
             idx = (idx + 1) & self._mask
             dist += 1
 
-    def get(self, key: Any) -> Optional[Any]:
+    def get(self, key: Any) -> Any | None:
         h = hash(key)
         idx = self._idx(h)
         scanned = 0
@@ -268,7 +269,7 @@ class RobinHoodMap:
             scanned += 1
         return False
 
-    def items(self) -> Iterator[Tuple[Any, Any]]:
+    def items(self) -> Iterator[tuple[Any, Any]]:
         for slot in self._table:
             if isinstance(slot, _RHEntry):
                 yield slot.key, slot.value
@@ -291,7 +292,7 @@ class RobinHoodMap:
             safe_dump(self, fh)
 
     @staticmethod
-    def load(filepath: str) -> "RobinHoodMap":
+    def load(filepath: str) -> RobinHoodMap:
         obj = load_snapshot_any(filepath)
         if not isinstance(obj, RobinHoodMap):
             raise TypeError("Snapshot is not a RobinHoodMap")
@@ -310,26 +311,27 @@ class AdaptiveConfig:
     start_backend: str = "chaining"
     incremental_batch: int = 2048
     large_map_warn_threshold: int = 1_000_000
-    on_migration: Optional[Callable[[str, str], None]] = None
-    on_compaction: Optional[Callable[[], None]] = None
+    on_migration: Callable[[str, str], None] | None = None
+    on_compaction: Callable[[], None] | None = None
 
 
-def _cfg_to_picklable_dict(cfg: AdaptiveConfig) -> Dict[str, Any]:
+def _cfg_to_picklable_dict(cfg: AdaptiveConfig) -> dict[str, Any]:
     data = asdict(cfg)
     data["on_migration"] = None
     data["on_compaction"] = None
     return data
 
 
-def _cfg_from_dict(d: Dict[str, Any]) -> AdaptiveConfig:
-    keys = {k: d[k] for k in d.keys() if k in AdaptiveConfig().__dict__.keys()}
+def _cfg_from_dict(d: dict[str, Any]) -> AdaptiveConfig:
+    keys = {k: d[k] for k in d if k in AdaptiveConfig().__dict__}
     return AdaptiveConfig(**keys)
 
 
 class HybridAdaptiveHashMap:
     """Adaptive hash map that migrates between chaining and Robin Hood backends."""
 
-    def __init__(self, cfg: AdaptiveConfig = AdaptiveConfig()) -> None:
+    def __init__(self, cfg: AdaptiveConfig | None = None) -> None:
+        cfg = cfg or AdaptiveConfig()
         self.cfg = cfg
         if cfg.start_backend == "chaining":
             self._backend: Any = TwoLevelChainingMap(cfg.initial_buckets, cfg.groups_per_bucket)
@@ -337,9 +339,9 @@ class HybridAdaptiveHashMap:
         else:
             self._backend = RobinHoodMap(cfg.initial_capacity_rh)
             self._name = "robinhood"
-        self._migrating_to: Optional[str] = None
-        self._migrate_target: Optional[Any] = None
-        self._migrate_iter: Optional[Iterator[Tuple[Any, Any]]] = None
+        self._migrating_to: str | None = None
+        self._migrate_target: Any | None = None
+        self._migrate_iter: Iterator[tuple[Any, Any]] | None = None
         logger.info("Adaptive map started on %s", self._name)
 
     def __len__(self) -> int:
@@ -354,7 +356,7 @@ class HybridAdaptiveHashMap:
             else self._name
         )
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         while self._migrating_to:
             self._drain_migration()
         return {
@@ -363,7 +365,7 @@ class HybridAdaptiveHashMap:
             "cfg": _cfg_to_picklable_dict(self.cfg),
         }
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         if not isinstance(state, dict) or "backend" not in state or "name" not in state:
             raise TypeError("Corrupt snapshot payload for HybridAdaptiveHashMap")
         cfg_dict = state.get("cfg", {})
@@ -379,6 +381,23 @@ class HybridAdaptiveHashMap:
         while self._migrating_to:
             self._drain_migration()
         return self._backend
+
+    def is_migrating(self) -> bool:
+        return self._migrating_to is not None
+
+    def trigger_compaction(self) -> bool:
+        if self.is_migrating():
+            return False
+        backend = self._backend
+        if isinstance(backend, RobinHoodMap):
+            backend.compact()
+            if self.cfg.on_compaction:
+                try:
+                    self.cfg.on_compaction()
+                except Exception:  # pragma: no cover - defensive  # noqa: BLE001
+                    logger.exception("on_compaction callback failed")
+            return True
+        return False
 
     def _begin_migration(self, target: str) -> None:
         size_est = len(self._backend)
@@ -407,7 +426,6 @@ class HybridAdaptiveHashMap:
         if not self._migrating_to or self._migrate_target is None or self._migrate_iter is None:
             return
         migrated = 0
-        assert self._migrate_iter is not None
         target = self._migrate_target
         for _ in range(self.cfg.incremental_batch):
             try:
@@ -423,7 +441,7 @@ class HybridAdaptiveHashMap:
                 if self.cfg.on_migration:
                     try:
                         self.cfg.on_migration(old, self._name)
-                    except Exception:  # pragma: no cover - defensive
+                    except Exception:  # pragma: no cover - defensive  # noqa: BLE001
                         logger.exception("on_migration callback failed")
                 return
             target.put(k, v)
@@ -452,7 +470,7 @@ class HybridAdaptiveHashMap:
                 if self.cfg.on_compaction:
                     try:
                         self.cfg.on_compaction()
-                    except Exception:  # pragma: no cover
+                    except Exception:  # pragma: no cover  # noqa: BLE001
                         logger.exception("on_compaction callback failed")
 
     def put(self, key: Any, value: Any) -> None:
@@ -460,7 +478,7 @@ class HybridAdaptiveHashMap:
         (self._migrate_target or self._backend).put(key, value)
         self._maintenance()
 
-    def get(self, key: Any) -> Optional[Any]:
+    def get(self, key: Any) -> Any | None:
         self._drain_migration()
         if self._migrate_target is not None:
             value = self._migrate_target.get(key)
@@ -472,14 +490,15 @@ class HybridAdaptiveHashMap:
         self._drain_migration()
         if self._migrate_target is not None and self._migrate_target.delete(key):
             return True
-        removed = self._backend.delete(key)
+        removed = bool(self._backend.delete(key))
         self._maintenance()
         return removed
 
-    def items(self) -> Iterable[Tuple[Any, Any]]:
+    def items(self) -> Iterable[tuple[Any, Any]]:
         while self._migrating_to:
             self._drain_migration()
-        return self._backend.items()
+        backend_items = self._backend.items()
+        return cast(Iterable[tuple[Any, Any]], backend_items)
 
     def save(self, filepath: str, compress: bool = False) -> None:
         while self._migrating_to:
@@ -493,7 +512,7 @@ class HybridAdaptiveHashMap:
             safe_dump(state, fh)
 
     @staticmethod
-    def load(filepath: str) -> "HybridAdaptiveHashMap":
+    def load(filepath: str) -> HybridAdaptiveHashMap:
         state = load_snapshot_any(filepath)
         if isinstance(state, HybridAdaptiveHashMap):
             return state
@@ -515,9 +534,9 @@ class MetricsSink:
 
     def __init__(
         self,
-        metrics: Optional["Metrics"],
-        events: Optional[List[Dict[str, Any]]] = None,
-        clock: Optional[Callable[[], float]] = None,
+        metrics: Metrics | None,
+        events: list[dict[str, Any]] | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self.metrics = metrics
         self.events = events
@@ -531,7 +550,7 @@ class MetricsSink:
         if self.metrics:
             self.metrics.compactions_total += 1
 
-    def record_event(self, kind: str, payload: Optional[Dict[str, Any]] = None) -> None:
+    def record_event(self, kind: str, payload: dict[str, Any] | None = None) -> None:
         if self.events is None:
             return
         event = {"type": kind, "t": self.clock()}
@@ -560,7 +579,7 @@ def reattach_runtime_callbacks(m: Any, sink: MetricsSink) -> None:
     sink.attach(m)
 
 
-def sample_metrics(m: Any, metrics: "Metrics") -> None:
+def sample_metrics(m: Any, metrics: Metrics) -> None:
     metrics.backend_name = getattr(m, "backend_name", lambda: type(m).__name__)()
     metrics.load_factor = 0.0
     metrics.max_group_len = 0.0
@@ -585,11 +604,12 @@ def sample_metrics(m: Any, metrics: "Metrics") -> None:
             metrics.tombstone_ratio = float(backend.tombstone_ratio())
 
 
-def collect_probe_histogram(m: Any) -> List[List[int]]:
-    histogram: Dict[int, int] = defaultdict(int)
+def collect_probe_histogram(m: Any) -> list[list[int]]:
+    histogram: dict[int, int] = defaultdict(int)
 
     def record(rh: RobinHoodMap) -> None:
-        for idx, slot in enumerate(rh._table):  # type: ignore[attr-defined]
+        table = cast(Iterable[Any], getattr(rh, "_table", ()))
+        for idx, slot in enumerate(table):
             if isinstance(slot, _RHEntry):
                 ideal = rh._idx(hash(slot.key))
                 dist = rh._probe_distance(ideal, idx)
@@ -604,12 +624,14 @@ def collect_probe_histogram(m: Any) -> List[List[int]]:
     return [[distance, count] for distance, count in sorted(histogram.items())]
 
 
-def collect_key_heatmap(m: Any, target_cols: int = 32, max_cells: int = 512) -> Dict[str, Any]:
-    def key_counts_for_map(obj: Any) -> List[int]:
+def collect_key_heatmap(m: Any, target_cols: int = 32, max_cells: int = 512) -> dict[str, Any]:
+    def key_counts_for_map(obj: Any) -> list[int]:
         if isinstance(obj, TwoLevelChainingMap):
-            return [len(group) for bucket in obj._buckets for group in bucket]  # type: ignore[attr-defined]
+            buckets = cast(Iterable[Iterable[Any]], getattr(obj, "_buckets", ()))
+            return [len(group) for bucket in buckets for group in bucket]
         if isinstance(obj, RobinHoodMap):
-            return [1 if isinstance(slot, _RHEntry) else 0 for slot in obj._table]  # type: ignore[attr-defined]
+            table = cast(Iterable[Any], getattr(obj, "_table", ()))
+            return [1 if isinstance(slot, _RHEntry) else 0 for slot in table]
         if isinstance(obj, HybridAdaptiveHashMap):
             backend = getattr(obj, "_backend", None)
             if backend is not None:
@@ -632,7 +654,7 @@ def collect_key_heatmap(m: Any, target_cols: int = 32, max_cells: int = 512) -> 
     total = sum(base_counts)
     target_cells = max(1, max_cells)
     group_width = max(1, math.ceil(original_slots / target_cells))
-    aggregated: List[int] = []
+    aggregated: list[int] = []
     for idx in range(0, original_slots, group_width):
         aggregated.append(sum(base_counts[idx : idx + group_width]))
 

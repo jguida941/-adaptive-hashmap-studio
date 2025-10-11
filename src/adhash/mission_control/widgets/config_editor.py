@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 from adhash.config import AppConfig
 from adhash.config_toolkit import (
@@ -36,27 +38,29 @@ from .common import (
 class ConfigEditorPane(QWidget):  # type: ignore[misc]
     """Schema-driven config editor with preset management."""
 
-    if pyqtSignal is not None:  # type: ignore[truthy-bool]
-        configSaved = pyqtSignal(str)  # type: ignore[call-arg]
-        configLoaded = pyqtSignal(str)  # type: ignore[call-arg]
-        presetSaved = pyqtSignal(str)  # type: ignore[call-arg]
-    else:  # pragma: no cover - signals only exist when Qt is available
-        configSaved = None  # type: ignore[assignment]
-        configLoaded = None  # type: ignore[assignment]
-        presetSaved = None  # type: ignore[assignment]
+    _logger = logging.getLogger(__name__)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:  # type: ignore[override]
+    if pyqtSignal is not None:  # type: ignore[truthy-bool]  # noqa: SIM108
+        config_saved = pyqtSignal(str)  # type: ignore[call-arg]
+        config_loaded = pyqtSignal(str)  # type: ignore[call-arg]
+        preset_saved = pyqtSignal(str)  # type: ignore[call-arg]
+    else:  # pragma: no cover - signals only exist when Qt is available
+        config_saved = None  # type: ignore[assignment]
+        config_loaded = None  # type: ignore[assignment]
+        preset_saved = None  # type: ignore[assignment]
+
+    def __init__(self, parent: QWidget | None = None) -> None:  # type: ignore[override]
         super().__init__(parent)
         self.setObjectName("missionPane")
         self.setProperty("paneKind", "config")
-        self._field_specs: Dict[Tuple[str, ...], FieldSpec] = {
+        self._field_specs: dict[tuple[str, ...], FieldSpec] = {
             spec.path: spec for spec in CONFIG_FIELDS
         }
-        self._field_widgets: Dict[Tuple[str, ...], Any] = {}
+        self._field_widgets: dict[tuple[str, ...], Any] = {}
         self._current_config = AppConfig()
-        self._config_saved_callbacks: List[Callable[[str], None]] = []
-        self._config_loaded_callbacks: List[Callable[[str], None]] = []
-        self._preset_saved_callbacks: List[Callable[[str], None]] = []
+        self._config_saved_callbacks: list[Callable[[str], None]] = []
+        self._config_loaded_callbacks: list[Callable[[str], None]] = []
+        self._preset_saved_callbacks: list[Callable[[str], None]] = []
 
         layout = QVBoxLayout(self)  # type: ignore[call-arg]
         layout.setContentsMargins(16, 16, 16, 16)
@@ -128,7 +132,7 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
 
         try:
             self.presets_dir = resolve_presets_dir(None)
-        except Exception:  # pragma: no cover - fallback when preset dir cannot be prepared
+        except OSError:  # pragma: no cover - fallback when preset dir cannot be prepared
             fallback = Path.cwd() / "presets"
             fallback.mkdir(parents=True, exist_ok=True)
             self.presets_dir = fallback
@@ -145,7 +149,7 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
     def refresh_presets(self) -> None:
         try:
             presets = list_presets(self.presets_dir)
-        except Exception as exc:  # pragma: no cover - IO issues
+        except OSError as exc:  # pragma: no cover - IO issues
             self._show_status(f"Failed to list presets: {exc}", error=True)
             return
         current = (
@@ -197,7 +201,7 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
                     widget.setText(str(value))
 
     def _collect_config(self) -> AppConfig:
-        updates: Dict[Tuple[str, ...], Any] = {}
+        updates: dict[tuple[str, ...], Any] = {}
         errors: list[str] = []
         for spec, widget in self._field_widgets.items():
             try:
@@ -252,7 +256,7 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
         except BadInputError as exc:
             self._show_status(str(exc), error=True)
             return
-        except Exception as exc:  # pragma: no cover - unexpected IO errors
+        except (OSError, ValueError) as exc:  # pragma: no cover - unexpected IO errors
             self._show_status(f"Failed to load {path}: {exc}", error=True)
             return
         self._current_config = cfg
@@ -272,7 +276,7 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(format_app_config_to_toml(cfg), encoding="utf-8")
-        except Exception as exc:  # pragma: no cover - IO errors
+        except OSError as exc:  # pragma: no cover - IO errors
             self._show_status(f"Failed to write {path}: {exc}", error=True)
             return
         self.path_edit.setText(str(path))
@@ -325,7 +329,7 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
         return Path(raw).expanduser()
 
     @staticmethod
-    def _get_value(cfg: AppConfig, path: Tuple[str, ...]) -> Any:
+    def _get_value(cfg: AppConfig, path: tuple[str, ...]) -> Any:
         node: Any = cfg
         for key in path:
             node = getattr(node, key)
@@ -361,28 +365,28 @@ class ConfigEditorPane(QWidget):  # type: ignore[misc]
         self.binding_label.setText(f"Config target: {path}")
 
     def _emit_config_saved(self, path: str) -> None:
-        if self.configSaved is not None:  # type: ignore[truthy-bool]
+        if self.config_saved is not None:  # type: ignore[truthy-bool]
             try:
-                self.configSaved.emit(path)  # type: ignore[attr-defined]
-            except Exception:  # pragma: no cover - Qt emits may fail in headless tests
-                pass
+                self.config_saved.emit(path)  # type: ignore[attr-defined]
+            except Exception as exc:  # pragma: no cover  # noqa: BLE001
+                self._logger.debug("config_saved emit failed: %s", exc)
         for callback in list(self._config_saved_callbacks):
             callback(path)
 
     def _emit_config_loaded(self, path: str) -> None:
-        if self.configLoaded is not None:  # type: ignore[truthy-bool]
+        if self.config_loaded is not None:  # type: ignore[truthy-bool]
             try:
-                self.configLoaded.emit(path)  # type: ignore[attr-defined]
-            except Exception:  # pragma: no cover
-                pass
+                self.config_loaded.emit(path)  # type: ignore[attr-defined]
+            except Exception as exc:  # pragma: no cover  # noqa: BLE001
+                self._logger.debug("config_loaded emit failed: %s", exc)
         for callback in list(self._config_loaded_callbacks):
             callback(path)
 
     def _emit_preset_saved(self, path: str) -> None:
-        if self.presetSaved is not None:  # type: ignore[truthy-bool]
+        if self.preset_saved is not None:  # type: ignore[truthy-bool]
             try:
-                self.presetSaved.emit(path)  # type: ignore[attr-defined]
-            except Exception:  # pragma: no cover
-                pass
+                self.preset_saved.emit(path)  # type: ignore[attr-defined]
+            except Exception as exc:  # pragma: no cover  # noqa: BLE001
+                self._logger.debug("preset_saved emit failed: %s", exc)
         for callback in list(self._preset_saved_callbacks):
             callback(path)

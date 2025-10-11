@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import logging
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 pytest.importorskip("tomllib")
 
-from adhash.cli.commands import _configure_workload_dna
+from adhash.cli.commands import CLIContext, _configure_workload_dna
 from adhash.workloads import WorkloadDNAResult, format_workload_dna
 
 
@@ -38,7 +40,7 @@ class DummyContext:
         return False
 
     @property
-    def logger(self):  # pragma: no cover - unused by handler
+    def logger(self) -> logging.Logger:  # pragma: no cover - unused by handler
         raise RuntimeError("logger should not be accessed in this test")
 
 
@@ -46,7 +48,7 @@ class DummyContext:
 def sample_result() -> WorkloadDNAResult:
     return WorkloadDNAResult(
         schema="workload_dna.v1",
-        csv_path="/tmp/sample.csv",
+        csv_path="sample.csv",
         file_size_bytes=1234,
         total_rows=100,
         op_counts={"put": 40, "get": 50, "del": 10},
@@ -83,7 +85,7 @@ def test_format_workload_dna(sample_result: WorkloadDNAResult) -> None:
 def test_workload_dna_handler_emits_summary(sample_result: WorkloadDNAResult) -> None:
     ctx = DummyContext(sample_result)
     parser = ArgumentParser()
-    handler = _configure_workload_dna(parser, ctx)  # type: ignore[arg-type]
+    handler = _configure_workload_dna(parser, cast(CLIContext, ctx))
     args = parser.parse_args(["--csv", "sample.csv"])
 
     handler(args)
@@ -91,9 +93,10 @@ def test_workload_dna_handler_emits_summary(sample_result: WorkloadDNAResult) ->
     assert ctx._captured, "expected summary text to be emitted"
     assert "Workload DNA" in ctx._captured[0]
     assert ctx._captured_payload
-    dna_payload = ctx._captured_payload[0]["dna"]  # type: ignore[index]
-    assert isinstance(dna_payload, dict)
+    payload = ctx._captured_payload[0]
+    dna_payload = cast(dict[str, object], payload["dna"])
     assert dna_payload["total_rows"] == 100
-    assert "bucket_counts" in dna_payload
-    assert len(dna_payload["bucket_counts"]) == 1 << 12
-    assert dna_payload["bucket_percentiles"]["p95"] >= 1.0
+    bucket_counts = cast(list[int], dna_payload["bucket_counts"])
+    assert len(bucket_counts) == 1 << 12
+    bucket_percentiles = cast(dict[str, float], dna_payload["bucket_percentiles"])
+    assert bucket_percentiles["p95"] >= 1.0

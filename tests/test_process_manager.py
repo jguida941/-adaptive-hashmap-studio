@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import subprocess
 import sys
 import time
-from pathlib import Path
-from typing import List
 
 import pytest
 
@@ -12,9 +9,9 @@ from adhash.mission_control.process_manager import ProcessManager
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Subprocess commands differ on Windows")
-def test_process_manager_runs_and_captures_output(tmp_path: Path) -> None:
-    outputs: List[str] = []
-    exit_codes: List[int] = []
+def test_process_manager_runs_and_captures_output() -> None:
+    outputs: list[str] = []
+    exit_codes: list[int] = []
 
     manager = ProcessManager(outputs.append, exit_codes.append)
     script = "print('hello world')"
@@ -32,9 +29,9 @@ def test_process_manager_runs_and_captures_output(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Subprocess commands differ on Windows")
-def test_process_manager_stop(tmp_path: Path) -> None:
-    outputs: List[str] = []
-    exit_codes: List[int] = []
+def test_process_manager_stop() -> None:
+    outputs: list[str] = []
+    exit_codes: list[int] = []
 
     manager = ProcessManager(outputs.append, exit_codes.append)
     script = "import time\ntime.sleep(5)"
@@ -51,18 +48,31 @@ def test_process_manager_stop(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Subprocess commands differ on Windows")
 def test_process_manager_start_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    outputs: List[str] = []
-    exit_codes: List[int] = []
+    outputs: list[str] = []
+    exit_codes: list[int] = []
 
     manager = ProcessManager(outputs.append, exit_codes.append)
 
-    def _raise(*_args, **_kwargs):
+    def _raise(*_args: object, **_kwargs: object) -> None:
         raise FileNotFoundError("missing executable")
 
-    monkeypatch.setattr(subprocess, "Popen", _raise)
+    monkeypatch.setattr("adhash._safe_subprocess.safe_popen", _raise)
 
-    with pytest.raises(RuntimeError):
-        manager.start(["missing-binary"])
+    with pytest.raises(ValueError):
+        manager.start(["nonexistent_command_for_test"])
 
+    assert exit_codes and exit_codes[-1] == -1
+    assert not manager.is_running()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Subprocess commands differ on Windows")
+def test_process_manager_rejects_untrusted_executable() -> None:
+    outputs: list[str] = []
+    exit_codes: list[int] = []
+
+    manager = ProcessManager(outputs.append, exit_codes.append)
+
+    with pytest.raises(ValueError):
+        manager.start(["/bin/echo", "hello"])
     assert exit_codes and exit_codes[-1] == -1
     assert not manager.is_running()

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import csv
-from collections import deque
 import gzip
 import io
 import json
@@ -9,16 +8,19 @@ import logging
 import os
 import threading
 import time
+from collections import deque
+from collections.abc import Callable
+from contextlib import suppress
 from html import escape
-from importlib import resources
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Callable, Deque, Dict, List, Optional, Tuple, cast
+from importlib import resources
+from typing import Any, cast
 from urllib.parse import ParseResult, parse_qs, urlparse
 
 from .constants import (
+    ALLOW_ORIGIN,
     ALLOWED_HEADERS,
     ALLOWED_METHODS,
-    ALLOW_ORIGIN,
     CACHE_CONTROL,
     ERROR_SCHEMA,
     EVENTS_SCHEMA,
@@ -42,8 +44,8 @@ def start_metrics_server(
     port: int,
     host: str = "127.0.0.1",
     *,
-    comparison: Optional[Dict[str, Any]] = None,
-) -> Tuple[HTTPServer, Callable[[], None]]:
+    comparison: dict[str, Any] | None = None,
+) -> tuple[HTTPServer, Callable[[], None]]:
     class Handler(BaseHTTPRequestHandler):
         api_token = os.getenv(TOKEN_ENV_VAR)
         comparison_payload = comparison
@@ -77,10 +79,8 @@ def start_metrics_server(
             )
             self.end_headers()
             if self.command != "HEAD":
-                try:
+                with suppress(BrokenPipeError, ConnectionResetError):
                     self.wfile.write(body)
-                except (BrokenPipeError, ConnectionResetError):
-                    pass
 
         def _client_supports_gzip(self) -> bool:
             header = self.headers.get("Accept-Encoding") or ""
@@ -130,7 +130,7 @@ def start_metrics_server(
             query_token = parse_qs(parsed.query).get("token", [None])[0]
             return query_token == token
 
-        def _limit(self, parsed: ParseResult, default: int, *, clamp: Optional[int] = None) -> int:
+        def _limit(self, parsed: ParseResult, default: int, *, clamp: int | None = None) -> int:
             try:
                 value = int(parse_qs(parsed.query).get("limit", [str(default)])[0])
             except ValueError:
@@ -140,9 +140,9 @@ def start_metrics_server(
                 value = min(value, clamp)
             return value
 
-        def _history_rows(self, limit: int) -> List[Dict[str, Any]]:
+        def _history_rows(self, limit: int) -> list[dict[str, Any]]:
             history_buffer = cast(
-                Optional[Deque[Dict[str, Any]]], getattr(metrics, "history_buffer", None)
+                deque[dict[str, Any]] | None, getattr(metrics, "history_buffer", None)
             )
             if history_buffer is not None:
                 return [tick for tick in list(history_buffer)[-limit:] if isinstance(tick, dict)]
@@ -150,19 +150,17 @@ def start_metrics_server(
             return [latest] if isinstance(latest, dict) else []
 
         def _serve_health(self) -> None:
-            self._write_json(
-                {
-                    "schema": HEALTH_SCHEMA,
-                    "generated_at": time.time(),
-                    "status": "ok",
-                }
-            )
+            self._write_json({
+                "schema": HEALTH_SCHEMA,
+                "generated_at": time.time(),
+                "status": "ok",
+            })
 
         def _serve_metrics_prometheus(self) -> None:
             body = metrics.render().encode("utf-8")
             self._write_body(body, PROMETHEUS_CONTENT_TYPE)
 
-        def _serve_metrics_summary(self, parsed: Optional[ParseResult] = None) -> None:
+        def _serve_metrics_summary(self, parsed: ParseResult | None = None) -> None:
             payload = metrics.build_summary_payload()
             limit = 1
             if parsed is not None:
@@ -204,44 +202,38 @@ def start_metrics_server(
                 except TypeError:
                     events_source = []
             events = events_source[-limit:]
-            self._write_json(
-                {
-                    "schema": EVENTS_SCHEMA,
-                    "generated_at": time.time(),
-                    "events": events,
-                }
-            )
+            self._write_json({
+                "schema": EVENTS_SCHEMA,
+                "generated_at": time.time(),
+                "events": events,
+            })
 
         def _serve_metrics_history_json(self, parsed: ParseResult) -> None:
             limit = self._limit(parsed, 100)
             data = self._history_rows(limit)
-            self._write_json(
-                {
-                    "schema": HISTORY_SCHEMA,
-                    "generated_at": time.time(),
-                    "items": data,
-                }
-            )
+            self._write_json({
+                "schema": HISTORY_SCHEMA,
+                "generated_at": time.time(),
+                "items": data,
+            })
 
         def _serve_metrics_history_csv(self, parsed: ParseResult) -> None:
             limit = self._limit(parsed, default=1200)
             rows = self._history_rows(limit)
             output = io.StringIO()
             writer = csv.writer(output)
-            writer.writerow(
-                [
-                    "t",
-                    "ops",
-                    "ops_per_second_ema",
-                    "ops_per_second_instant",
-                    "load_factor",
-                    "avg_probe_estimate",
-                    "tombstone_ratio",
-                    "backend",
-                    "state",
-                    "events",
-                ]
-            )
+            writer.writerow([
+                "t",
+                "ops",
+                "ops_per_second_ema",
+                "ops_per_second_instant",
+                "load_factor",
+                "avg_probe_estimate",
+                "tombstone_ratio",
+                "backend",
+                "state",
+                "events",
+            ])
             for tick in rows:
                 events_payload = tick.get("events")
                 event_summary = ""
@@ -254,20 +246,18 @@ def start_metrics_server(
                         )
                         for evt in events_payload
                     )
-                writer.writerow(
-                    [
-                        tick.get("t", ""),
-                        tick.get("ops", ""),
-                        tick.get("ops_per_second_ema", ""),
-                        tick.get("ops_per_second_instant", ""),
-                        tick.get("load_factor", ""),
-                        tick.get("avg_probe_estimate", ""),
-                        tick.get("tombstone_ratio", ""),
-                        tick.get("backend", ""),
-                        tick.get("state", ""),
-                        event_summary,
-                    ]
-                )
+                writer.writerow([
+                    tick.get("t", ""),
+                    tick.get("ops", ""),
+                    tick.get("ops_per_second_ema", ""),
+                    tick.get("ops_per_second_instant", ""),
+                    tick.get("load_factor", ""),
+                    tick.get("avg_probe_estimate", ""),
+                    tick.get("tombstone_ratio", ""),
+                    tick.get("backend", ""),
+                    tick.get("state", ""),
+                    event_summary,
+                ])
             body = output.getvalue().encode("utf-8")
             self.send_response(200)
             self._set_common_headers(content_type="text/csv; charset=utf-8", length=len(body))
@@ -279,7 +269,7 @@ def start_metrics_server(
         def _serve_latency_histogram(self) -> None:
             latest = getattr(metrics, "latest_tick", None) or {}
             hist = latest.get("latency_hist_ms")
-            latency_payload: Dict[str, Any] = {
+            latency_payload: dict[str, Any] = {
                 "schema": LATENCY_HISTOGRAM_SCHEMA,
                 "generated_at": time.time(),
                 "preset": latest.get("latency_hist_preset"),
@@ -290,10 +280,10 @@ def start_metrics_server(
         def _serve_probe_histogram(self) -> None:
             latest = getattr(metrics, "latest_tick", None) or {}
             raw = latest.get("probe_hist")
-            buckets: List[Dict[str, int]] = []
+            buckets: list[dict[str, int]] = []
             if isinstance(raw, list):
                 for item in raw:
-                    if isinstance(item, (list, tuple)) and len(item) == 2:
+                    if isinstance(item, list | tuple) and len(item) == 2:
                         distance, count = item
                     elif isinstance(item, dict):
                         distance = item.get("distance")
@@ -331,7 +321,7 @@ def start_metrics_server(
             }
             self._write_json(heatmap_payload)
 
-        def _serve_dashboard(self, parsed: ParseResult) -> None:
+        def _serve_dashboard(self, _parsed: ParseResult) -> None:
             body = self._render_dashboard_html()
             self._write_body(body, "text/html; charset=utf-8")
 
@@ -417,7 +407,7 @@ def start_metrics_server(
             self._respond_not_found(path)
 
         def _render_dashboard_html(self) -> bytes:
-            token_meta = ""
+            token_meta = ""  # nosec B105 - placeholder for optional token message
 
             if Handler.api_token:
                 token_meta = (
@@ -431,7 +421,7 @@ def start_metrics_server(
             return template.replace("<!--__TOKEN_META__-->", token_meta).encode("utf-8")
 
         def log_message(
-            self, fmt: str, *args: Any
+            self, _fmt: str, *_args: Any
         ) -> None:  # pragma: no cover - suppress noisy logs
             return
 
@@ -446,10 +436,30 @@ def start_metrics_server(
         bound_port,
     )
 
+    stop_lock = threading.Lock()
+    stopped = False
+
     def stop() -> None:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=1.0)
+        nonlocal stopped
+        with stop_lock:
+            if stopped:
+                return
+            stopped = True
+        try:
+            server.shutdown()
+        except OSError:
+            pass
+        except Exception:  # pragma: no cover - defensive cleanup  # noqa: BLE001
+            logger.debug("Metrics server shutdown raised", exc_info=True)
+        try:
+            server.server_close()
+        except OSError:
+            pass
+        except Exception:  # pragma: no cover - defensive cleanup  # noqa: BLE001
+            logger.debug("Metrics server close raised", exc_info=True)
+        if thread.is_alive():
+            with suppress(RuntimeError):
+                thread.join(timeout=1.0)
 
     return server, stop
 

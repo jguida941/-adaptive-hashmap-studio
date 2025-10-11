@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 class Draft202012Validator:
     def __init__(self, schema: Any) -> None: ...

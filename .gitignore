@@ -5,8 +5,10 @@
 __pycache__/
 *.pyc
 .venv/
+.uv_cache/
 runs/
 *.ndjson
+.artifacts/
 systemwideaudit.md
 chatgptaudit.md
 gemini_review_2.md

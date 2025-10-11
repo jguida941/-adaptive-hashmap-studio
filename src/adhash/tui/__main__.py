@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from .app import run_tui
 
@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[Sequence[str]] = None) -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     run_tui(
         metrics_endpoint=args.metrics_endpoint,

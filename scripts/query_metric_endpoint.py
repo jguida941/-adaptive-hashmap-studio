@@ -5,14 +5,27 @@ from __future__ import annotations
 import argparse
 import json
 from typing import Any
-
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
+
+ALLOWED_SCHEMES = {"http", "https"}
+
+
+def _validated_url(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme.lower() not in ALLOWED_SCHEMES:
+        raise ValueError(f"Unsupported URL scheme '{parsed.scheme}' (allowed: http, https)")
+    if not parsed.hostname:
+        raise ValueError("URL must include a host")
+    return url
 
 
 def fetch_json(url: str) -> dict[str, Any]:
-    request = Request(url, headers={"Accept": "application/json"})
-    with urlopen(request, timeout=2.0) as response:
+    safe_url = _validated_url(url)
+    request = Request(safe_url, headers={"Accept": "application/json"})  # noqa: S310
+    # URL scheme and host are validated in _validated_url.
+    with urlopen(request, timeout=2.0) as response:  # noqa: S310
         payload = response.read()
     return json.loads(payload.decode("utf-8"))
 
@@ -27,7 +40,10 @@ def main() -> int:
 
     try:
         data = fetch_json(args.url)
-    except URLError as exc:  # noqa: BLE001
+    except HTTPError as exc:
+        print(f"HTTP error: {exc}")
+        return 1
+    except (URLError, ValueError, OSError) as exc:
         print(f"Request failed: {exc}")
         return 1
 

@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 from adhash.workloads import WorkloadDNAResult, format_workload_dna
 
 from .common import (
-    QColor,
     QCheckBox,
+    QColor,
     QComboBox,
     QCursor,
     QHBoxLayout,
@@ -18,8 +18,8 @@ from .common import (
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
-    QToolTip,
     Qt,
+    QToolTip,
     QVBoxLayout,
     QWidget,
     np,
@@ -36,29 +36,29 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
     _VIEW_DEPTH = "Depth histogram"
     _DEFAULT_LIMIT = 32
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:  # type: ignore[override]
+    def __init__(self, parent: QWidget | None = None) -> None:  # type: ignore[override]
         super().__init__(parent)
         self.setObjectName("missionPane")
         self.setProperty("paneKind", "dna")
 
         self._supports_charts = Qt is not None and pg is not None and np is not None
-        self._primary_plot: Optional[pg.PlotWidget] = None  # type: ignore[assignment]
-        self._comparison_plot: Optional[pg.PlotWidget] = None  # type: ignore[assignment]
-        self._current_result: Optional[WorkloadDNAResult] = None
+        self._primary_plot: pg.PlotWidget | None = None  # type: ignore[assignment]
+        self._comparison_plot: pg.PlotWidget | None = None  # type: ignore[assignment]
+        self._current_result: WorkloadDNAResult | None = None
         self._current_label: str = ""
-        self._baseline_result: Optional[WorkloadDNAResult] = None
-        self._baseline_label: Optional[str] = None
+        self._baseline_result: WorkloadDNAResult | None = None
+        self._baseline_label: str | None = None
         self._bucket_limit = self._DEFAULT_LIMIT
         self._view_mode = self._VIEW_BUCKETS_ID
-        self._bucket_entries: List[Tuple[int, str, int, float]] = []
+        self._bucket_entries: list[tuple[int, str, int, float]] = []
         self._bucket_total: float = 0.0
-        self._heatmap_counts: Optional[List[float]] = None
+        self._heatmap_counts: list[float] | None = None
         self._heatmap_side: int = 0
         self._heatmap_total: float = 0.0
-        self._heatmap_image: Optional[Any] = None
-        self._heatmap_overlay: Optional[Any] = None
-        self._hover_bucket_index: Optional[int] = None
-        self._hover_heatmap_index: Optional[int] = None
+        self._heatmap_image: Any | None = None
+        self._heatmap_overlay: Any | None = None
+        self._hover_bucket_index: int | None = None
+        self._hover_heatmap_index: int | None = None
 
         layout = QVBoxLayout(self)  # type: ignore[call-arg]
         layout.setContentsMargins(16, 16, 16, 16)
@@ -250,7 +250,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
             comparison_plot.hide()
 
     def _render_plot(
-        self, plot: Optional[pg.PlotWidget], result: Optional[WorkloadDNAResult], title: str
+        self, plot: pg.PlotWidget | None, result: WorkloadDNAResult | None, title: str
     ) -> None:
         if plot is None:
             return
@@ -314,7 +314,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
 
         max_labels = 14
         step = max(1, len(display_entries) // max_labels)
-        ticks: List[Tuple[int, str]] = []
+        ticks: list[tuple[int, str]] = []
         for idx, entry in enumerate(display_entries):
             should_label = idx % step == 0 or idx == len(display_entries) - 1
             if not should_label:
@@ -363,9 +363,9 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
         clip = result.bucket_percentiles.get("p95", 0.0)
         try:
             max_value = float(np.max(grid))
-        except Exception:
+        except (ValueError, TypeError):
             max_value = 0.0
-        if clip is None or not isinstance(clip, (int, float)) or clip <= 0.0:
+        if clip is None or not isinstance(clip, int | float) or clip <= 0.0:
             clip_value = max_value if max_value > 0.0 else 1.0
         else:
             clip_value = float(clip)
@@ -441,7 +441,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
         limit: int,
         *,
         store_total: bool = True,
-    ) -> List[Tuple[int, str, int, float]]:
+    ) -> list[tuple[int, str, int, float]]:
         counts = list(result.bucket_counts)
         total = sum(counts)
         if store_total:
@@ -453,7 +453,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
         buckets = list(enumerate(counts))
         buckets.sort(key=lambda item: item[1], reverse=True)
         limit = max(1, limit)
-        entries: List[Tuple[int, str, int, float]] = []
+        entries: list[tuple[int, str, int, float]] = []
         for idx, count in buckets:
             if count <= 0 and entries:
                 break
@@ -472,7 +472,7 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
         color = QColor.fromHsv(hue, 255, 255)
         return pg.mkBrush(color)
 
-    def _set_heatmap_overlay(self, plot: pg.PlotWidget, message: Optional[str]) -> None:
+    def _set_heatmap_overlay(self, plot: pg.PlotWidget, message: str | None) -> None:
         if pg is None:
             return
         if message:
@@ -559,12 +559,11 @@ class WorkloadDNAPane(QWidget):  # type: ignore[misc]
             return False
         if self._hover_bucket_index == index:
             return True
-        bucket_index, bucket_label, count, share = self._bucket_entries[index]
+        _bucket_index, bucket_label, count, share = self._bucket_entries[index]
         if self._view_mode == self._VIEW_BUCKETS_SORTED:
             rank = index + 1
             tooltip = (
-                f"Rank {rank}: {count} keys ({self._format_share(share)})"
-                f" — bucket {bucket_label}"
+                f"Rank {rank}: {count} keys ({self._format_share(share)}) — bucket {bucket_label}"
             )
         else:
             tooltip = f"{bucket_label} → {count} keys ({self._format_share(share)})"

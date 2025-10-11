@@ -10,9 +10,10 @@ from __future__ import annotations
 import os
 import re
 import tomllib
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any
 
 from .config import AppConfig
 from .config_models import AppConfigSchema
@@ -23,17 +24,17 @@ from .contracts.error import BadInputError
 class FieldSpec:
     """Metadata describing one editable configuration value."""
 
-    path: Tuple[str, ...]
+    path: tuple[str, ...]
     prompt: str
     kind: str
-    choices: Tuple[str, ...] = ()
-    min_value: Optional[float] = None
-    max_value: Optional[float] = None
-    validator: Optional[str] = None
+    choices: tuple[str, ...] = ()
+    min_value: float | None = None
+    max_value: float | None = None
+    validator: str | None = None
     help_text: str = ""
 
 
-CONFIG_FIELDS: Tuple[FieldSpec, ...] = (
+CONFIG_FIELDS: tuple[FieldSpec, ...] = (
     FieldSpec(("adaptive", "start_backend"), "Start backend", "choice", ("chaining", "robinhood")),
     FieldSpec(
         ("adaptive", "initial_buckets"),
@@ -188,13 +189,13 @@ def _validate_value(spec: FieldSpec, value: Any) -> None:
             raise BadInputError(f"{spec.prompt} must be an integer")
         _validate_number_bounds(spec, float(value))
     elif kind == "float":
-        if not isinstance(value, (int, float)):
+        if not isinstance(value, int | float):
             raise BadInputError(f"{spec.prompt} must be numeric")
         _validate_number_bounds(spec, float(value))
     elif kind == "optional_float":
         if value is None:
             return
-        if not isinstance(value, (int, float)):
+        if not isinstance(value, int | float):
             raise BadInputError(f"{spec.prompt} must be numeric or 'none'")
         _validate_number_bounds(spec, float(value))
     elif kind == "choice":
@@ -204,9 +205,10 @@ def _validate_value(spec: FieldSpec, value: Any) -> None:
         if not isinstance(value, bool):
             raise BadInputError(f"{spec.prompt} must be true/false")
 
-    if spec.validator == "power_of_two":
-        if not isinstance(value, int) or value <= 0 or value & (value - 1) != 0:
-            raise BadInputError(f"{spec.prompt} must be a power of two")
+    if spec.validator == "power_of_two" and (
+        not isinstance(value, int) or value <= 0 or value & (value - 1) != 0
+    ):
+        raise BadInputError(f"{spec.prompt} must be a power of two")
 
 
 _BOOL_TRUE = {"y", "yes", "true", "1"}
@@ -285,7 +287,9 @@ def prompt_for_config(
             else (
                 current
                 if isinstance(current, str)
-                else _format_float(current) if isinstance(current, float) else str(current)
+                else _format_float(current)
+                if isinstance(current, float)
+                else str(current)
             )
         )
         if spec.choices:
@@ -328,7 +332,7 @@ def load_config_document(path: Path) -> AppConfig:
     return cfg
 
 
-def resolve_presets_dir(explicit: Optional[str] = None) -> Path:
+def resolve_presets_dir(explicit: str | None = None) -> Path:
     candidate = explicit or os.getenv(DEFAULT_PRESETS_ENV) or str(DEFAULT_PRESETS_DIR)
     path = Path(candidate).expanduser().resolve()
     path.mkdir(parents=True, exist_ok=True)
@@ -345,7 +349,7 @@ def slugify_preset_name(name: str) -> str:
     return slug or "preset"
 
 
-def list_presets(presets_dir: Path) -> List[str]:
+def list_presets(presets_dir: Path) -> list[str]:
     if not presets_dir.exists():
         return []
     entries = []
@@ -377,7 +381,11 @@ def validate_preset_file(path: Path) -> AppConfigSchema:
     try:
         cfg = AppConfig.from_dict(data)
         cfg.validate()
-    except Exception as exc:  # pragma: no cover - rewrap config validation errors
+    except (  # pragma: no cover - rewrap config validation errors
+        BadInputError,
+        ValueError,
+        TypeError,
+    ) as exc:
         raise ValueError(f"Preset validation failed: {exc}") from exc
 
     return AppConfigSchema.from_app_config(cfg)
@@ -412,7 +420,7 @@ def _resolve_preset_path(name: str, presets_dir: Path) -> Path:
     return path
 
 
-def apply_updates_to_config(cfg: AppConfig, updates: Dict[Tuple[str, ...], Any]) -> AppConfig:
+def apply_updates_to_config(cfg: AppConfig, updates: dict[tuple[str, ...], Any]) -> AppConfig:
     clone = clone_config(cfg)
     for path, value in updates.items():
         spec = next((item for item in CONFIG_FIELDS if item.path == path), None)

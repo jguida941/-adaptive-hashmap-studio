@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import math
 
-from adhash.mission_control.widgets import extract_latency_histogram, extract_probe_histogram
+import pytest
+
+try:
+    from adhash.mission_control.widgets import extract_latency_histogram, extract_probe_histogram
+except ImportError as exc:  # pragma: no cover - optional dependency
+    pytestmark = pytest.mark.skip(reason=f"Mission Control widgets unavailable: {exc}")
 
 
 def test_extract_latency_histogram_decumulates_counts() -> None:

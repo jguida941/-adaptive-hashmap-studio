@@ -4,38 +4,110 @@ from __future__ import annotations
 
 import ast
 import logging
+import os
+from collections.abc import Callable, Iterable
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable, Iterable, List, Optional, Tuple
+from typing import Any
 
+from adhash.io.safe_pickle import UnpicklingError
 from adhash.io.snapshot import load_snapshot_any
 from adhash.io.snapshot_header import SnapshotDescriptor, describe_snapshot
 
 from .common import (
+    QDoubleSpinBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    QSlider,
+    Qt,
     QVBoxLayout,
     QWidget,
-    Qt,
-    QSlider,
-    QDoubleSpinBox,
 )
-
 
 logger = logging.getLogger(__name__)
 
 
-def _iter_items(obj: Any) -> Iterable[Tuple[Any, Any]]:
+def _default_trust_roots() -> tuple[Path, ...]:
+    """Return built-in directories that are considered trusted."""
+
+    defaults: list[Path] = []
+    try:
+        project_root = Path(__file__).resolve().parents[4]
+    except IndexError:
+        project_root = Path.cwd()
+    defaults.append(project_root / "snapshots")
+    defaults.append(Path.home() / ".adhash" / "snapshots")
+    normalised: list[Path] = []
+    for entry in defaults:
+        resolved = entry.expanduser().resolve(strict=False)
+        if resolved not in normalised:
+            normalised.append(resolved)
+    return tuple(normalised)
+
+
+def _parse_trust_roots(env_value: str | None) -> tuple[Path, ...]:
+    """Parse and validate trusted snapshot roots from ``env_value``."""
+
+    if not env_value:
+        return _default_trust_roots()
+
+    roots: list[Path] = []
+    for raw in env_value.split(os.pathsep):
+        cleaned = raw.strip()
+        if not cleaned:
+            continue
+        candidate = Path(cleaned).expanduser().resolve()
+        if not candidate.exists() or not candidate.is_dir():
+            raise RuntimeError(f"Invalid ADHASH_SNAPSHOT_TRUST_ROOTS entry: {raw!r}")
+        if candidate not in roots:
+            roots.append(candidate)
+
+    return tuple(roots) if roots else _default_trust_roots()
+
+
+@lru_cache(maxsize=1)
+def _trusted_snapshot_roots() -> tuple[Path, ...]:
+    """Return cached trusted snapshot directories."""
+
+    return _parse_trust_roots(os.getenv("ADHASH_SNAPSHOT_TRUST_ROOTS"))
+
+
+def reset_trusted_roots_cache() -> None:
+    """Clear the cached trusted snapshot directories (used in tests)."""
+
+    _trusted_snapshot_roots.cache_clear()
+
+
+def _resolve_snapshot_path(raw: str) -> Path:
+    """Resolve ``raw`` into a trusted snapshot path."""
+
+    candidate = Path(raw).expanduser()
+    resolved = candidate.resolve(strict=True)
+
+    trusted_roots = _trusted_snapshot_roots()
+    if not trusted_roots:
+        raise PermissionError(
+            "No trusted snapshot directories configured; refusing to load snapshot"
+        )
+
+    for root in trusted_roots:
+        if resolved == root or root in resolved.parents:
+            return resolved
+    raise PermissionError(f"Refusing to load snapshot outside trusted directories: {resolved}")
+
+
+def _iter_items(obj: Any) -> Iterable[tuple[Any, Any]]:
     """Yield key/value pairs from supported snapshot payloads."""
 
     if obj is None:
         return []
-    if hasattr(obj, "items") and callable(getattr(obj, "items")):
+    if hasattr(obj, "items") and callable(obj.items):
         try:
-            iterable = getattr(obj, "items")()  # type: ignore[call-arg]
+            iterable = obj.items()  # type: ignore[call-arg]
         except (AttributeError, TypeError, ValueError) as exc:
             logger.debug("snapshot inspector: payload.items() failed: %s", exc, exc_info=False)
         else:
@@ -56,14 +128,14 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
 
     _MAX_PREVIEW = 200
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:  # type: ignore[override]
+    def __init__(self, parent: QWidget | None = None) -> None:  # type: ignore[override]
         super().__init__(parent)
         self.setObjectName("missionPane")
         self.setProperty("paneKind", "snapshot")
 
-        self._descriptor: Optional[SnapshotDescriptor] = None
+        self._descriptor: SnapshotDescriptor | None = None
         self._payload: Any = None
-        self._preview: List[Tuple[Any, Any]] = []
+        self._preview: list[tuple[Any, Any]] = []
 
         layout = QVBoxLayout(self)  # type: ignore[call-arg]
         layout.setContentsMargins(16, 16, 16, 16)
@@ -74,7 +146,11 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
         layout.addWidget(heading)
 
         path_row = QHBoxLayout()  # type: ignore[call-arg]
-        self.path_edit = QLineEdit("snapshots/demo.pkl.gz")  # type: ignore[call-arg]
+        default_snapshot = "snapshots/demo.pkl.gz"
+        trusted_roots = _trusted_snapshot_roots()
+        if trusted_roots:
+            default_snapshot = str((trusted_roots[0] / "demo.pkl.gz").expanduser())
+        self.path_edit = QLineEdit(default_snapshot)  # type: ignore[call-arg]
         self.path_edit.setObjectName("snapshotPathEdit")
         self.browse_button = QPushButton("Browse…")  # type: ignore[call-arg]
         self.load_button = QPushButton("Load")  # type: ignore[call-arg]
@@ -176,7 +252,12 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
         if QFileDialog is None:
             self._set_status("File dialog unavailable (PyQt missing)", error=True)
             return
-        selected, _ = QFileDialog.getOpenFileName(self, "Select snapshot", "", "Snapshots (*.pkl *.pkl.gz)")  # type: ignore[call-arg]
+        selected, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select snapshot",
+            "",
+            "Snapshots (*.pkl *.pkl.gz)",
+        )  # type: ignore[call-arg]
         if selected:
             self.path_edit.setText(selected)
 
@@ -186,18 +267,31 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
         self.status_label.setText(message)
 
     def _load_snapshot(self) -> None:
-        path = Path(self.path_edit.text().strip()).expanduser()
-        if not path.exists():
-            self._set_status(f"Snapshot not found: {path}", error=True)
+        raw_path = self.path_edit.text().strip()
+        if not raw_path:
+            self._set_status("Enter a snapshot path to inspect.", error=True)
             return
-        descriptor: Optional[SnapshotDescriptor]
+        try:
+            path = _resolve_snapshot_path(raw_path)
+        except FileNotFoundError:
+            self._set_status(f"Snapshot not found: {raw_path}", error=True)
+            return
+        except PermissionError as exc:
+            self._set_status(str(exc), error=True)
+            return
+        except OSError as exc:
+            self._set_status(f"Unable to access snapshot: {exc}", error=True)
+            return
+
+        descriptor: SnapshotDescriptor | None
         try:
             descriptor = describe_snapshot(path)
-        except Exception:
+        except (ValueError, OSError, RuntimeError, EOFError, UnpicklingError) as exc:
+            logger.debug("snapshot inspector: descriptor failed for %s: %s", path, exc)
             descriptor = None
         try:
             payload = load_snapshot_any(str(path))
-        except Exception as exc:  # noqa: BLE001
+        except (ValueError, OSError, RuntimeError, EOFError, UnpicklingError) as exc:
             self._set_status(f"Failed to load snapshot: {exc}", error=True)
             self._descriptor = None
             self._payload = None
@@ -219,7 +313,7 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
         self._refresh_preview()
         self.result_view.setPlainText("")
 
-    def _render_header(self, descriptor: Optional[SnapshotDescriptor], path: Path) -> None:
+    def _render_header(self, descriptor: SnapshotDescriptor | None, path: Path) -> None:
         lines = [
             f"File: {path}",
             f"Size: {path.stat().st_size:,} bytes",
@@ -228,15 +322,13 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
             lines.append("Format: legacy pickle (no versioned header)")
         else:
             header = descriptor.header
-            lines.extend(
-                [
-                    f"Version: {header.version}",
-                    f"Compressed: {'yes' if descriptor.compressed else 'no'}",
-                    f"Payload bytes: {header.payload_len:,}",
-                    f"Checksum length: {header.checksum_len}",
-                    f"Checksum (hex): {descriptor.checksum_hex}",
-                ]
-            )
+            lines.extend([
+                f"Version: {header.version}",
+                f"Compressed: {'yes' if descriptor.compressed else 'no'}",
+                f"Payload bytes: {header.payload_len:,}",
+                f"Checksum length: {header.checksum_len}",
+                f"Checksum (hex): {descriptor.checksum_hex}",
+            ])
         self.header_view.setPlainText("\n".join(lines))
 
     def _render_summary(self, payload: Any) -> None:
@@ -255,14 +347,14 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
                     "snapshot inspector: unable to resolve %s: %s", description, exc, exc_info=False
                 )
                 return
-            except Exception as exc:  # noqa: BLE001
+            except RuntimeError as exc:
                 logger.warning(
-                    "snapshot inspector: unexpected error resolving %s: %s", description, exc
+                    "snapshot inspector: runtime error resolving %s: %s", description, exc
                 )
                 return
             try:
                 lines.append(formatter(value))
-            except Exception as exc:  # noqa: BLE001
+            except (TypeError, ValueError) as exc:
                 logger.warning("snapshot inspector: failed to format %s: %s", description, exc)
 
         if hasattr(payload, "backend_name"):
@@ -271,9 +363,9 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
         if hasattr(payload, "cfg"):
 
             def _cfg() -> Any:
-                return getattr(payload, "cfg")
+                return payload.cfg
 
-            def _format_cfg(cfg: Any) -> List[str]:
+            def _format_cfg(cfg: Any) -> list[str]:
                 return [
                     f"Adaptive start backend: {getattr(cfg, 'start_backend', 'unknown')}",
                     f"Incremental batch: {getattr(cfg, 'incremental_batch', 'unknown')}",
@@ -284,7 +376,7 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
                 cfg = _cfg()
             except (AttributeError, TypeError, ValueError) as exc:
                 logger.debug("snapshot inspector: cfg unavailable: %s", exc, exc_info=False)
-            except Exception as exc:  # noqa: BLE001
+            except RuntimeError as exc:
                 logger.warning("snapshot inspector: unexpected cfg error: %s", exc)
             else:
                 for entry in _format_cfg(cfg):
@@ -332,7 +424,7 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
                 entries.append((key, value))
                 if len(entries) >= min(limit, self._MAX_PREVIEW):
                     break
-        except Exception as exc:  # noqa: BLE001
+        except (TypeError, ValueError, RuntimeError) as exc:
             self.preview_view.setPlainText(f"Failed to iterate entries: {exc}")
             return
         self._preview = entries
@@ -353,7 +445,7 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
         key: Any
         try:
             key = ast.literal_eval(raw)
-        except Exception:
+        except (ValueError, SyntaxError):
             key = raw
 
         lookup = getattr(self._payload, "get", None)
@@ -363,7 +455,7 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
             try:
                 value = lookup(key)
                 found = value is not None
-            except Exception:
+            except (TypeError, ValueError, KeyError):
                 found = False
         if not found:
             for candidate, candidate_value in _iter_items(self._payload):
@@ -378,11 +470,11 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
             text = [f"Key {repr(key)} not found in snapshot"]
         if self.alert_spin is not None and self._descriptor is not None:
             try:
-                load_factor = getattr(self._payload, "load_factor")()
+                load_factor = self._payload.load_factor()
                 warn = self.alert_spin.value() / 100.0
                 if load_factor is not None and load_factor >= warn:
                     text.append(f"⚠ Load factor {load_factor:.3f} exceeds {warn:.3f}")
-            except Exception as exc:
+            except (AttributeError, TypeError, ValueError) as exc:
                 logger.debug(
                     "snapshot inspector: load_factor lookup failed: %s", exc, exc_info=False
                 )

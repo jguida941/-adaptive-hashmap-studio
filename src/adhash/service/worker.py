@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Tuple
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
-if False:  # pragma: no cover - typing only
+if TYPE_CHECKING:  # pragma: no cover - typing only
     from .jobs import JobManager
 
 # Each job target returns (result_payload, artifact_mapping)
-JobCallable = Callable[..., Tuple[Dict[str, Any], Dict[str, str]]]
+JobCallable = Callable[..., tuple[dict[str, Any], dict[str, str]]]
 
 
 class JobWorker:
@@ -18,11 +19,11 @@ class JobWorker:
         self,
         *,
         job_id: str,
-        manager: "JobManager",
+        manager: JobManager,
         description: str,
         target: JobCallable,
-        args: Tuple[Any, ...] = (),
-        kwargs: Dict[str, Any] | None = None,
+        args: tuple[Any, ...] = (),
+        kwargs: dict[str, Any] | None = None,
     ) -> None:
         self._job_id = job_id
         self._manager = manager
@@ -31,10 +32,10 @@ class JobWorker:
         self._args = args
         self._kwargs = kwargs or {}
 
-    def __call__(self) -> Dict[str, Any]:
+    def __call__(self) -> dict[str, Any]:
         return self.run()
 
-    def run(self) -> Dict[str, Any]:
+    def run(self) -> dict[str, Any]:
         self._manager._mark_running(self._job_id)
         self._manager._append_log(self._job_id, f"Starting {self._description}", "INFO")
         try:

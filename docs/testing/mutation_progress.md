@@ -13,6 +13,7 @@ This log captures the ongoing work to reduce `mutmut` survivors and timeouts acr
   - Exercises `history_buffer` fallback, event limit clamping, `OPTIONS` CORS responses, and static asset sandboxing to shake out long-standing survivors.
 - **Metrics server unit harness** (`tests/test_metrics_server_unit.py`): Creates stub HTTPServer/handler scaffolding so `_client_supports_gzip`, `_write_body`, `_limit`, and `_authorized` logic can be mutation-tested without binding sockets.
   - Latest additions cover summary fallbacks, comparison payload responses, and history/limit edge cases to kill surviving mutants in `start_metrics_server`.
+- **Regression guard** (`pytest --ignore=mutants --ignore=worktrees`): Full suite passes after the cleanup fixes, confirming the baseline before the next `mutmut run`.
 
 ## Current Hotspots
 Source: artifact `18321148363` (`.mutmut-ci/mutmut_results.txt`).
