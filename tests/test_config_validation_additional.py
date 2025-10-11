@@ -52,15 +52,17 @@ def test_watchdog_policy_rejects_out_of_range_values(updates: dict[str, Any], me
 
 
 def test_app_config_from_dict_coerces_strings() -> None:
-    cfg = AppConfig.from_dict({
-        "adaptive": {"initial_buckets": 128},
-        "watchdog": {
-            "enabled": " off ",
-            "load_factor_warn": "0.7",
-            "avg_probe_warn": "none",
-            "tombstone_ratio_warn": "disabled",
-        },
-    })
+    cfg = AppConfig.from_dict(
+        {
+            "adaptive": {"initial_buckets": 128},
+            "watchdog": {
+                "enabled": " off ",
+                "load_factor_warn": "0.7",
+                "avg_probe_warn": "none",
+                "tombstone_ratio_warn": "disabled",
+            },
+        }
+    )
     assert cfg.adaptive.initial_buckets == 128
     assert cfg.watchdog.enabled is False
     assert cfg.watchdog.load_factor_warn == pytest.approx(0.7)
@@ -90,12 +92,14 @@ def test_app_config_from_dict_validates_watchdog_payloads() -> None:
 
 
 def test_app_config_from_dict_truthy_enabled_and_none_values() -> None:
-    cfg = AppConfig.from_dict({
-        "watchdog": {
-            "enabled": "YES",
-            "avg_probe_warn": None,
+    cfg = AppConfig.from_dict(
+        {
+            "watchdog": {
+                "enabled": "YES",
+                "avg_probe_warn": None,
+            }
         }
-    })
+    )
     assert cfg.watchdog.enabled is True
     assert cfg.watchdog.avg_probe_warn is None
 

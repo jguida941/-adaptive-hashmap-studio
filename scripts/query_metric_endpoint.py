@@ -23,9 +23,9 @@ def _validated_url(url: str) -> str:
 
 def fetch_json(url: str) -> dict[str, Any]:
     safe_url = _validated_url(url)
-    request = Request(safe_url, headers={"Accept": "application/json"})  # noqa: S310
+    request = Request(safe_url, headers={"Accept": "application/json"})  # noqa: S310  # nosec B310
     # URL scheme and host are validated in _validated_url.
-    with urlopen(request, timeout=2.0) as response:  # noqa: S310
+    with urlopen(request, timeout=2.0) as response:  # noqa: S310  # nosec B310
         payload = response.read()
     return json.loads(payload.decode("utf-8"))
 

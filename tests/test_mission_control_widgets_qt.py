@@ -33,10 +33,12 @@ else:
     def test_update_events_renders_latest_entries(_qt_app: QApplication) -> None:
         pane = widgets.MetricsPane()
 
-        pane.update_events([
-            {"type": "start", "backend": "chaining", "t": 0.0},
-            {"type": "complete", "backend": "chaining", "t": 12.3456},
-        ])
+        pane.update_events(
+            [
+                {"type": "start", "backend": "chaining", "t": 0.0},
+                {"type": "complete", "backend": "chaining", "t": 12.3456},
+            ]
+        )
 
         rendered = pane.events_view.toPlainText().splitlines()
 
@@ -217,16 +219,18 @@ else:
         report_path = tmp_path / "report.md"
         spec_path = tmp_path / "suite.toml"
         spec_path.write_text(
-            "\n".join([
-                "[batch]",
-                'hashmap_cli = "-m hashmap_cli"',
-                f'report = "{report_path.name}"',
-                "",
-                "[[batch.jobs]]",
-                'name = "demo"',
-                'command = "run-csv"',
-                f'csv = "{csv_path.as_posix()}"',
-            ]),
+            "\n".join(
+                [
+                    "[batch]",
+                    'hashmap_cli = "-m hashmap_cli"',
+                    f'report = "{report_path.name}"',
+                    "",
+                    "[[batch.jobs]]",
+                    'name = "demo"',
+                    'command = "run-csv"',
+                    f'csv = "{csv_path.as_posix()}"',
+                ]
+            ),
             encoding="utf-8",
         )
 
@@ -261,21 +265,23 @@ else:
 
         trace_path = tmp_path / "trace.json"
         trace_path.write_text(
-            json.dumps({
-                "trace": {
-                    "backend": "robinhood",
-                    "operation": "get",
-                    "key_repr": "'K1'",
-                    "found": True,
-                    "terminal": "match",
-                    "path": [
-                        {"step": 0, "slot": 3, "state": "occupied", "matches": True},
-                    ],
-                },
-                "snapshot": "snapshot.pkl",
-                "seed_entries": ["A=1"],
-                "export_json": str(trace_path),
-            }),
+            json.dumps(
+                {
+                    "trace": {
+                        "backend": "robinhood",
+                        "operation": "get",
+                        "key_repr": "'K1'",
+                        "found": True,
+                        "terminal": "match",
+                        "path": [
+                            {"step": 0, "slot": 3, "state": "occupied", "matches": True},
+                        ],
+                    },
+                    "snapshot": "snapshot.pkl",
+                    "seed_entries": ["A=1"],
+                    "export_json": str(trace_path),
+                }
+            ),
             encoding="utf-8",
         )
 

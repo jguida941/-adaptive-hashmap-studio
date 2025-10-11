@@ -222,6 +222,6 @@ def test_register_subcommands_handlers_capture_cli_context() -> None:
         original = handler.__wrapped_fn__  # type: ignore[attr-defined]
         closure = original.__closure__
         assert closure, f"{name} handler should close over CLIContext"
-        assert any(cell.cell_contents is ctx for cell in closure), (
-            f"{name} handler missing ctx closure"
-        )
+        assert any(
+            cell.cell_contents is ctx for cell in closure
+        ), f"{name} handler missing ctx closure"

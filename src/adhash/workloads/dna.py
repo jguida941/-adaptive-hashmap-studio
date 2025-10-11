@@ -322,11 +322,13 @@ def _format_hot_keys(
     formatted: list[dict[str, float | str]] = []
     for key, count in most_common:
         share = count / total if total else 0.0
-        formatted.append({
-            "key": key,
-            "count": float(count),
-            "share": share,
-        })
+        formatted.append(
+            {
+                "key": key,
+                "count": float(count),
+                "share": share,
+            }
+        )
     return formatted
 
 

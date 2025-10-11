@@ -60,14 +60,16 @@ def trace_robinhood_get(map_obj: RobinHoodMap, key: Any) -> ProbeTrace:
             ideal = map_obj._idx(hash(slot.key))  # pylint: disable=protected-access
             distance = map_obj._probe_distance(ideal, idx)  # pylint: disable=protected-access
             matches = slot.key == key
-            step.update({
-                "state": "occupied",
-                "key_repr": repr(slot.key),
-                "value_repr": repr(slot.value),
-                "ideal_slot": ideal,
-                "probe_distance": distance,
-                "matches": matches,
-            })
+            step.update(
+                {
+                    "state": "occupied",
+                    "key_repr": repr(slot.key),
+                    "value_repr": repr(slot.value),
+                    "ideal_slot": ideal,
+                    "probe_distance": distance,
+                    "matches": matches,
+                }
+            )
             path.append(step)
             if matches:
                 terminal = "match"
@@ -161,14 +163,16 @@ def trace_robinhood_put(map_obj: RobinHoodMap, key: Any, value: Any) -> ProbeTra
             ideal = hash(slot.key) & mask
             slot_dist = _probe_distance_for_cap(cap, ideal, idx)
             matches = slot.key == key
-            step.update({
-                "state": "occupied",
-                "occupant_key": repr(slot.key),
-                "occupant_value": repr(slot.value),
-                "ideal_slot": ideal,
-                "probe_distance": slot_dist,
-                "matches": matches,
-            })
+            step.update(
+                {
+                    "state": "occupied",
+                    "occupant_key": repr(slot.key),
+                    "occupant_value": repr(slot.value),
+                    "ideal_slot": ideal,
+                    "probe_distance": slot_dist,
+                    "matches": matches,
+                }
+            )
             if matches:
                 step["action"] = "update"
                 path.append(step)
@@ -209,12 +213,14 @@ def trace_chaining_get(map_obj: TwoLevelChainingMap, key: Any) -> ProbeTrace:
     found = False
     for pos, entry in enumerate(group):
         matches = entry.key == key
-        entries.append({
-            "position": pos,
-            "key_repr": repr(entry.key),
-            "value_repr": repr(entry.value),
-            "matches": matches,
-        })
+        entries.append(
+            {
+                "position": pos,
+                "key_repr": repr(entry.key),
+                "value_repr": repr(entry.value),
+                "matches": matches,
+            }
+        )
         if matches:
             found = True
     return {
@@ -251,11 +257,13 @@ def trace_probe_put(
         return trace_robinhood_put(map_obj, key, value)
     if isinstance(map_obj, TwoLevelChainingMap):
         base = trace_chaining_get(map_obj, key)
-        base.update({
-            "operation": "put",
-            "value_repr": _json_friendly(value),
-            "terminal": "update" if base.get("found") else "append",
-        })
+        base.update(
+            {
+                "operation": "put",
+                "value_repr": _json_friendly(value),
+                "terminal": "update" if base.get("found") else "append",
+            }
+        )
         return base
     if isinstance(map_obj, HybridAdaptiveHashMap):
         backend = map_obj.backend()

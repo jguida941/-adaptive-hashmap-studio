@@ -198,16 +198,18 @@ def test_collect_key_heatmap_tracks_counts() -> None:
 def test_history_csv_endpoint_returns_rows() -> None:
     metrics = Metrics()
     metrics.history_buffer = deque(maxlen=4)
-    metrics.history_buffer.append({
-        "t": 0.0,
-        "ops": 0,
-        "ops_per_second_ema": 100.0,
-        "load_factor": 0.1,
-        "avg_probe_estimate": 1.2,
-        "tombstone_ratio": 0.0,
-        "backend": "chaining",
-        "state": "running",
-    })
+    metrics.history_buffer.append(
+        {
+            "t": 0.0,
+            "ops": 0,
+            "ops_per_second_ema": 100.0,
+            "load_factor": 0.1,
+            "avg_probe_estimate": 1.2,
+            "tombstone_ratio": 0.0,
+            "backend": "chaining",
+            "state": "running",
+        }
+    )
     metrics.latest_tick = metrics.history_buffer[-1]
 
     try:
@@ -256,7 +258,9 @@ def test_dashboard_requires_token_and_embeds_meta(monkeypatch: pytest.MonkeyPatc
         assert unauthorized_payload["error"] == "unauthorized"
         assert "generated_at" in unauthorized_payload
 
-        with urlopen(f"http://127.0.0.1:{port}/?token=secret", timeout=0.5) as response:  # noqa: S310
+        with urlopen(
+            f"http://127.0.0.1:{port}/?token=secret", timeout=0.5
+        ) as response:  # noqa: S310
             html_body = response.read().decode("utf-8")
         assert '<meta name="adhash-token" content="secret"/>' in html_body
 
@@ -282,12 +286,16 @@ def test_dashboard_serves_static_assets() -> None:
         port = server.server_address[1]
         wait_for_server(port)
 
-        with urlopen(f"http://127.0.0.1:{port}/static/dashboard.css", timeout=0.5) as response:  # noqa: S310
+        with urlopen(
+            f"http://127.0.0.1:{port}/static/dashboard.css", timeout=0.5
+        ) as response:  # noqa: S310
             assert response.status == 200
             css = response.read().decode("utf-8")
         assert ".charts" in css
 
-        with urlopen(f"http://127.0.0.1:{port}/static/dashboard.js", timeout=0.5) as response:  # noqa: S310
+        with urlopen(
+            f"http://127.0.0.1:{port}/static/dashboard.js", timeout=0.5
+        ) as response:  # noqa: S310
             assert response.status == 200
             js = response.read().decode("utf-8")
         assert "function poll(" in js

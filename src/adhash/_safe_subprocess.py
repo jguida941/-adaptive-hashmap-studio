@@ -58,14 +58,16 @@ def safe_run(
     cmd_repr = _format_command(command)
     logger.debug("Executing command: %s (timeout=%s)", cmd_repr, effective_timeout)
     try:
-        completed = subprocess.run(  # noqa: S603  # nosec B603 - command validated via _validate_args
-            command,
-            cwd=cwd,
-            env=_merge_env(env),
-            capture_output=capture_output,
-            text=text,
-            timeout=effective_timeout,
-            check=check,
+        completed = (
+            subprocess.run(  # noqa: S603  # nosec B603 - command validated via _validate_args
+                command,
+                cwd=cwd,
+                env=_merge_env(env),
+                capture_output=capture_output,
+                text=text,
+                timeout=effective_timeout,
+                check=check,
+            )
         )
         if completed.returncode != 0:
             logger.warning(

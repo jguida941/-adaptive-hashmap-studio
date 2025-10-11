@@ -283,19 +283,23 @@ class BatchRunner:
     def _build_command(self, job: JobSpec) -> list[str]:
         cli = [str(self.python), *self.spec.hashmap_cli]
         if job.command == "profile":
-            cli.extend([
-                "profile",
-                "--csv",
-                str(job.csv),
-            ])
+            cli.extend(
+                [
+                    "profile",
+                    "--csv",
+                    str(job.csv),
+                ]
+            )
         elif job.command == "run-csv":
-            cli.extend([
-                "--mode",
-                job.mode,
-                "run-csv",
-                "--csv",
-                str(job.csv),
-            ])
+            cli.extend(
+                [
+                    "--mode",
+                    job.mode,
+                    "run-csv",
+                    "--csv",
+                    str(job.csv),
+                ]
+            )
             if job.json_summary:
                 job.json_summary.parent.mkdir(parents=True, exist_ok=True)
                 cli.extend(["--json-summary-out", str(job.json_summary)])

@@ -322,13 +322,15 @@ class SnapshotInspectorPane(QWidget):  # type: ignore[misc]
             lines.append("Format: legacy pickle (no versioned header)")
         else:
             header = descriptor.header
-            lines.extend([
-                f"Version: {header.version}",
-                f"Compressed: {'yes' if descriptor.compressed else 'no'}",
-                f"Payload bytes: {header.payload_len:,}",
-                f"Checksum length: {header.checksum_len}",
-                f"Checksum (hex): {descriptor.checksum_hex}",
-            ])
+            lines.extend(
+                [
+                    f"Version: {header.version}",
+                    f"Compressed: {'yes' if descriptor.compressed else 'no'}",
+                    f"Payload bytes: {header.payload_len:,}",
+                    f"Checksum length: {header.checksum_len}",
+                    f"Checksum (hex): {descriptor.checksum_hex}",
+                ]
+            )
         self.header_view.setPlainText("\n".join(lines))
 
     def _render_summary(self, payload: Any) -> None:

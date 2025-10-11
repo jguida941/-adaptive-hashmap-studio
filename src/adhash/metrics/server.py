@@ -150,11 +150,13 @@ def start_metrics_server(
             return [latest] if isinstance(latest, dict) else []
 
         def _serve_health(self) -> None:
-            self._write_json({
-                "schema": HEALTH_SCHEMA,
-                "generated_at": time.time(),
-                "status": "ok",
-            })
+            self._write_json(
+                {
+                    "schema": HEALTH_SCHEMA,
+                    "generated_at": time.time(),
+                    "status": "ok",
+                }
+            )
 
         def _serve_metrics_prometheus(self) -> None:
             body = metrics.render().encode("utf-8")
@@ -202,38 +204,44 @@ def start_metrics_server(
                 except TypeError:
                     events_source = []
             events = events_source[-limit:]
-            self._write_json({
-                "schema": EVENTS_SCHEMA,
-                "generated_at": time.time(),
-                "events": events,
-            })
+            self._write_json(
+                {
+                    "schema": EVENTS_SCHEMA,
+                    "generated_at": time.time(),
+                    "events": events,
+                }
+            )
 
         def _serve_metrics_history_json(self, parsed: ParseResult) -> None:
             limit = self._limit(parsed, 100)
             data = self._history_rows(limit)
-            self._write_json({
-                "schema": HISTORY_SCHEMA,
-                "generated_at": time.time(),
-                "items": data,
-            })
+            self._write_json(
+                {
+                    "schema": HISTORY_SCHEMA,
+                    "generated_at": time.time(),
+                    "items": data,
+                }
+            )
 
         def _serve_metrics_history_csv(self, parsed: ParseResult) -> None:
             limit = self._limit(parsed, default=1200)
             rows = self._history_rows(limit)
             output = io.StringIO()
             writer = csv.writer(output)
-            writer.writerow([
-                "t",
-                "ops",
-                "ops_per_second_ema",
-                "ops_per_second_instant",
-                "load_factor",
-                "avg_probe_estimate",
-                "tombstone_ratio",
-                "backend",
-                "state",
-                "events",
-            ])
+            writer.writerow(
+                [
+                    "t",
+                    "ops",
+                    "ops_per_second_ema",
+                    "ops_per_second_instant",
+                    "load_factor",
+                    "avg_probe_estimate",
+                    "tombstone_ratio",
+                    "backend",
+                    "state",
+                    "events",
+                ]
+            )
             for tick in rows:
                 events_payload = tick.get("events")
                 event_summary = ""
@@ -246,18 +254,20 @@ def start_metrics_server(
                         )
                         for evt in events_payload
                     )
-                writer.writerow([
-                    tick.get("t", ""),
-                    tick.get("ops", ""),
-                    tick.get("ops_per_second_ema", ""),
-                    tick.get("ops_per_second_instant", ""),
-                    tick.get("load_factor", ""),
-                    tick.get("avg_probe_estimate", ""),
-                    tick.get("tombstone_ratio", ""),
-                    tick.get("backend", ""),
-                    tick.get("state", ""),
-                    event_summary,
-                ])
+                writer.writerow(
+                    [
+                        tick.get("t", ""),
+                        tick.get("ops", ""),
+                        tick.get("ops_per_second_ema", ""),
+                        tick.get("ops_per_second_instant", ""),
+                        tick.get("load_factor", ""),
+                        tick.get("avg_probe_estimate", ""),
+                        tick.get("tombstone_ratio", ""),
+                        tick.get("backend", ""),
+                        tick.get("state", ""),
+                        event_summary,
+                    ]
+                )
             body = output.getvalue().encode("utf-8")
             self.send_response(200)
             self._set_common_headers(content_type="text/csv; charset=utf-8", length=len(body))

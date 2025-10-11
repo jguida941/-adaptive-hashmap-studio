@@ -137,14 +137,16 @@ def test_profile_requires_csv(cli_parser: CLIParserFactory) -> None:
 
 
 def test_profile_then_invokes_main(cli_parser: CLIParserFactory) -> None:
-    handler, args, recorder, ctx = cli_parser([
-        "profile",
-        "--csv",
-        "work.csv",
-        "--then",
-        "get",
-        "demo-key",
-    ])
+    handler, args, recorder, ctx = cli_parser(
+        [
+            "profile",
+            "--csv",
+            "work.csv",
+            "--then",
+            "get",
+            "demo-key",
+        ]
+    )
     invoked: list[list[str]] = []
 
     def fake_invoke(argv: list[str]) -> int:
@@ -165,11 +167,13 @@ def test_profile_then_invokes_main(cli_parser: CLIParserFactory) -> None:
 def test_run_csv_handler_uses_env_port(
     monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory, tmp_path: Path
 ) -> None:
-    handler, args, recorder, _ = cli_parser([
-        "run-csv",
-        "--csv",
-        str(tmp_path / "input.csv"),
-    ])
+    handler, args, recorder, _ = cli_parser(
+        [
+            "run-csv",
+            "--csv",
+            str(tmp_path / "input.csv"),
+        ]
+    )
     monkeypatch.setenv("ADHASH_METRICS_PORT", "auto")
     handler(args)
     call = recorder.run_csv_calls[-1]
@@ -178,13 +182,15 @@ def test_run_csv_handler_uses_env_port(
 
 
 def test_run_csv_handler_invalid_port(cli_parser: CLIParserFactory) -> None:
-    handler, args, _, _ = cli_parser([
-        "run-csv",
-        "--csv",
-        "work.csv",
-        "--metrics-port",
-        "invalid",
-    ])
+    handler, args, _, _ = cli_parser(
+        [
+            "run-csv",
+            "--csv",
+            "work.csv",
+            "--metrics-port",
+            "invalid",
+        ]
+    )
     with pytest.raises(BadInputError):
         handler(args)
 
@@ -195,12 +201,14 @@ def test_config_edit_lists_presets(
     preset_dir = tmp_path / "presets"
     preset_dir.mkdir()
     (preset_dir / "demo.toml").write_text('mode = "adaptive"\n', encoding="utf-8")
-    handler, args, recorder, _ = cli_parser([
-        "config-edit",
-        "--list-presets",
-        "--presets-dir",
-        str(preset_dir),
-    ])
+    handler, args, recorder, _ = cli_parser(
+        [
+            "config-edit",
+            "--list-presets",
+            "--presets-dir",
+            str(preset_dir),
+        ]
+    )
     handler(args)
     assert recorder.run_config_editor_calls == []
     payload = recorder.successes[-1]
@@ -210,11 +218,13 @@ def test_config_edit_lists_presets(
 
 def test_config_wizard_invokes_runner(cli_parser: CLIParserFactory, tmp_path: Path) -> None:
     outfile = tmp_path / "generated.toml"
-    handler, args, recorder, _ = cli_parser([
-        "config-wizard",
-        "--outfile",
-        str(outfile),
-    ])
+    handler, args, recorder, _ = cli_parser(
+        [
+            "config-wizard",
+            "--outfile",
+            str(outfile),
+        ]
+    )
     handler(args)
     assert outfile.exists()
     assert recorder.run_config_wizard_calls == [str(outfile)]
@@ -223,27 +233,29 @@ def test_config_wizard_invokes_runner(cli_parser: CLIParserFactory, tmp_path: Pa
 
 def test_generate_csv_handler_invokes_context(cli_parser: CLIParserFactory, tmp_path: Path) -> None:
     outfile = tmp_path / "out.csv"
-    handler, args, recorder, ctx = cli_parser([
-        "generate-csv",
-        "--outfile",
-        str(outfile),
-        "--ops",
-        "10",
-        "--read-ratio",
-        "0.7",
-        "--key-skew",
-        "0.15",
-        "--key-space",
-        "250",
-        "--seed",
-        "123",
-        "--del-ratio",
-        "0.35",
-        "--adversarial-ratio",
-        "0.05",
-        "--adversarial-lowbits",
-        "7",
-    ])
+    handler, args, recorder, ctx = cli_parser(
+        [
+            "generate-csv",
+            "--outfile",
+            str(outfile),
+            "--ops",
+            "10",
+            "--read-ratio",
+            "0.7",
+            "--key-skew",
+            "0.15",
+            "--key-space",
+            "250",
+            "--seed",
+            "123",
+            "--del-ratio",
+            "0.35",
+            "--adversarial-ratio",
+            "0.05",
+            "--adversarial-lowbits",
+            "7",
+        ]
+    )
     captured: dict[str, Any] = {}
 
     def fake_generate(
@@ -258,17 +270,19 @@ def test_generate_csv_handler_invokes_context(cli_parser: CLIParserFactory, tmp_
         adversarial_ratio: float,
         adversarial_lowbits: int,
     ) -> None:
-        captured.update({
-            "outfile": outfile_arg,
-            "ops": ops,
-            "read_ratio": read_ratio,
-            "key_skew": key_skew,
-            "key_space": key_space,
-            "seed": seed,
-            "del_ratio": del_ratio_within_writes,
-            "adversarial_ratio": adversarial_ratio,
-            "adversarial_lowbits": adversarial_lowbits,
-        })
+        captured.update(
+            {
+                "outfile": outfile_arg,
+                "ops": ops,
+                "read_ratio": read_ratio,
+                "key_skew": key_skew,
+                "key_space": key_space,
+                "seed": seed,
+                "del_ratio": del_ratio_within_writes,
+                "adversarial_ratio": adversarial_ratio,
+                "adversarial_lowbits": adversarial_lowbits,
+            }
+        )
 
     object.__setattr__(ctx, "generate_csv", fake_generate)
 
@@ -296,11 +310,13 @@ def test_generate_csv_handler_invokes_context(cli_parser: CLIParserFactory, tmp_
 
 
 def test_generate_csv_handler_wraps_oserror(cli_parser: CLIParserFactory, tmp_path: Path) -> None:
-    handler, args, recorder, ctx = cli_parser([
-        "generate-csv",
-        "--outfile",
-        str(tmp_path / "error.csv"),
-    ])
+    handler, args, recorder, ctx = cli_parser(
+        [
+            "generate-csv",
+            "--outfile",
+            str(tmp_path / "error.csv"),
+        ]
+    )
 
     def boom(*_args: Any, **_kwargs: Any) -> None:
         raise OSError("disk full")
@@ -318,16 +334,18 @@ def test_ab_compare_handler_respects_no_artifacts(
 ) -> None:
     csv_path = tmp_path / "work.csv"
     csv_path.write_text("op,key,value\nput,K,1\n", encoding="utf-8")
-    handler, args, recorder, _ = cli_parser([
-        "ab-compare",
-        "--csv",
-        str(csv_path),
-        "--baseline-label",
-        "base",
-        "--candidate-label",
-        "cand",
-        "--no-artifacts",
-    ])
+    handler, args, recorder, _ = cli_parser(
+        [
+            "ab-compare",
+            "--csv",
+            str(csv_path),
+            "--baseline-label",
+            "base",
+            "--candidate-label",
+            "cand",
+            "--no-artifacts",
+        ]
+    )
     handler(args)
     call = recorder.run_ab_compare_calls[-1]
     assert call["kwargs"]["baseline_label"] == "base"
@@ -336,13 +354,15 @@ def test_ab_compare_handler_respects_no_artifacts(
 
 
 def test_probe_visualize_put_requires_value(cli_parser: CLIParserFactory) -> None:
-    handler, args, _, _ = cli_parser([
-        "probe-visualize",
-        "--operation",
-        "put",
-        "--key",
-        "K1",
-    ])
+    handler, args, _, _ = cli_parser(
+        [
+            "probe-visualize",
+            "--operation",
+            "put",
+            "--key",
+            "K1",
+        ]
+    )
     with pytest.raises(BadInputError):
         handler(args)
 
@@ -350,11 +370,13 @@ def test_probe_visualize_put_requires_value(cli_parser: CLIParserFactory) -> Non
 def test_run_csv_handler_metrics_host_env(
     monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory
 ) -> None:
-    handler, args, recorder, _ = cli_parser([
-        "run-csv",
-        "--csv",
-        "work.csv",
-    ])
+    handler, args, recorder, _ = cli_parser(
+        [
+            "run-csv",
+            "--csv",
+            "work.csv",
+        ]
+    )
     monkeypatch.setenv("ADHASH_METRICS_HOST", "0.0.0.0")  # noqa: S104
     monkeypatch.setenv("ADHASH_METRICS_PORT", "8088")
     handler(args)
@@ -366,11 +388,13 @@ def test_run_csv_handler_metrics_host_env(
 def test_run_csv_handler_env_port_invalid(
     monkeypatch: pytest.MonkeyPatch, cli_parser: CLIParserFactory
 ) -> None:
-    handler, args, _, _ = cli_parser([
-        "run-csv",
-        "--csv",
-        "work.csv",
-    ])
+    handler, args, _, _ = cli_parser(
+        [
+            "run-csv",
+            "--csv",
+            "work.csv",
+        ]
+    )
     monkeypatch.setenv("ADHASH_METRICS_PORT", "invalid")
     with pytest.raises(BadInputError, match="ADHASH_METRICS_PORT"):
         handler(args)
@@ -423,11 +447,13 @@ def test_serve_handler_with_compare_and_source(
         _callback: Callable[[dict[str, Any]], None],
         poll_interval: float,
     ) -> None:
-        stream_calls.append({
-            "path": path,
-            "follow": follow,
-            "poll_interval": poll_interval,
-        })
+        stream_calls.append(
+            {
+                "path": path,
+                "follow": follow,
+                "poll_interval": poll_interval,
+            }
+        )
 
     def fake_sleep(_: float) -> None:
         raise KeyboardInterrupt
@@ -438,20 +464,22 @@ def test_serve_handler_with_compare_and_source(
     monkeypatch.setattr("adhash.cli.commands.stream_metrics_file", fake_stream)
     monkeypatch.setattr("adhash.cli.commands.time.sleep", fake_sleep)
 
-    handler, args, _, _ctx = cli_parser([
-        "serve",
-        "--host",
-        "0.0.0.0",  # noqa: S104
-        "--port",
-        "auto",
-        "--source",
-        str(source_path),
-        "--follow",
-        "--compare",
-        str(compare_path),
-        "--poll-interval",
-        "0.25",
-    ])
+    handler, args, _, _ctx = cli_parser(
+        [
+            "serve",
+            "--host",
+            "0.0.0.0",  # noqa: S104
+            "--port",
+            "auto",
+            "--source",
+            str(source_path),
+            "--follow",
+            "--compare",
+            str(compare_path),
+            "--poll-interval",
+            "0.25",
+        ]
+    )
 
     rc = handler(args)
     assert rc == 0
@@ -465,11 +493,13 @@ def test_serve_handler_with_compare_and_source(
 
 
 def test_serve_handler_compare_missing(cli_parser: CLIParserFactory, tmp_path: Path) -> None:
-    handler, args, _, _ = cli_parser([
-        "serve",
-        "--compare",
-        str(tmp_path / "missing.json"),
-    ])
+    handler, args, _, _ = cli_parser(
+        [
+            "serve",
+            "--compare",
+            str(tmp_path / "missing.json"),
+        ]
+    )
     with pytest.raises(IOErrorEnvelope, match="Comparison file not found"):
         handler(args)
 
@@ -477,11 +507,13 @@ def test_serve_handler_compare_missing(cli_parser: CLIParserFactory, tmp_path: P
 def test_serve_handler_invalid_compare_json(cli_parser: CLIParserFactory, tmp_path: Path) -> None:
     bad_compare = tmp_path / "bad.json"
     bad_compare.write_text("{not json}", encoding="utf-8")
-    handler, args, _, _ = cli_parser([
-        "serve",
-        "--compare",
-        str(bad_compare),
-    ])
+    handler, args, _, _ = cli_parser(
+        [
+            "serve",
+            "--compare",
+            str(bad_compare),
+        ]
+    )
     with pytest.raises(IOErrorEnvelope, match="Failed to parse comparison JSON"):
         handler(args)
 
@@ -491,20 +523,22 @@ def test_config_edit_apply_and_save(
 ) -> None:
     preset_dir = tmp_path / "presets"
     preset_dir.mkdir()
-    handler, args, recorder, _ = cli_parser([
-        "config-edit",
-        "--infile",
-        str(tmp_path / "in.toml"),
-        "--outfile",
-        str(tmp_path / "out.toml"),
-        "--apply-preset",
-        "baseline",
-        "--save-preset",
-        "new-preset",
-        "--presets-dir",
-        str(preset_dir),
-        "--force",
-    ])
+    handler, args, recorder, _ = cli_parser(
+        [
+            "config-edit",
+            "--infile",
+            str(tmp_path / "in.toml"),
+            "--outfile",
+            str(tmp_path / "out.toml"),
+            "--apply-preset",
+            "baseline",
+            "--save-preset",
+            "new-preset",
+            "--presets-dir",
+            str(preset_dir),
+            "--force",
+        ]
+    )
     handler(args)
     call = recorder.run_config_editor_calls[-1]
     assert call["infile"] == str(tmp_path / "in.toml")
@@ -574,14 +608,16 @@ def test_compact_snapshot_uses_robinhood_class(
         saved["tombstones"] = map_obj.tombstone_ratio()
 
     monkeypatch.setattr("adhash.cli.commands.atomic_map_save", fake_atomic_save)
-    handler, args, recorder, ctx = cli_parser([
-        "compact-snapshot",
-        "--in",
-        str(input_path),
-        "--out",
-        str(output_path),
-        "--compress",
-    ])
+    handler, args, recorder, ctx = cli_parser(
+        [
+            "compact-snapshot",
+            "--in",
+            str(input_path),
+            "--out",
+            str(output_path),
+            "--compress",
+        ]
+    )
     object.__setattr__(ctx, "robinhood_cls", FakeRobinHood)
     rc = handler(args)
     assert rc == 0

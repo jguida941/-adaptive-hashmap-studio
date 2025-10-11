@@ -276,11 +276,13 @@ def test_write_body_respects_defaults_and_writes_payload(handler_info: dict[str,
         def _set_common_headers(
             self, *, content_type: str, length: int, gzip_enabled: bool = False
         ) -> None:
-            self.header_args.append({
-                "content_type": content_type,
-                "length": length,
-                "gzip": gzip_enabled,
-            })
+            self.header_args.append(
+                {
+                    "content_type": content_type,
+                    "length": length,
+                    "gzip": gzip_enabled,
+                }
+            )
 
         def end_headers(self) -> None:
             self.end_calls += 1
@@ -319,7 +321,9 @@ def test_events_payload_schema(handler_with_state: dict[str, Any]) -> None:
             captured["payload"] = payload
             captured["status"] = status
 
-        def _limit(self, _parsed: Any, _default: int, *, clamp: int | None = None) -> int:  # noqa: ARG002
+        def _limit(
+            self, _parsed: Any, _default: int, *, clamp: int | None = None
+        ) -> int:  # noqa: ARG002
             del clamp
             return 1
 

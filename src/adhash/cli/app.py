@@ -1037,22 +1037,24 @@ def run_csv(
         )
         summary["loop_latency_median_ms"] = loop_median_ms
 
-        run_result.update({
-            "status": "completed",
-            "elapsed_seconds": elapsed,
-            "total_ops": int(metrics.ops_total),
-            "ops_per_second": summary["ops_per_second"],
-            "final_backend": metrics.backend_name,
-            "migrations_triggered": int(metrics.migrations_total),
-            "compactions_triggered": int(metrics.compactions_total),
-            "alerts": metrics.active_alerts,
-            "events": list(events),
-            "latency_histogram_preset": latency_hist_preset,
-            "latency_loop_ms": summary["latency_loop_ms"],
-            "implied_latency_ms": implied_latency_ms,
-            "loop_latency_median_ms": loop_median_ms,
-            "summary": summary,
-        })
+        run_result.update(
+            {
+                "status": "completed",
+                "elapsed_seconds": elapsed,
+                "total_ops": int(metrics.ops_total),
+                "ops_per_second": summary["ops_per_second"],
+                "final_backend": metrics.backend_name,
+                "migrations_triggered": int(metrics.migrations_total),
+                "compactions_triggered": int(metrics.compactions_total),
+                "alerts": metrics.active_alerts,
+                "events": list(events),
+                "latency_histogram_preset": latency_hist_preset,
+                "latency_loop_ms": summary["latency_loop_ms"],
+                "implied_latency_ms": implied_latency_ms,
+                "loop_latency_median_ms": loop_median_ms,
+                "summary": summary,
+            }
+        )
 
         if metrics_path is not None:
             run_result["metrics_file"] = str(metrics_path)

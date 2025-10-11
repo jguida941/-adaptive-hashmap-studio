@@ -287,9 +287,7 @@ def prompt_for_config(
             else (
                 current
                 if isinstance(current, str)
-                else _format_float(current)
-                if isinstance(current, float)
-                else str(current)
+                else _format_float(current) if isinstance(current, float) else str(current)
             )
         )
         if spec.choices:

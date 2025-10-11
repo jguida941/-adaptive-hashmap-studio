@@ -772,14 +772,16 @@ class MetricsPane(QWidget):  # type: ignore[misc]
             return
         payload: list[dict[str, Any]] = []
         for snapshot, throughput in zip(self._history, self._history_throughput, strict=False):
-            payload.append({
-                "tick": snapshot.tick,
-                "latency": snapshot.latency,
-                "probe": snapshot.probe,
-                "heatmap": snapshot.heatmap,
-                "events": snapshot.events,
-                "throughput": throughput,
-            })
+            payload.append(
+                {
+                    "tick": snapshot.tick,
+                    "latency": snapshot.latency,
+                    "probe": snapshot.probe,
+                    "heatmap": snapshot.heatmap,
+                    "events": snapshot.events,
+                    "throughput": throughput,
+                }
+            )
         try:
             Path(filename).write_text(
                 json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -945,9 +947,7 @@ class MetricsPane(QWidget):  # type: ignore[misc]
         baseline = (
             loop_median_value
             if loop_median_value is not None
-            else loop_latency_value
-            if loop_latency_value is not None
-            else primary_value
+            else loop_latency_value if loop_latency_value is not None else primary_value
         )
         if (
             implied_latency is not None

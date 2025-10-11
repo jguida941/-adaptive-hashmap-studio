@@ -49,35 +49,39 @@ def test_run_csv_perf_smoke(tmp_path: Path) -> None:
     summary_path = tmp_path / "summary.json"
     metrics_dir = tmp_path / "metrics"
 
-    run([
-        "generate-csv",
-        "--outfile",
-        str(workload),
-        "--ops",
-        "200",
-        "--read-ratio",
-        "0.7",
-        "--key-skew",
-        "0.3",
-        "--key-space",
-        "128",
-        "--seed",
-        "123",
-    ])
+    run(
+        [
+            "generate-csv",
+            "--outfile",
+            str(workload),
+            "--ops",
+            "200",
+            "--read-ratio",
+            "0.7",
+            "--key-skew",
+            "0.3",
+            "--key-space",
+            "128",
+            "--seed",
+            "123",
+        ]
+    )
 
-    completed = run([
-        "--mode",
-        "adaptive",
-        "run-csv",
-        "--csv",
-        str(workload),
-        "--json-summary-out",
-        str(summary_path),
-        "--metrics-out-dir",
-        str(metrics_dir),
-        "--metrics-max-ticks",
-        "32",
-    ])
+    completed = run(
+        [
+            "--mode",
+            "adaptive",
+            "run-csv",
+            "--csv",
+            str(workload),
+            "--json-summary-out",
+            str(summary_path),
+            "--metrics-out-dir",
+            str(metrics_dir),
+            "--metrics-max-ticks",
+            "32",
+        ]
+    )
 
     assert completed.returncode == 0
     data = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -95,37 +99,41 @@ def test_run_csv_emits_histograms_without_summary(tmp_path: Path) -> None:
     workload = tmp_path / "histogram.csv"
     metrics_dir = tmp_path / "metrics"
 
-    run([
-        "generate-csv",
-        "--outfile",
-        str(workload),
-        "--ops",
-        "400",
-        "--read-ratio",
-        "0.5",
-        "--key-skew",
-        "0.4",
-        "--key-space",
-        "256",
-        "--seed",
-        "99",
-    ])
+    run(
+        [
+            "generate-csv",
+            "--outfile",
+            str(workload),
+            "--ops",
+            "400",
+            "--read-ratio",
+            "0.5",
+            "--key-skew",
+            "0.4",
+            "--key-space",
+            "256",
+            "--seed",
+            "99",
+        ]
+    )
 
-    completed = run([
-        "--mode",
-        "fast-lookup",
-        "run-csv",
-        "--csv",
-        str(workload),
-        "--metrics-out-dir",
-        str(metrics_dir),
-        "--metrics-max-ticks",
-        "32",
-        "--latency-sample-k",
-        "128",
-        "--latency-sample-every",
-        "8",
-    ])
+    completed = run(
+        [
+            "--mode",
+            "fast-lookup",
+            "run-csv",
+            "--csv",
+            str(workload),
+            "--metrics-out-dir",
+            str(metrics_dir),
+            "--metrics-max-ticks",
+            "32",
+            "--latency-sample-k",
+            "128",
+            "--latency-sample-every",
+            "8",
+        ]
+    )
     assert completed.returncode == 0
 
     ndjson_path = metrics_dir / "metrics.ndjson"

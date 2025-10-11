@@ -6,7 +6,7 @@ import argparse
 import hashlib
 import json
 import shutil
-import subprocess
+import subprocess  # noqa: S404  # nosec B404 - subprocess usage constrained via _ensure_trusted_command
 import sys
 import tempfile
 import time
@@ -97,22 +97,26 @@ def _write_sbom(outdir: Path, metadata: dict[str, Any]) -> None:
     deps = metadata.get("project", {}).get("dependencies", [])
     extras = metadata.get("project", {}).get("optional-dependencies", {})
 
-    packages.append({
-        "name": project_name,
-        "version": version,
-        "dependencies": deps,
-        "extras": extras,
-    })
+    packages.append(
+        {
+            "name": project_name,
+            "version": version,
+            "dependencies": deps,
+            "extras": extras,
+        }
+    )
 
     artifacts = []
     for artifact in sorted(outdir.iterdir()):
         if artifact.name == "SHA256SUMS.txt":
             continue
-        artifacts.append({
-            "file": artifact.name,
-            "size": artifact.stat().st_size,
-            "sha256": _sha256(artifact),
-        })
+        artifacts.append(
+            {
+                "file": artifact.name,
+                "size": artifact.stat().st_size,
+                "sha256": _sha256(artifact),
+            }
+        )
 
     sbom = {
         "schema": "adhash.sbom.v1",
