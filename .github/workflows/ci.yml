@@ -113,9 +113,7 @@ jobs:
           echo "changed_py<<EOF" >> "$GITHUB_OUTPUT"
           echo "$CHANGED_PY" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
-          packages=$(
-            printf '%s\n' "$CHANGED_PY" \
-              | python - <<'PY'
+          packages=$(printf '%s\n' "$CHANGED_PY" | python - <<'PY'
 import sys
 packages = set()
 for line in sys.stdin:

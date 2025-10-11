@@ -97,10 +97,8 @@ class HttpPoller:
         if self._token:
             headers[AUTH_HEADER] = f"Bearer {self._token}"
         target = urljoin(self.base_url, path)
-        req = Request(target, headers=headers)  # noqa: S310 - path validated above
-        with urlopen(
-            req, timeout=1.0
-        ) as resp:  # noqa: S310  # nosec B310 - URL validated and restricted
+        req = Request(target, headers=headers)  # noqa: S310  # nosec B310
+        with urlopen(req, timeout=1.0) as resp:  # noqa: S310  # nosec B310
             payload = resp.read()
             if resp.headers.get("Content-Encoding", "").lower() == "gzip":
                 payload = gzip.decompress(payload)

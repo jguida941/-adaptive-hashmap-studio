@@ -87,6 +87,7 @@ jobs:
         run: xvfb-run -a "$PIPELINE_ENTRY" --mode full
 
       - name: Upload pipeline artifacts
+        id: upload_artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -112,19 +113,52 @@ jobs:
           sarif_file: ${{ env.ART_DIR }}/semgrep.sarif
 
       - name: Push metrics to Grafana
-        if: ${{ always() && secrets.GRAFANA_METRICS_URL != '' && secrets.GRAFANA_METRICS_TOKEN != '' }}
+        # Skip for forks/PRs (no secrets) or missing secrets.
+        if: >-
+          ${{
+            always() &&
+            steps.upload_artifacts.outcome == 'success' &&
+            (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) &&
+            secrets.GRAFANA_METRICS_URL != '' &&
+            secrets.GRAFANA_METRICS_TOKEN != ''
+          }}
         env:
           GRAFANA_METRICS_URL: ${{ secrets.GRAFANA_METRICS_URL }}
           GRAFANA_METRICS_TOKEN: ${{ secrets.GRAFANA_METRICS_TOKEN }}
         run: |
-          if [ -f "${ART_DIR}/metrics.json" ]; then
-            curl -sS -X POST "$GRAFANA_METRICS_URL" \
-              -H "Authorization: Bearer $GRAFANA_METRICS_TOKEN" \
-              -H "Content-Type: application/json" \
-              --data-binary @"${ART_DIR}/metrics.json" \
-              -o "$ART_DIR/logs/grafana_resp.json" -w "\nHTTP %{http_code}\n"
+          if [ ! -s "${ART_DIR}/metrics.json" ]; then
+            echo "metrics.json not found or empty; skipping Grafana push" >&2
+            exit 0
+          fi
+          echo "::group::Grafana push"
+          http_code=$(curl -sS -X POST "$GRAFANA_METRICS_URL" \
+            -H "Authorization: Bearer $GRAFANA_METRICS_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary @"${ART_DIR}/metrics.json" \
+            -o "$ART_DIR/logs/grafana_resp.json" -w "%{http_code}")
+          printf "\n" >> "$ART_DIR/logs/grafana_resp.json"
+          echo "::endgroup::"
+          if [[ "$http_code" == 2* ]]; then
+            echo "::notice title=Grafana Metrics::Push succeeded (HTTP ${http_code})."
           else
-            echo "metrics.json not found; skipping Grafana push" >&2
+            echo "::warning title=Grafana Metrics::Push returned HTTP ${http_code}. Review ${ART_DIR}/logs/grafana_resp.json for details."
+          fi
+
+      - name: Grafana push skipped (no secrets or fork)
+        if: >-
+          ${{
+            always() && (
+              steps.upload_artifacts.outcome != 'success' ||
+              (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) ||
+              secrets.GRAFANA_METRICS_URL == '' ||
+              secrets.GRAFANA_METRICS_TOKEN == ''
+            )
+          }}
+        run: |
+          if [ "${{ steps.upload_artifacts.outcome }}" != "success" ]; then
+            echo "::notice title=Grafana Metrics::Artifacts unavailable; skipping push."
+          else
+            echo "::notice title=Grafana Metrics::Secrets not configured or running from a fork; skipping push."
           fi
 
   coverage-aggregate:
